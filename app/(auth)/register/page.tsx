@@ -56,7 +56,6 @@ export default function RegisterPage() {
 
   const onSubmit = async (values: RegisterValues) => {
     // 실제 API 연동 시 이 부분을 교체
-    console.log("회원가입 시도:", values.email);
     toast.success("회원가입 완료!", {
       description: "환영합니다! 이메일 인증을 확인해주세요.",
     });

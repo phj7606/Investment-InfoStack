@@ -20,13 +20,12 @@ export const NAV_ITEMS: NavItem[] = [
   { title: "대시보드", href: "/dashboard" },
 ];
 
-// 대시보드 사이드바 내비게이션 — 아이콘은 컴포넌트에서 직접 import
-export const DASHBOARD_NAV_ITEMS = [
-  { title: "대시보드", href: "/dashboard", iconName: "LayoutDashboard" },
-  { title: "분석", href: "/dashboard/analytics", iconName: "BarChart3" },
-  { title: "사용자", href: "/dashboard/users", iconName: "Users" },
-  { title: "설정", href: "/dashboard/settings", iconName: "Settings" },
-] as const;
+// 푸터 내비게이션 링크 — 경로 변경 시 이 파일만 수정하면 됨
+export const FOOTER_NAV_ITEMS: NavItem[] = [
+  { title: "홈", href: "/" },
+  { title: "대시보드", href: "/dashboard" },
+  { title: "로그인", href: "/login" },
+];
 
 // 랜딩 페이지 기능 소개 섹션 데이터
 export const FEATURES: Feature[] = [

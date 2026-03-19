@@ -49,7 +49,6 @@ export default function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     // 실제 API 연동 시 이 부분을 교체
     // 현재는 UI 흐름 시연용 mock 처리
-    console.log("로그인 시도:", values.email);
     toast.success("로그인 성공!", {
       description: `${values.email}으로 로그인했습니다.`,
     });

@@ -2,6 +2,7 @@
 // RSC: 정적 표시 컴포넌트
 
 import { InboxIcon } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
@@ -36,11 +37,13 @@ export function EmptyState({
       )}
       {/* CTA 버튼: 빈 상태에서 사용자가 취할 수 있는 다음 행동 안내 */}
       {action && (
-        <Button className="mt-6" asChild={!!action.href}>
+        // href가 있으면 next/link로 클라이언트 라우팅, 없으면 button으로 키보드 접근성 보장
+        // <a> 직접 사용 시 javascript: 프로토콜 주입 위험 및 전체 페이지 리로드 문제 발생
+        <Button className="mt-6" asChild={!!action.href} onClick={!action.href ? action.onClick : undefined}>
           {action.href ? (
-            <a href={action.href}>{action.label}</a>
+            <Link href={action.href}>{action.label}</Link>
           ) : (
-            <span onClick={action.onClick}>{action.label}</span>
+            <span>{action.label}</span>
           )}
         </Button>
       )}

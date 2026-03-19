@@ -26,8 +26,9 @@ export function UserMenu({ compact = false }: UserMenuProps) {
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-md p-1 hover:bg-accent transition-colors">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="" alt="사용자 프로필" />
-            {/* 이미지 로드 실패 시 이름 이니셜 표시 */}
+            {/* src 미지정: 실제 API 연동 전까지 빈 문자열로 불필요한 404 요청 방지 */}
+            <AvatarImage alt="사용자 프로필" />
+            {/* 이미지 없을 때 이름 이니셜 표시 */}
             <AvatarFallback className="text-xs font-medium">U</AvatarFallback>
           </Avatar>
           {/* compact 모드(사이드바 접힌 상태 등)에서는 텍스트 숨김 */}

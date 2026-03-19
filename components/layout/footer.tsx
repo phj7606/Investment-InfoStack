@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { Github } from "lucide-react";
-import { SITE_CONFIG } from "@/lib/constants";
+import { SITE_CONFIG, FOOTER_NAV_ITEMS } from "@/lib/constants";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -21,34 +21,20 @@ export function Footer() {
             </p>
           </div>
 
-          {/* 컬럼 2: 내부 링크 */}
+          {/* 컬럼 2: 내부 링크 — FOOTER_NAV_ITEMS 상수로 관리하여 경로 변경 시 constants.ts만 수정 */}
           <div>
             <h4 className="font-semibold mb-3">링크</h4>
             <ul className="space-y-2">
-              <li>
-                <Link
-                  href="/"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  홈
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/dashboard"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  대시보드
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/login"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  로그인
-                </Link>
-              </li>
+              {FOOTER_NAV_ITEMS.map((item) => (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {item.title}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 

@@ -45,7 +45,6 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (values: ForgotPasswordValues) => {
     // 실제 API 연동 시 비밀번호 재설정 이메일 발송 로직으로 교체
     // 현재는 UI 흐름 시연용 mock 처리
-    console.log("비밀번호 재설정 요청:", values.email);
     toast.success("이메일을 발송했습니다!", {
       description: `${values.email}으로 비밀번호 재설정 링크를 보냈습니다.`,
     });

@@ -5,6 +5,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -44,8 +45,12 @@ export function Header() {
                 <NavigationMenuItem key={item.href}>
                   <NavigationMenuLink
                     asChild
-                    className={navigationMenuTriggerStyle()}
-                    data-active={isActive}
+                    // data-active 어트리뷰트가 Tailwind v4에서 CSS 선택자로 처리되지 않을 수 있어
+                    // isActive 시 명시적으로 accent 배경색 클래스를 추가하여 확실히 강조 표시
+                    className={cn(
+                      navigationMenuTriggerStyle(),
+                      isActive && "bg-accent text-accent-foreground"
+                    )}
                   >
                     <Link href={item.href}>{item.title}</Link>
                   </NavigationMenuLink>
