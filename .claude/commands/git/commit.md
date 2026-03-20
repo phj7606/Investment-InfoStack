@@ -1,0 +1,5 @@
+---
+description: git commit 생성
+---
+커밋 메시지: $ARGUMENTS
+현재 변경사항을 분석하고 커밋을 생성해주세요:
