@@ -1,0 +1,74 @@
+{
+  "cache": {
+    "priceTTLSeconds": 300,
+    "indexTTLSeconds": 60,
+    "bondRateTTLSeconds": 3600,
+    "historicalTTLSeconds": 86400
+  },
+  "indicators": {
+    "rollingWindowDays": 252,
+    "mansfieldPeriodDays": 252,
+    "smaPeriods": [10, 20, 50, 200],
+    "macdFast": 12,
+    "macdSlow": 26,
+    "macdSignal": 9,
+    "rsiPeriod": 10,
+    "fgiBandSigma": [1, 2]
+  },
+  "krx": {
+    "kospiIndexCode": "0001",
+    "kosdaqIndexCode": "1001",
+    "vkospiCode": "VKOSPI"
+  },
+  "ecos": {
+    "bondRateStatCode": "817Y002",
+    "bondRate3YItemCode": "010200000",
+    "bondRate5YItemCode": "010300000",
+    "bondRate10YItemCode": "010500000",
+    "baseRateStatCode": "722Y001",
+    "baseRateItemCode": "0101000"
+  },
+  "screener": {
+    "topN": 20,
+    "minHistoryDays": 60,
+    "sectorConcentrationThreshold": 35
+  },
+  "momentum": {
+    "periods": [63, 126, 252],
+    "lookbackDays": 10,
+    "topN": 10
+  },
+  "sectorFlow": {
+    "emaShort": 12,
+    "emaLong": 26,
+    "emaSignal": 9,
+    "mktcapSmoothDays": 20,
+    "zscoreWindow": 252,
+    "warmupDays": 52,
+    "fetchWindowDays": 400
+  },
+  "fearGreed": {
+    "weights": {
+      "momentum": 0.143,
+      "volatility": 0.143,
+      "creditSpread": 0.143,
+      "pcRatio": 0.143,
+      "adLine": 0.143,
+      "foreignNet": 0.143,
+      "marginBalance": 0.143
+    },
+    "rollingNormWindow": 252,
+    "normMinPeriods": 60,
+    "normSigmaClip": 3.0,
+    "momentumSmaPeriod": 125,
+    "pcRatioMaPeriod": 5,
+    "adLinePeriod": 20,
+    "foreignNetPeriod": 20,
+    "marginBalancePeriod": 20,
+    "fgMacdFast": 12,
+    "fgMacdSlow": 26,
+    "fgMacdSignal": 9,
+    "historyDays": 504,
+    "fetchWindowDays": 756
+  }
+}

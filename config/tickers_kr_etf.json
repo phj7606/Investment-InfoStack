@@ -1,0 +1,30 @@
+[
+  { "symbol": "069500", "name": "KODEX 200",                       "exchange": "KS", "category": "domestic_index" },
+
+  { "symbol": "396500", "name": "TIGER 반도체TOP10",               "exchange": "KS", "category": "sector" },
+  { "symbol": "139260", "name": "TIGER 200 IT",                    "exchange": "KS", "category": "sector" },
+  { "symbol": "091180", "name": "KODEX 자동차",                    "exchange": "KS", "category": "sector" },
+  { "symbol": "091170", "name": "KODEX 은행",                      "exchange": "KS", "category": "sector" },
+  { "symbol": "0089D0", "name": "KODEX 금융고배당TOP10",           "exchange": "KS", "category": "sector" },
+  { "symbol": "102970", "name": "KODEX 증권",                      "exchange": "KS", "category": "sector" },
+  { "symbol": "140700", "name": "KODEX 보험",                      "exchange": "KS", "category": "sector" },
+  { "symbol": "117700", "name": "KODEX 건설",                      "exchange": "KS", "category": "sector" },
+  { "symbol": "117680", "name": "KODEX 철강",                      "exchange": "KS", "category": "sector" },
+  { "symbol": "466920", "name": "SOL 조선TOP3플러스",              "exchange": "KS", "category": "sector" },
+  { "symbol": "462900", "name": "KoAct 바이오헬스케어액티브",      "exchange": "KS", "category": "sector" },
+  { "symbol": "228790", "name": "TIGER 화장품",                    "exchange": "KS", "category": "sector" },
+  { "symbol": "228800", "name": "TIGER 여행레저",                  "exchange": "KS", "category": "sector" },
+  { "symbol": "139280", "name": "TIGER 경기방어",                  "exchange": "KS", "category": "sector" },
+  { "symbol": "315270", "name": "TIGER 200커뮤니케이션서비스",     "exchange": "KS", "category": "sector" },
+  { "symbol": "438900", "name": "HANARO Fn K-푸드",               "exchange": "KS", "category": "sector" },
+  { "symbol": "475050", "name": "ACE KPOP포커스",                  "exchange": "KS", "category": "sector" },
+
+  { "symbol": "305720", "name": "KODEX 2차전지산업",               "exchange": "KS", "category": "theme" },
+  { "symbol": "487240", "name": "KODEX AI전력핵심설비",            "exchange": "KS", "category": "theme" },
+  { "symbol": "449450", "name": "PLUS K방산",                      "exchange": "KS", "category": "theme" },
+  { "symbol": "445290", "name": "KODEX 로봇액티브",                "exchange": "KS", "category": "theme" },
+  { "symbol": "434730", "name": "HANARO 원자력iSelect",            "exchange": "KS", "category": "theme" },
+  { "symbol": "454320", "name": "HANARO CAPEX설비투자iSelect",    "exchange": "KS", "category": "theme" },
+  { "symbol": "367770", "name": "RISE 수소경제테마",               "exchange": "KS", "category": "theme" },
+  { "symbol": "300950", "name": "KODEX 게임산업",                  "exchange": "KS", "category": "theme" }
+]
