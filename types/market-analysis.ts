@@ -21,6 +21,14 @@ export interface UsAnalysisBar {
    * vvix / vix, 결측 시 undefined
    */
   vvixVixRatio?: number;
+  /** SOFR (Secured Overnight Financing Rate, %) — FRED SOFR */
+  sofr?: number;
+  /** US 10-Year Treasury Yield (%) — FRED DGS10 */
+  ust10y?: number;
+  /** FED Funds Target Rate Upper Bound (%) — FRED DFEDTARU, 계단형 */
+  fedFundsRate?: number;
+  /** ICE BofA MOVE Index (채권 변동성) — Yahoo ^MOVE */
+  moveIndex?: number;
 }
 
 /** /api/market/us-analysis 응답 구조 */

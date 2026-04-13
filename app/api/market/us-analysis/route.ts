@@ -1,7 +1,7 @@
 // GET /api/market/us-analysis?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-// 미국 시장 분석 5개 차트용 집계 API
-// Yahoo Finance: ^GSPC(S&P500), ^IXIC(NASDAQ), ^VIX, ^VVIX, ^SDEX(S&P500 Downside Risk)
-// FRED: BAMLH0A0HYM2(HY Spread)
+// 미국 시장 분석 7개 차트용 집계 API
+// Yahoo Finance: ^GSPC(S&P500), ^IXIC(NASDAQ), ^VIX, ^VVIX, ^SDEX, ^MOVE(MOVE Index)
+// FRED: BAMLH0A0HYM2(HY Spread), SOFR, DGS10(10Y Yield), DFEDTARU(Fed Funds Target Upper)
 //
 // 모든 데이터는 Yahoo 거래일 기준으로 정렬하고
 // FRED 데이터는 forward-fill로 거래일 기준 맞춤
@@ -56,17 +56,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .slice(0, 10);
   const startDate = searchParams.get("startDate") ?? defaultStart;
 
-  // 6개 시리즈 병렬 수집 — 일부 실패해도 나머지 데이터 반환
+  // 10개 시리즈 병렬 수집 — 일부 실패해도 나머지 데이터 반환
   // ^SDEX: Yahoo Finance의 S&P 500 Downside Risk Index (FRED SDEX 시리즈 없음)
-  const [spxResult, nasdaqResult, vixResult, vvixResult, sdexResult, hyResult] =
-    await Promise.allSettled([
-      fetchYahooHistory("^GSPC", parseDate(startDate), parseDate(endDate)),
-      fetchYahooHistory("^IXIC", parseDate(startDate), parseDate(endDate)),
-      fetchYahooHistory("^VIX", parseDate(startDate), parseDate(endDate)),
-      fetchYahooHistory("^VVIX", parseDate(startDate), parseDate(endDate)),
-      fetchYahooHistory("^SDEX", parseDate(startDate), parseDate(endDate)),
-      fetchFredSeries("BAMLH0A0HYM2", startDate, endDate),
-    ]);
+  // DFEDTARU: Fed Funds Target Upper Bound — FOMC 결정 때만 변경되는 계단형 데이터
+  const [
+    spxResult, nasdaqResult, vixResult, vvixResult, sdexResult, hyResult,
+    sofrResult, ust10yResult, fedFundsResult, moveResult,
+  ] = await Promise.allSettled([
+    fetchYahooHistory("^GSPC", parseDate(startDate), parseDate(endDate)),
+    fetchYahooHistory("^IXIC", parseDate(startDate), parseDate(endDate)),
+    fetchYahooHistory("^VIX", parseDate(startDate), parseDate(endDate)),
+    fetchYahooHistory("^VVIX", parseDate(startDate), parseDate(endDate)),
+    fetchYahooHistory("^SDEX", parseDate(startDate), parseDate(endDate)),
+    fetchFredSeries("BAMLH0A0HYM2", startDate, endDate),
+    fetchFredSeries("SOFR", startDate, endDate),
+    fetchFredSeries("DGS10", startDate, endDate),
+    fetchFredSeries("DFEDTARU", startDate, endDate),
+    fetchYahooHistory("^MOVE", parseDate(startDate), parseDate(endDate)),
+  ]);
 
   // Yahoo 거래일을 기준 날짜로 사용 (S&P500이 가장 안정적)
   const spxBars =
@@ -100,10 +107,31 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ])
   );
 
-  // FRED 데이터 → 거래일 forward-fill 정렬 (주말 공백 처리)
+  // ^MOVE는 Yahoo Finance에서 직접 수집
+  const moveMap = new Map(
+    (moveResult.status === "fulfilled" ? moveResult.value : []).map((b) => [
+      b.date,
+      b.close,
+    ])
+  );
+
+  // FRED 데이터 → 거래일 forward-fill 정렬 (주말/공휴일 공백 처리)
   const hyAligned = alignFredToTradingDays(
     tradingDates,
     hyResult.status === "fulfilled" ? hyResult.value : []
+  );
+  const sofrAligned = alignFredToTradingDays(
+    tradingDates,
+    sofrResult.status === "fulfilled" ? sofrResult.value : []
+  );
+  const ust10yAligned = alignFredToTradingDays(
+    tradingDates,
+    ust10yResult.status === "fulfilled" ? ust10yResult.value : []
+  );
+  // DFEDTARU는 FOMC 결정일에만 갱신 — forward-fill로 계단형 표현
+  const fedFundsAligned = alignFredToTradingDays(
+    tradingDates,
+    fedFundsResult.status === "fulfilled" ? fedFundsResult.value : []
   );
 
   // 통합 데이터 배열 구성
@@ -115,6 +143,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     vvix: vvixMap.get(date),
     sdex: sdexMap.get(date),
     hySpread: hyAligned.get(date),
+    sofr: sofrAligned.get(date),
+    ust10y: ust10yAligned.get(date),
+    fedFundsRate: fedFundsAligned.get(date),
+    moveIndex: moveMap.get(date),
   }));
 
   const response: UsAnalysisResponse = {

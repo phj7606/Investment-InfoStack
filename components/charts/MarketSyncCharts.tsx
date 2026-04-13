@@ -15,6 +15,7 @@ import { useState } from "react";
 import {
   ComposedChart,
   Line,
+  ReferenceLine,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,13 +28,17 @@ import type { UsAnalysisBar } from "@/types/market-analysis";
 
 // ─── 색상 상수 ──────────────────────────────────────────────────────────────
 const COLORS = {
-  spx: "#22c55e",       // green-500
-  nasdaq: "#3b82f6",    // blue-500
-  vix: "#1e1b4b",       // indigo-950 (dark navy)
-  sdex: "#93c5fd",      // blue-300 (light blue)
-  vvix: "#f97316",      // orange-500
-  vvixVix: "#ef4444",   // red-500
-  hySpread: "#a855f7",  // purple-500
+  spx: "#22c55e",         // green-500
+  nasdaq: "#3b82f6",      // blue-500
+  vix: "#1e1b4b",         // indigo-950 (dark navy)
+  sdex: "#93c5fd",        // blue-300 (light blue)
+  vvix: "#f97316",        // orange-500
+  vvixVix: "#ef4444",     // red-500
+  hySpread: "#a855f7",    // purple-500
+  sofr: "#1e3a5f",        // dark navy (이미지 참조)
+  ust10y: "#ef4444",      // red-500 (이미지 참조)
+  fedFundsRate: "#16a34a",// green-700 dashed (이미지 참조)
+  moveIndex: "#a21caf",   // fuchsia-700 (이미지 참조)
 } as const;
 
 // ─── 공통 차트 설정 ─────────────────────────────────────────────────────────
@@ -271,6 +276,9 @@ function VixSdexChart({ data }: { data: UsAnalysisBar[] }) {
             <Tooltip
               content={<ChartTooltip labelMap={{ vix: "VIX", sdex: "SDEX" }} />}
             />
+            {/* VIX 20 기준선 — 일반적 공포/안도 임계값 */}
+            <ReferenceLine yAxisId="left" y={20} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1}
+              label={{ value: "20", position: "insideTopRight", fontSize: 10, fill: "#94a3b8" }} />
             <Line {...lineProps("vix", COLORS.vix, "left")} name="VIX" hide={hidden.has("vix")} />
             <Line {...lineProps("sdex", COLORS.sdex, "right")} name="SDEX" hide={hidden.has("sdex")} />
           </ComposedChart>
@@ -313,6 +321,9 @@ function VixVvixChart({ data }: { data: UsAnalysisBar[] }) {
             <Tooltip
               content={<ChartTooltip labelMap={{ vix: "VIX", vvix: "VVIX" }} />}
             />
+            {/* VIX 20 기준선 — 일반적 공포/안도 임계값 */}
+            <ReferenceLine yAxisId="left" y={20} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1}
+              label={{ value: "20", position: "insideTopRight", fontSize: 10, fill: "#94a3b8" }} />
             <Line {...lineProps("vix", COLORS.vix, "left")} name="VIX" hide={hidden.has("vix")} />
             <Line {...lineProps("vvix", COLORS.vvix, "right")} name="VVIX" hide={hidden.has("vvix")} />
           </ComposedChart>
@@ -349,6 +360,11 @@ function VvixVixRatioChart({ data }: { data: UsAnalysisBar[] }) {
               domain={["auto", "auto"]}
               tickFormatter={(v: number) => v.toFixed(1)}
             />
+            {/* 3, 6 기준선 — 변동성 구조 임계 레벨 표시 */}
+            <ReferenceLine yAxisId="left" y={3} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1}
+              label={{ value: "3", position: "insideTopRight", fontSize: 10, fill: "#94a3b8" }} />
+            <ReferenceLine yAxisId="left" y={6} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1}
+              label={{ value: "6", position: "insideTopRight", fontSize: 10, fill: "#94a3b8" }} />
             <Tooltip
               content={
                 <ChartTooltip
@@ -408,6 +424,132 @@ function HySpreadChart({ data }: { data: UsAnalysisBar[] }) {
   );
 }
 
+// ─── Chart 6: SOFR + 10Y Yield + FED Funds Rate ──────────────────────────────
+function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">SOFR &amp; US 10-Year Bond Yield</CardTitle>
+        <ToggleLegend
+          items={[
+            { key: "sofr", label: "SOFR", color: COLORS.sofr },
+            { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
+            { key: "fedFundsRate", label: "FED Funds Rate", color: COLORS.fedFundsRate },
+          ]}
+          hidden={hidden}
+          onToggle={toggle}
+        />
+      </CardHeader>
+      <CardContent className="p-0 pb-2">
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+            <CartesianGrid {...cartesianGridProps} />
+            <XAxis {...commonXAxisProps} />
+            {/* 좌측: SOFR + FED Funds Rate (동일 % 스케일) */}
+            <YAxis {...leftYAxisProps(COLORS.sofr)} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
+            {/* 우측: 10Y Yield */}
+            <YAxis {...rightYAxisProps(COLORS.ust10y)} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  labelMap={{ sofr: "SOFR", ust10y: "10Y Yield", fedFundsRate: "FED Funds Rate" }}
+                  formatters={{
+                    sofr: (v) => `${v.toFixed(2)}%`,
+                    ust10y: (v) => `${v.toFixed(2)}%`,
+                    fedFundsRate: (v) => `${v.toFixed(2)}%`,
+                  }}
+                />
+              }
+            />
+            <Line {...lineProps("sofr", COLORS.sofr, "left")} name="SOFR" hide={hidden.has("sofr")} />
+            <Line {...lineProps("ust10y", COLORS.ust10y, "right")} name="10Y Yield" hide={hidden.has("ust10y")} />
+            {/* FED Funds Rate: 계단형(stepAfter) + 점선 표현 */}
+            <Line
+              {...lineProps("fedFundsRate", COLORS.fedFundsRate, "left")}
+              type="stepAfter"
+              strokeDasharray="5 4"
+              strokeWidth={1.5}
+              name="FED Funds Rate"
+              hide={hidden.has("fedFundsRate")}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Chart 7: 10Y Yield + MOVE Index + FED Funds Rate ────────────────────────
+function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">US 10-Year Yield &amp; MOVE Index</CardTitle>
+        <ToggleLegend
+          items={[
+            { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
+            { key: "moveIndex", label: "MOVE Index", color: COLORS.moveIndex },
+            { key: "fedFundsRate", label: "FED Funds Rate", color: COLORS.fedFundsRate },
+          ]}
+          hidden={hidden}
+          onToggle={toggle}
+        />
+      </CardHeader>
+      <CardContent className="p-0 pb-2">
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+            <CartesianGrid {...cartesianGridProps} />
+            <XAxis {...commonXAxisProps} />
+            {/* 좌측: 10Y Yield + FED Funds Rate (% 스케일) */}
+            <YAxis {...leftYAxisProps(COLORS.ust10y)} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
+            {/* 우측: MOVE Index (포인트 단위) */}
+            <YAxis {...rightYAxisProps(COLORS.moveIndex)} tickFormatter={(v: number) => v.toFixed(0)} />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  labelMap={{ ust10y: "10Y Yield", moveIndex: "MOVE Index", fedFundsRate: "FED Funds Rate" }}
+                  formatters={{
+                    ust10y: (v) => `${v.toFixed(2)}%`,
+                    moveIndex: (v) => v.toFixed(1),
+                    fedFundsRate: (v) => `${v.toFixed(2)}%`,
+                  }}
+                />
+              }
+            />
+            <Line {...lineProps("ust10y", COLORS.ust10y, "left")} name="10Y Yield" hide={hidden.has("ust10y")} />
+            <Line {...lineProps("moveIndex", COLORS.moveIndex, "right")} name="MOVE Index" hide={hidden.has("moveIndex")} />
+            {/* FED Funds Rate: 계단형(stepAfter) + 점선 */}
+            <Line
+              {...lineProps("fedFundsRate", COLORS.fedFundsRate, "left")}
+              type="stepAfter"
+              strokeDasharray="5 4"
+              strokeWidth={1.5}
+              name="FED Funds Rate"
+              hide={hidden.has("fedFundsRate")}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── 메인 컴포넌트 ───────────────────────────────────────────────────────────
 interface MarketSyncChartsProps {
   data: UsAnalysisBar[];
@@ -433,6 +575,10 @@ export function MarketSyncCharts({ data }: MarketSyncChartsProps) {
       <VixVvixChart data={enrichedData} />
       <VvixVixRatioChart data={enrichedData} />
       <HySpreadChart data={enrichedData} />
+
+      {/* 차트 6~7: 채권·금리 지표 (높이 200px) */}
+      <SofrYieldChart data={enrichedData} />
+      <YieldMoveChart data={enrichedData} />
     </div>
   );
 }
