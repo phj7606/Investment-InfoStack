@@ -1,7 +1,12 @@
-// 설정 페이지 — 계정 및 서비스 환경설정
-// RSC: 설정 폼 구조 표시, 실제 값 변경은 클라이언트 컴포넌트로 분리 예정
+// 설정 페이지 — ETF 티커 목록 + 지표 파라미터 읽기 전용 표시
+//
+// RSC: config/*.json 파일을 서버 사이드에서 직접 읽어 표시
+// 티커 편집/API 키/알림 설정은 백엔드 연동 후 구현 예정
 
+import { readFileSync } from "fs";
+import { join } from "path";
 import { PageHeader } from "@/components/common/page-header";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -9,69 +14,253 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CATEGORY_LABELS } from "@/lib/constants/categories";
+import type { KrTicker, UsTicker } from "@/types";
+
+// ────────────────────────────────────────────────────────────────
+// params.json 타입 — 주요 섹션만 인라인으로 정의
+// ────────────────────────────────────────────────────────────────
+
+interface ParamsJson {
+  cache: { historicalTTLSeconds: number; priceTTLSeconds: number; indexTTLSeconds: number };
+  momentum: { periods: number[]; lookbackDays: number; topN: number };
+  screener: { topN: number; minHistoryDays: number };
+}
 
 export default function SettingsPage() {
+  // ─── config/*.json 서버 사이드 읽기 (RSC에서만 가능) ───
+  // process.cwd()는 Next.js에서 프로젝트 루트를 반환
+  const krTickers: KrTicker[] = JSON.parse(
+    readFileSync(join(process.cwd(), "config/tickers_kr_etf.json"), "utf-8")
+  );
+  const usTickers: UsTicker[] = JSON.parse(
+    readFileSync(join(process.cwd(), "config/tickers_us_etf_themes.json"), "utf-8")
+  );
+  const params: ParamsJson = JSON.parse(
+    readFileSync(join(process.cwd(), "config/params.json"), "utf-8")
+  );
+
   return (
     <div>
-      {/* 페이지 헤더: 제목 + 설명 */}
+      {/* 페이지 헤더 */}
       <PageHeader
         title="설정"
-        description="계정 정보, 알림, 보안 등 서비스 환경을 설정하세요."
+        description="ETF 티커 구성 및 지표 파라미터 현황을 확인합니다."
       />
 
-      <div className="space-y-6">
-        {/* 프로필 설정 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>프로필</CardTitle>
-            <CardDescription>이름, 이메일 등 기본 계정 정보를 수정합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* 입력 필드 스켈레톤 — 실제 폼으로 교체 예정 */}
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-1.5">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-9 w-full rounded-md" />
-              </div>
-            ))}
-            <Skeleton className="h-9 w-24 rounded-md mt-2" />
-          </CardContent>
-        </Card>
+      {/* 탭: 한국 ETF | 미국 ETF | 파라미터 */}
+      <Tabs defaultValue="kr" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="kr">한국 ETF ({krTickers.length}종)</TabsTrigger>
+          <TabsTrigger value="us">미국 ETF ({usTickers.length}종)</TabsTrigger>
+          <TabsTrigger value="params">파라미터</TabsTrigger>
+        </TabsList>
 
-        {/* 알림 설정 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>알림</CardTitle>
-            <CardDescription>이메일 및 푸시 알림 수신 여부를 설정합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* 토글 스켈레톤 목록 */}
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Skeleton className="h-3 w-32" />
-                  <Skeleton className="h-3 w-48" />
-                </div>
-                {/* 토글 스위치 플레이스홀더 */}
-                <Skeleton className="h-5 w-9 rounded-full" />
+        {/* ── 한국 ETF 탭 ────────────────────────────────────────── */}
+        <TabsContent value="kr">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">한국 ETF 유니버스</CardTitle>
+              <CardDescription className="text-xs">
+                Mansfield RS + 모멘텀 계산 대상 종목 · config/tickers_kr_etf.json
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead className="w-24">심볼</TableHead>
+                      <TableHead>이름</TableHead>
+                      <TableHead className="w-28">카테고리</TableHead>
+                      <TableHead className="w-16">거래소</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {krTickers.map((t, i) => (
+                      <TableRow key={t.symbol}>
+                        {/* 순번 */}
+                        <TableCell className="text-xs text-muted-foreground tabular-nums">
+                          {i + 1}
+                        </TableCell>
+                        {/* 심볼 (KRX 6자리 코드) */}
+                        <TableCell className="font-mono text-xs font-semibold">
+                          {t.symbol}
+                        </TableCell>
+                        {/* ETF 이름 */}
+                        <TableCell className="text-xs">{t.name}</TableCell>
+                        {/* 카테고리 — CATEGORY_LABELS로 한국어 변환 */}
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {CATEGORY_LABELS[t.category] ?? t.category}
+                          </Badge>
+                        </TableCell>
+                        {/* 거래소 */}
+                        <TableCell className="text-xs text-muted-foreground">
+                          {t.exchange}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* 보안 설정 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>보안</CardTitle>
-            <CardDescription>비밀번호 변경 및 2단계 인증을 관리합니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Skeleton className="h-9 w-36 rounded-md" />
-            <Skeleton className="h-9 w-40 rounded-md" />
-          </CardContent>
-        </Card>
-      </div>
+        {/* ── 미국 ETF 탭 ────────────────────────────────────────── */}
+        <TabsContent value="us">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">미국 ETF 유니버스</CardTitle>
+              <CardDescription className="text-xs">
+                Mansfield RS + 모멘텀 계산 대상 종목 · config/tickers_us_etf_themes.json
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10">#</TableHead>
+                      <TableHead className="w-20">심볼</TableHead>
+                      <TableHead>이름</TableHead>
+                      <TableHead className="w-32">카테고리</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {usTickers.map((t, i) => (
+                      <TableRow key={t.symbol}>
+                        {/* 순번 */}
+                        <TableCell className="text-xs text-muted-foreground tabular-nums">
+                          {i + 1}
+                        </TableCell>
+                        {/* 심볼 (Yahoo Finance 형식) */}
+                        <TableCell className="font-mono text-xs font-semibold">
+                          {t.symbol}
+                        </TableCell>
+                        {/* ETF 이름 */}
+                        <TableCell className="text-xs">{t.name}</TableCell>
+                        {/* 카테고리 */}
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {CATEGORY_LABELS[t.category] ?? t.category}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── 파라미터 탭 ────────────────────────────────────────── */}
+        <TabsContent value="params">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* 캐시 설정 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">캐시 설정</CardTitle>
+                <CardDescription className="text-xs">
+                  데이터 캐시 유효 시간
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">히스토리 TTL</dt>
+                    <dd className="font-mono font-medium">
+                      {params.cache.historicalTTLSeconds / 3600}시간
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">실시간 가격 TTL</dt>
+                    <dd className="font-mono font-medium">
+                      {params.cache.priceTTLSeconds}초
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">지수 TTL</dt>
+                    <dd className="font-mono font-medium">
+                      {params.cache.indexTTLSeconds / 60}분
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 모멘텀 설정 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">모멘텀 설정</CardTitle>
+                <CardDescription className="text-xs">
+                  변동성 조정 모멘텀 파라미터
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">계산 기간</dt>
+                    <dd className="font-mono font-medium">
+                      {params.momentum.periods.join(" / ")}일
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">안정화 윈도우</dt>
+                    <dd className="font-mono font-medium">
+                      {params.momentum.lookbackDays}일 평균
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Top N</dt>
+                    <dd className="font-mono font-medium">
+                      {params.momentum.topN}종
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+
+            {/* 스크리너 설정 */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">스크리너 설정</CardTitle>
+                <CardDescription className="text-xs">
+                  복합 필터 기본 파라미터
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">모멘텀 Top N</dt>
+                    <dd className="font-mono font-medium">
+                      {params.screener.topN}종
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">MA 계산 최소 기간</dt>
+                    <dd className="font-mono font-medium">
+                      {params.screener.minHistoryDays}일
+                    </dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

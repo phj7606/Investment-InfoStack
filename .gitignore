@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 데이터 캐시 — 런타임에 생성되는 파일, 버전 관리 불필요
+/data/cache/*.json

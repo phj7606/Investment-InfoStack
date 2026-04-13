@@ -10,13 +10,13 @@ export function CtaSection() {
     <section className="py-20 bg-primary text-primary-foreground">
       <div className="container mx-auto px-4 text-center">
         <h2 className="text-3xl font-bold tracking-tight mb-4">
-          지금 바로 시작하세요
+          체계적인 투자를 시작하세요
         </h2>
         <p className="text-primary-foreground/80 mb-10 max-w-lg mx-auto">
-          이미 구성된 컴포넌트와 레이아웃으로 개발 시간을 단축하고
-          핵심 비즈니스 로직에 집중하세요.
+          시장 심리 지수, 상대강도 스크리너, 포트폴리오 관리를 한 곳에서.
+          탑다운 투자 프로세스를 디지털화하여 의사결정 품질을 높이세요.
         </p>
-        {/* 주요 CTA: 대시보드 탐색 | 보조 CTA: 회원가입 */}
+        {/* 주요 CTA: 대시보드 탐색 | 보조 CTA: 시작하기 */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button size="lg" variant="secondary" asChild>
             <Link href="/dashboard">대시보드 탐색</Link>
@@ -27,7 +27,7 @@ export function CtaSection() {
             className="border-primary-foreground/50 text-primary-foreground hover:bg-primary-foreground/10"
             asChild
           >
-            <Link href="/register">무료로 시작하기</Link>
+            <Link href="/login">시작하기</Link>
           </Button>
         </div>
       </div>
