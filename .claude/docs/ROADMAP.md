@@ -1,6 +1,6 @@
 # ROADMAP — ETF 상대강도 분석 플랫폼
 
-> **버전**: v2.8 | **작성일**: 2026.03.31 | **최종 수정**: 2026.04.13 | **상태**: Living Document
+> **버전**: v2.9 | **작성일**: 2026.03.31 | **최종 수정**: 2026.04.13 | **상태**: Living Document
 > PRD와 함께 관리. 새로운 기능/수정사항 추가 시 수시 반영.
 
 ---
@@ -333,7 +333,11 @@ Investment-InfoStack/
 | ^VIX | Yahoo Finance | CBOE 변동성 지수 |
 | ^VVIX | Yahoo Finance | VIX of VIX (변동성의 변동성) |
 | ^SDEX | Yahoo Finance | S&P 500 Crash Risk Index (꼬리 리스크) — `fetchYahooHistory("^SDEX")` |
+| ^MOVE | Yahoo Finance | ICE BofA MOVE Index (채권 변동성) — `fetchYahooHistory("^MOVE")` |
 | BAMLH0A0HYM2 | FRED | ICE BofA 하이일드 스프레드 (신용 리스크) |
+| SOFR | FRED | Secured Overnight Financing Rate (단기 금리) |
+| DGS10 | FRED | US 10-Year Treasury Yield (장기 국채 수익률) |
+| DFEDTARU | FRED | Fed Funds Target Rate Upper Bound (계단형 금리 정책) |
 
 ### 차트 구성 (Recharts syncId="market-analysis")
 
@@ -342,8 +346,10 @@ Investment-InfoStack/
 | 차트 1 | S&P 500 + NASDAQ | 주요 지수 추세 비교 |
 | 차트 2 | VIX + SDEX | 변동성 vs 꼬리 리스크 |
 | 차트 3 | VIX + VVIX | 변동성 vs 변동성의 변동성 |
-| 차트 4 | VVIX/VIX Ratio | 변동성 구조 비율 신호 |
+| 차트 4 | VVIX/VIX Ratio | 변동성 구조 비율 신호 (y=3·6 기준선) |
 | 차트 5 | HY Spread | 하이일드 신용 스프레드 |
+| 차트 6 | SOFR + 10Y Yield + FED Funds Rate | SOFR·국채수익률·금리정책 비교 (FED 계단형 점선) |
+| 차트 7 | 10Y Yield + MOVE Index + FED Funds Rate | 국채수익률과 채권 변동성 (FED 계단형 점선) |
 
 ### 태스크 목록
 
@@ -367,6 +373,9 @@ Investment-InfoStack/
 - [x] SDEX Yahoo Finance(^SDEX) 데이터 정상 수집
 - [x] Y축 자동 스케일 (domain: auto) 적용
 - [x] 레전드 토글(on/off) — Chart 1·2·3 적용
+- [x] 채권 차트 2개 렌더링 (SOFR+10Y / 10Y+MOVE)
+- [x] FED Funds Rate 계단형(stepAfter) 점선 표시
+- [x] VIX 차트 y=20 기준선 / VVIX/VIX 차트 y=3·6 기준선
 
 ---
 
@@ -397,7 +406,8 @@ Investment-InfoStack/
 | v2.6 | 2026.04.12 | Phase 5 신규 추가 — 기업 분석 모듈. Claude API 기반 company-analysis skill 연동(P5-01~02), 분석 리포트 렌더링(P5-03), LLM Q&A(P5-04~05), 문서 저장(P5-06), 이력 관리(P5-07), 사이드바(P5-08), 환경 변수(P5-09), 테스트(P5-10) 10개 태스크. 전체 Phase 구조 다이어그램 업데이트 |
 | v2.7 | 2026.04.13 | Phase 6 완료 처리 — 시장 분석 탭 전면 교체. FRED API 통합(SDEX+HY Spread), 5개 동기화 차트(Recharts syncId="market-analysis"), 날짜 범위 컨트롤(1M~5Y 버튼+직접 입력), /dashboard 페이지 MarketAnalysisClient로 교체, 사이드바 "시장 환경"→"시장 분석" 변경. 전체 Phase 구조 다이어그램 업데이트 |
 | v2.8 | 2026.04.13 | Phase 6 버그 수정 및 UX 개선 — SDEX 데이터 소스 FRED→Yahoo Finance(^SDEX) 수정, 차트 Y축 자동 스케일(domain: auto) 적용, X축 정렬 통일, Y축 레이블 제거, 레전드 토글 기능(Chart 1·2·3) 추가. 데이터 소스 테이블 SDEX 행 Yahoo Finance로 수정, P6-03 SDEX Yahoo 수집으로 업데이트, 완료 기준 3개 항목 추가 |
+| v2.9 | 2026.04.13 | 채권/금리 차트 2개 추가 — Chart 6(SOFR+10Y Yield+FED Funds Rate), Chart 7(10Y Yield+MOVE Index+FED Funds Rate). FRED SOFR/DGS10/DFEDTARU + Yahoo ^MOVE 신규 수집. VIX 차트 y=20 기준선, VVIX/VIX 차트 y=3·6 기준선 추가. 차트 구성 테이블 차트 6·7 행 추가, 데이터 소스 테이블 4개 행 추가, 완료 기준 3개 항목 추가 |
 
 ---
 
-*v2.8 | 2026.04.13 | Living Document — 지표/기능 추가 시 수시 업데이트*
+*v2.9 | 2026.04.13 | Living Document — 지표/기능 추가 시 수시 업데이트*
