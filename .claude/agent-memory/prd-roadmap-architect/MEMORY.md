@@ -1,0 +1,2 @@
+- [기술스택 전환 이력](project_stack_migration.md) — Python+Streamlit → Next.js+TypeScript 전환 결정 (2026.03.27, PRD/ROADMAP v1.1)
+- [프로젝트 개요](project_overview.md) — 투자 분석 플랫폼 핵심 목적, 모듈(M1~M4), 커버리지, 분석 프레임워크 요약

@@ -1,0 +1,1 @@
+- [투자 분석 플랫폼 도메인 전환 기록](project_domain_migration.md) — 스타터킷→Investment InfoStack 전환 패턴, 라우트 구조, 향후 데이터 연동 순서
