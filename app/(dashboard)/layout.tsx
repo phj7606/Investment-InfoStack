@@ -16,8 +16,9 @@ export default function DashboardLayout({
         <DashboardSidebar />
         {/* 사이드바 우측 메인 콘텐츠 영역 */}
         <div className="flex flex-1 flex-col">
-          {/* 상단 바: 사이드바 토글 버튼 */}
-          <header className="flex h-12 items-center border-b px-4">
+          {/* 상단 바: 사이드바 토글 버튼
+              높이 계산: py-3.5(14px×2=28px) + 텍스트 2줄(~30px) = 58px */}
+          <header className="flex h-[56px] items-center px-4">
             {/* SidebarTrigger: 사이드바 접기/펼치기 토글 버튼 */}
             <SidebarTrigger />
           </header>

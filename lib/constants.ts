@@ -6,8 +6,8 @@ import type { SiteConfig, NavItem, Feature } from "@/types";
 
 // 사이트 기본 메타데이터 설정
 export const SITE_CONFIG: SiteConfig = {
-  name: "Investment InfoStack",
-  description: "나만의 투자 분석 플랫폼 — 거시환경부터 개별 종목까지 통합 분석",
+  name: "Investment+",
+  description: "1인 투자 하우스 — 종목 탐색·추적·자동화 워크플로우",
   url: "https://investment-infostack.example.com",
   ogImage: "https://investment-infostack.example.com/og.png",
   links: {

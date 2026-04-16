@@ -12,7 +12,12 @@ npm run lint     # ESLint 실행
 npx tsc --noEmit # TypeScript 타입 검사만 단독 실행
 ```
 
-테스트 프레임워크는 현재 설정되어 있지 않다.
+## ✅ 작업 완료 체크리스트
+
+```bash
+npm run check-all   # 모든 검사 통과 확인
+npm run build       # 빌드 성공 확인
+```
 
 ## 기술 스택
 
