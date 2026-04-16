@@ -487,7 +487,7 @@ function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
   );
 }
 
-// ─── Chart 7: 10Y Yield + MOVE Index + FED Funds Rate ────────────────────────
+// ─── Chart 7: 10Y Yield + MOVE Index ────────────────────────────────────────
 function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
@@ -505,7 +505,6 @@ function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
           items={[
             { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
             { key: "moveIndex", label: "MOVE Index", color: COLORS.moveIndex },
-            { key: "fedFundsRate", label: "FED Funds Rate", color: COLORS.fedFundsRate },
           ]}
           hidden={hidden}
           onToggle={toggle}
@@ -523,26 +522,16 @@ function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
             <Tooltip
               content={
                 <ChartTooltip
-                  labelMap={{ ust10y: "10Y Yield", moveIndex: "MOVE Index", fedFundsRate: "FED Funds Rate" }}
+                  labelMap={{ ust10y: "10Y Yield", moveIndex: "MOVE Index" }}
                   formatters={{
                     ust10y: (v) => `${v.toFixed(2)}%`,
                     moveIndex: (v) => v.toFixed(1),
-                    fedFundsRate: (v) => `${v.toFixed(2)}%`,
                   }}
                 />
               }
             />
             <Line {...lineProps("ust10y", COLORS.ust10y, "left")} name="10Y Yield" hide={hidden.has("ust10y")} />
             <Line {...lineProps("moveIndex", COLORS.moveIndex, "right")} name="MOVE Index" hide={hidden.has("moveIndex")} />
-            {/* FED Funds Rate: 계단형(stepAfter) + 점선 */}
-            <Line
-              {...lineProps("fedFundsRate", COLORS.fedFundsRate, "left")}
-              type="stepAfter"
-              strokeDasharray="5 4"
-              strokeWidth={1.5}
-              name="FED Funds Rate"
-              hide={hidden.has("fedFundsRate")}
-            />
           </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
