@@ -1,30 +1,54 @@
 [
-  { "symbol": "069500", "name": "KODEX 200",                       "exchange": "KS", "category": "domestic_index" },
+  { "symbol": "069500", "name": "KODEX 200 (KOSPI)",    "exchange": "KS", "category": "domestic_index", "sector_group": "KOSPI지수",  "sector_layer": "index", "sector_rep": true },
+  { "symbol": "229200", "name": "KODEX 코스닥150 (KOSDAQ)", "exchange": "KS", "category": "domestic_index", "sector_group": "KOSDAQ지수", "sector_layer": "index", "sector_rep": true },
 
-  { "symbol": "396500", "name": "TIGER 반도체TOP10",               "exchange": "KS", "category": "sector" },
-  { "symbol": "139260", "name": "TIGER 200 IT",                    "exchange": "KS", "category": "sector" },
-  { "symbol": "091180", "name": "KODEX 자동차",                    "exchange": "KS", "category": "sector" },
-  { "symbol": "091170", "name": "KODEX 은행",                      "exchange": "KS", "category": "sector" },
-  { "symbol": "0089D0", "name": "KODEX 금융고배당TOP10",           "exchange": "KS", "category": "sector" },
-  { "symbol": "102970", "name": "KODEX 증권",                      "exchange": "KS", "category": "sector" },
-  { "symbol": "140700", "name": "KODEX 보험",                      "exchange": "KS", "category": "sector" },
-  { "symbol": "117700", "name": "KODEX 건설",                      "exchange": "KS", "category": "sector" },
-  { "symbol": "117680", "name": "KODEX 철강",                      "exchange": "KS", "category": "sector" },
-  { "symbol": "466920", "name": "SOL 조선TOP3플러스",              "exchange": "KS", "category": "sector" },
-  { "symbol": "462900", "name": "KoAct 바이오헬스케어액티브",      "exchange": "KS", "category": "sector" },
-  { "symbol": "228790", "name": "TIGER 화장품",                    "exchange": "KS", "category": "sector" },
-  { "symbol": "228800", "name": "TIGER 여행레저",                  "exchange": "KS", "category": "sector" },
-  { "symbol": "139280", "name": "TIGER 경기방어",                  "exchange": "KS", "category": "sector" },
-  { "symbol": "315270", "name": "TIGER 200커뮤니케이션서비스",     "exchange": "KS", "category": "sector" },
-  { "symbol": "438900", "name": "HANARO Fn K-푸드",               "exchange": "KS", "category": "sector" },
-  { "symbol": "475050", "name": "ACE KPOP포커스",                  "exchange": "KS", "category": "sector" },
 
-  { "symbol": "305720", "name": "KODEX 2차전지산업",               "exchange": "KS", "category": "theme" },
-  { "symbol": "487240", "name": "KODEX AI전력핵심설비",            "exchange": "KS", "category": "theme" },
-  { "symbol": "449450", "name": "PLUS K방산",                      "exchange": "KS", "category": "theme" },
-  { "symbol": "445290", "name": "KODEX 로봇액티브",                "exchange": "KS", "category": "theme" },
-  { "symbol": "434730", "name": "HANARO 원자력iSelect",            "exchange": "KS", "category": "theme" },
-  { "symbol": "454320", "name": "HANARO CAPEX설비투자iSelect",    "exchange": "KS", "category": "theme" },
-  { "symbol": "367770", "name": "RISE 수소경제테마",               "exchange": "KS", "category": "theme" },
-  { "symbol": "300950", "name": "KODEX 게임산업",                  "exchange": "KS", "category": "theme" }
+  { "symbol": "396500", "name": "TIGER 반도체TOP10",                  "exchange": "KS", "category": "sector", "sector_group": "IT/반도체",    "sector_layer": "layer1", "sector_rep": true  },
+  { "symbol": "091160", "name": "KODEX 반도체",                       "exchange": "KS", "category": "sector", "sector_group": "IT/반도체",    "sector_layer": "layer1" },
+  { "symbol": "139260", "name": "TIGER 200 IT",                       "exchange": "KS", "category": "sector", "sector_group": "IT/반도체",    "sector_layer": "layer1" },
+
+  { "symbol": "462900", "name": "KoAct 바이오헬스케어액티브",          "exchange": "KS", "category": "sector", "sector_group": "제약/바이오",  "sector_layer": "layer1", "sector_rep": true  },
+  { "symbol": "244580", "name": "KODEX 바이오",                       "exchange": "KS", "category": "sector", "sector_group": "제약/바이오",  "sector_layer": "layer1" },
+  { "symbol": "143460", "name": "TIGER 200 헬스케어",                 "exchange": "KS", "category": "sector", "sector_group": "제약/바이오",  "sector_layer": "layer1" },
+
+  { "symbol": "091170", "name": "KODEX 은행",                         "exchange": "KS", "category": "sector", "sector_group": "금융-은행",    "sector_layer": "layer1", "sector_rep": true  },
+  { "symbol": "0089D0", "name": "KODEX 금융고배당TOP10",              "exchange": "KS", "category": "sector", "sector_group": "금융-은행",    "sector_layer": "layer1" },
+
+  { "symbol": "102970", "name": "KODEX 증권",                         "exchange": "KS", "category": "sector", "sector_group": "금융-증권",    "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "140700", "name": "KODEX 보험",                         "exchange": "KS", "category": "sector", "sector_group": "금융-보험",    "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "091180", "name": "KODEX 자동차",                       "exchange": "KS", "category": "sector", "sector_group": "경기소비재",   "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "117700", "name": "KODEX 건설",                         "exchange": "KS", "category": "sector", "sector_group": "산업재",       "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "117680", "name": "KODEX 철강",                         "exchange": "KS", "category": "sector", "sector_group": "소재",         "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "117460", "name": "KODEX 에너지화학",                   "exchange": "KS", "category": "sector", "sector_group": "에너지",       "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "315270", "name": "TIGER 200커뮤니케이션서비스",         "exchange": "KS", "category": "sector", "sector_group": "통신서비스",   "sector_layer": "layer1", "sector_rep": true  },
+
+  { "symbol": "305720", "name": "KODEX 2차전지산업",                  "exchange": "KS", "category": "theme",  "sector_group": "2차전지",      "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "449450", "name": "PLUS K방산",                         "exchange": "KS", "category": "theme",  "sector_group": "방위산업/우주항공", "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "466920", "name": "SOL 조선TOP3플러스",                 "exchange": "KS", "category": "sector", "sector_group": "조선",         "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "487240", "name": "KODEX AI전력핵심설비",               "exchange": "KS", "category": "theme",  "sector_group": "AI/전력인프라","sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "434730", "name": "HANARO 원자력iSelect",               "exchange": "KS", "category": "theme",  "sector_group": "원자력",       "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "445290", "name": "KODEX 로봇액티브",                   "exchange": "KS", "category": "theme",  "sector_group": "로봇/자동화",  "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "228790", "name": "TIGER 화장품",                       "exchange": "KS", "category": "sector", "sector_group": "화장품/K-뷰티","sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "438900", "name": "HANARO Fn K-푸드",                   "exchange": "KS", "category": "sector", "sector_group": "K-푸드",       "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "300950", "name": "KODEX 게임산업",                     "exchange": "KS", "category": "theme",  "sector_group": "게임/엔터",    "sector_layer": "layer2", "sector_rep": true  },
+
+  { "symbol": "139280", "name": "TIGER 경기방어",                     "exchange": "KS", "category": "sector" },
+  { "symbol": "454320", "name": "HANARO CAPEX설비투자iSelect",        "exchange": "KS", "category": "theme"  },
+  { "symbol": "367770", "name": "RISE 수소경제테마",                  "exchange": "KS", "category": "theme"  },
+  { "symbol": "228800", "name": "TIGER 여행레저",                     "exchange": "KS", "category": "sector" },
+  { "symbol": "475050", "name": "ACE KPOP포커스",                     "exchange": "KS", "category": "sector" }
 ]

@@ -195,6 +195,19 @@ export interface EtfRsResult {
   rsRawHistory63: { date: string; value: number }[] | null;
   // RS 가속도 시계열 (RS63 - RS252) — 전략 4 모멘텀 가속도 시각화용
   rsAccelerationHistory: { date: string; value: number }[] | null;
+  // ADX(14) 최신값 — 횡보/추세 레짐 판단 (< 25: 횡보장, >= 25: 추세장)
+  // null = warm-up 데이터 부족 (2*14-1 = 27 거래일 미충족)
+  adx: number | null;
+  /**
+   * 복합 신호 (Composite Signal)
+   * = rsPercentile63 × ADX 필터 결합
+   * ADX < 25 (횡보장) → rsPercentile63 값 그대로 전달 (평균회귀 신호 유효)
+   * ADX >= 25 (추세장) 또는 ADX null → null (신호 무효, 추세 지속 가능성 높음)
+   */
+  compositeSignal: number | null;
+  // ADX(14) 시계열 (최근 252일) — Sheet 차트 표시용
+  // value가 number | null인 이유: warm-up 구간(첫 27 거래일)은 null로 표시
+  adxHistory: { date: string; value: number | null }[] | null;
 }
 
 /**

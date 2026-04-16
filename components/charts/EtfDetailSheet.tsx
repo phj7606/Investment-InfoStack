@@ -30,9 +30,24 @@ import {
   ReferenceLine,
 } from "recharts";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
 import type { EtfRsResult } from "@/types";
 import { CATEGORY_LABELS } from "@/lib/constants/categories";
+
+/**
+ * 종목 페이지 URL 생성
+ * - KR: stock.naver.com 신규 UI — domestic/stock/{6자리코드}/price
+ * - US: Yahoo Finance — 거래소 접미사(.O/.A 등) 없이 심볼만으로 동작,
+ *       Naver worldstock URL은 거래소별 접미사가 필요하여 티커 설정에 정보 없으면 구성 불가
+ */
+function getStockUrl(symbol: string, market: "kr" | "us"): string {
+  if (market === "kr") {
+    return `https://stock.naver.com/domestic/stock/${symbol}/price`;
+  }
+  // 미국 ETF: Yahoo Finance (심볼만으로 항상 유효)
+  return `https://finance.yahoo.com/quote/${symbol}`;
+}
+
 
 interface PriceBar {
   date: string;
@@ -120,6 +135,17 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
           <SheetTitle className="flex items-center gap-2">
             <span className="text-base">{row.symbol}</span>
             <span className="text-lg font-bold">{row.name}</span>
+            {/* 종목 링크 — KR: stock.naver.com, US: Yahoo Finance */}
+            <a
+              href={getStockUrl(row.symbol, market)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1 text-muted-foreground hover:text-primary transition-colors"
+              title={market === "kr" ? "네이버 증권에서 보기" : "Yahoo Finance에서 보기"}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
           </SheetTitle>
           <SheetDescription className="flex items-center gap-3">
             <Badge variant="outline" className="text-xs">
@@ -253,24 +279,18 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
           >
             Mansfield RS Raw 시계열
             <span className="text-xs font-normal text-muted-foreground ml-1">
-              (벤치마크 대비 상대강도 · 0선 위 = 강세)
+              (벤치마크 대비 상대강도 · 0선 위 = 강세 · 점선 = RS63 21일 변화)
             </span>
           </h3>
 
           {row.rsRawHistory && row.rsRawHistory.length > 0 ? (() => {
-            // 세 시리즈를 날짜 기준으로 병합
-            // accel은 캐시 의존 없이 rs63 - rs252를 클라이언트에서 직접 계산
+            // 두 시리즈를 날짜 기준으로 병합
             const map63 = new Map((row.rsRawHistory63 ?? []).map((p) => [p.date, p.value]));
-            const merged = row.rsRawHistory.map((p) => {
-              const rs63val = map63.get(p.date) ?? null;
-              return {
-                date:  p.date,
-                rs252: p.value,
-                rs63:  rs63val,
-                // 가속도 = RS63 - RS252 (두 값이 모두 있을 때만 계산)
-                accel: rs63val !== null ? parseFloat((rs63val - p.value).toFixed(2)) : null,
-              };
-            });
+            const merged = row.rsRawHistory.map((p) => ({
+              date:  p.date,
+              rs252: p.value,
+              rs63:  map63.get(p.date) ?? null,
+            }));
             return (
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={merged} margin={{ top: 4, right: 20, bottom: 0, left: 10 }}>
@@ -293,9 +313,9 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
                     contentStyle={TOOLTIP_STYLE}
                     formatter={(v: number, name: string) => [
                       v.toFixed(2),
-                      name === "rs252" ? "RS Raw(252)" :
-                      name === "rs63"  ? "RS Raw(63)"  :
-                      "가속도(63-252)",
+                      name === "rs252"  ? "RS Raw(252)" :
+                      name === "rs63"   ? "RS Raw(63)"  :
+                      "RS63 모멘텀(21일)",
                     ]}
                     labelFormatter={(label) => label}
                   />
@@ -321,10 +341,11 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
                     activeDot={{ r: 3 }}
                     connectNulls
                   />
-                  {/* RS 가속도(63-252) — 전략 4 시각화, 에메랄드 점선 */}
+                  {/* RS63 모멘텀(21일 변화) — RS63[i]-RS63[i-21], 에메랄드 점선
+                      양수=단기 상대강도 개선 중, 음수=단기 상대강도 약화 중 */}
                   <Line
                     type="monotone"
-                    dataKey="accel"
+                    dataKey="delta"
                     stroke="#10b981"
                     strokeWidth={1.5}
                     strokeDasharray="5 3"
@@ -345,9 +366,9 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
           {row.rsRawHistory && row.rsRawHistory.length > 0 && (
             <div className="flex gap-4 mt-1 justify-end" style={{ paddingRight: 20 }}>
               {[
-                { color: "#1e3a8a", label: "RS Raw(252)", dashed: false },
-                { color: "#f97316", label: "RS Raw(63)",  dashed: false },
-                { color: "#10b981", label: "가속도(63-252)", dashed: true },
+                { color: "#1e3a8a", label: "RS Raw(252)",    dashed: false },
+                { color: "#f97316", label: "RS Raw(63)",     dashed: false },
+                { color: "#10b981", label: "RS63 모멘텀(21일)", dashed: true },
               ].map(({ color, label, dashed }) => (
                 <div key={label} className="flex items-center gap-1 text-xs text-muted-foreground">
                   <span
@@ -363,6 +384,73 @@ export function EtfDetailSheet({ row, market, open, onOpenChange }: EtfDetailShe
                   {label}
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── ADX(14) 레짐 필터 차트 ───────────────────────────── */}
+        {/* ADX < 25: 횡보장(초록 기준선 아래) — Raw63 복합신호 유효
+            ADX >= 25: 추세장(초록 기준선 위) — Raw63 신호 필터 아웃 */}
+        <section className="mt-6 pb-4">
+          <h3
+            className="text-sm font-semibold mb-2"
+            style={{ paddingLeft: 50, paddingRight: 20 }}
+          >
+            ADX(14) 레짐 필터
+            <span className="text-xs font-normal text-muted-foreground ml-1">
+              (25 미만 = 횡보장 · 복합신호 유효 구간)
+            </span>
+          </h3>
+
+          {row.adxHistory && row.adxHistory.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart
+                data={row.adxHistory}
+                margin={{ top: 4, right: 20, bottom: 0, left: 10 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(v, i) => xAxisTick(v, i, row.adxHistory!.length)}
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, "auto"]}
+                  tickFormatter={(v) => v.toFixed(0)}
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={TOOLTIP_STYLE}
+                  formatter={(v: number) => [v.toFixed(2), "ADX(14)"]}
+                  labelFormatter={(label) => label}
+                />
+                {/* y=25 기준선 — 횡보(아래)/추세(위) 경계 */}
+                <ReferenceLine
+                  y={25}
+                  stroke="#10b981"
+                  strokeDasharray="4 2"
+                  label={{ value: "25", position: "right", fontSize: 10, fill: "#10b981" }}
+                />
+                {/* ADX 라인 — connectNulls=false: warm-up null 구간 선 끊음 */}
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#8b5cf6"
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{ r: 3 }}
+                  connectNulls={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-24 text-sm text-muted-foreground">
+              ADX 시계열 데이터가 없습니다 (데이터 기간 부족).
             </div>
           )}
         </section>

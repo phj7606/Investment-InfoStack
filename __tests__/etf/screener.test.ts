@@ -13,10 +13,10 @@ function makeRsResponse(overrides: Partial<EtfRsResponse> = {}): EtfRsResponse {
   return {
     market: "us",
     rankings: [
-      { symbol: "SMH",  name: "Semiconductor ETF", category: "semiconductor", rsRaw: 10, rsPercentile: 85, rsRaw63: 15, rsPercentile63: 90, rank: 1, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null },
-      { symbol: "QQQ",  name: "NASDAQ-100 ETF",     category: "broad_market",  rsRaw: 5,  rsPercentile: 70, rsRaw63: 8,  rsPercentile63: 75, rank: 2, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null },
-      { symbol: "XLE",  name: "Energy ETF",         category: "energy",        rsRaw: -3, rsPercentile: 30, rsRaw63: -5, rsPercentile63: 20, rank: 3, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null },
-      { symbol: "ARKG", name: "Genomic ETF",         category: "healthcare",    rsRaw: null, rsPercentile: null, rsRaw63: null, rsPercentile63: null, rank: 4, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null },
+      { symbol: "SMH",  name: "Semiconductor ETF", category: "semiconductor", rsRaw: 10, rsPercentile: 85, rsRaw63: 15, rsPercentile63: 90, rank: 1, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null, adx: null, compositeSignal: null, adxHistory: null },
+      { symbol: "QQQ",  name: "NASDAQ-100 ETF",     category: "broad_market",  rsRaw: 5,  rsPercentile: 70, rsRaw63: 8,  rsPercentile63: 75, rank: 2, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null, adx: null, compositeSignal: null, adxHistory: null },
+      { symbol: "XLE",  name: "Energy ETF",         category: "energy",        rsRaw: -3, rsPercentile: 30, rsRaw63: -5, rsPercentile63: 20, rank: 3, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null, adx: null, compositeSignal: null, adxHistory: null },
+      { symbol: "ARKG", name: "Genomic ETF",         category: "healthcare",    rsRaw: null, rsPercentile: null, rsRaw63: null, rsPercentile63: null, rank: 4, rsRawHistory: null, rsRawHistory63: null, rsAccelerationHistory: null, adx: null, compositeSignal: null, adxHistory: null },
     ],
     meta: {
       calculatedAt: "2026-03-31T00:00:00Z",

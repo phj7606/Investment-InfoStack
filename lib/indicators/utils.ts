@@ -314,3 +314,122 @@ export function downsideDeviation(
   if (downside.length === 0) return 0;
   return Math.sqrt(downside.reduce((sum, v) => sum + v, 0) / returns.length) * Math.sqrt(252);
 }
+
+/**
+ * ADX (Average Directional Index) — Wilder's Smoothing 방식
+ *
+ * 진입 타이밍 필터로 사용:
+ *   ADX < 25  → 횡보장 → 평균회귀(Raw63) 신호 유효 구간
+ *   ADX >= 25 → 추세장 → Raw63 신호 필터 아웃 (추세 지속 가능성 높음)
+ *
+ * 계산 순서:
+ *   1. TR = max(H-L, |H-prevC|, |L-prevC|)
+ *   2. +DM = upMove if upMove > downMove && upMove > 0, else 0
+ *   3. -DM = downMove if downMove > upMove && downMove > 0, else 0
+ *   4. Wilder Smoothing (alpha=1/period): 첫 period개 단순합 → 이후 S[i] = S[i-1] - S[i-1]/period + X[i]
+ *   5. +DI = (+DM14 / ATR14) × 100, -DI 동일
+ *   6. DX  = |+DI - -DI| / (+DI + -DI) × 100
+ *   7. ADX = Wilder Smoothing(DX) — 유효값 시작: 인덱스 2*period-1 (period=14 → 인덱스 27)
+ *
+ * @param high   - 고가 배열
+ * @param low    - 저가 배열
+ * @param close  - 종가 배열
+ * @param period - ADX 기간 (기본: 14)
+ * @returns 입력과 동일 길이의 ADX 배열 (warm-up 구간은 null)
+ */
+export function adx(
+  high: number[],
+  low: number[],
+  close: number[],
+  period: number = 14
+): (number | null)[] {
+  const n = high.length;
+  if (n !== low.length || n !== close.length) {
+    throw new Error("adx: high, low, close 배열 길이가 일치하지 않습니다");
+  }
+
+  const result: (number | null)[] = new Array(n).fill(null);
+
+  // ADX 유효값 시작: 2*period-1 (ex. period=14 → 인덱스 27)
+  // 데이터가 부족하면 null 배열 반환
+  if (n < 2 * period) return result;
+
+  // ── 단계 1-3: TR, +DM, -DM 계산 ──────────────────────────────
+  // i=0은 prevClose 없으므로 0으로 채움 (Wilder 초기합 계산 시 1부터 시작)
+  const tr: number[]       = [0];
+  const plusDM: number[]   = [0];
+  const minusDM: number[]  = [0];
+
+  for (let i = 1; i < n; i++) {
+    const prevClose = close[i - 1];
+    // True Range: 전일 종가와의 갭을 포함한 실제 가격 변동 범위
+    tr.push(Math.max(
+      high[i] - low[i],
+      Math.abs(high[i] - prevClose),
+      Math.abs(low[i]  - prevClose)
+    ));
+    const upMove   = high[i] - high[i - 1];
+    const downMove = low[i - 1] - low[i];
+    // 위로 이동이 더 크고 양수일 때만 +DM, 아니면 0
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    // 아래로 이동이 더 크고 양수일 때만 -DM, 아니면 0
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  // ── 단계 4: Wilder Smoothing 초기값 (indices 1..period) ───────
+  // i=0은 TR=0으로 제외, 실질적으로 1..period (period개 값) 합산
+  let atr         = 0;
+  let smoothPlus  = 0;
+  let smoothMinus = 0;
+  for (let i = 1; i <= period; i++) {
+    atr         += tr[i];
+    smoothPlus  += plusDM[i];
+    smoothMinus += minusDM[i];
+  }
+
+  // ── 단계 5-6: DX 계산 (인덱스 period부터 유효) ───────────────
+  const dxSeries: (number | null)[] = new Array(n).fill(null);
+
+  // 인덱스 period에서 첫 번째 DI/DX 계산
+  if (atr > 0) {
+    const pDI = (smoothPlus  / atr) * 100;
+    const mDI = (smoothMinus / atr) * 100;
+    const diSum = pDI + mDI;
+    dxSeries[period] = diSum > 0 ? (Math.abs(pDI - mDI) / diSum) * 100 : 0;
+  }
+
+  // 인덱스 period+1부터 Wilder 갱신 후 DX 계산
+  for (let i = period + 1; i < n; i++) {
+    // Wilder: S[i] = S[i-1] - S[i-1]/period + X[i]
+    atr         = atr         - atr         / period + tr[i];
+    smoothPlus  = smoothPlus  - smoothPlus  / period + plusDM[i];
+    smoothMinus = smoothMinus - smoothMinus / period + minusDM[i];
+
+    if (atr > 0) {
+      const pDI = (smoothPlus  / atr) * 100;
+      const mDI = (smoothMinus / atr) * 100;
+      const diSum = pDI + mDI;
+      dxSeries[i] = diSum > 0 ? (Math.abs(pDI - mDI) / diSum) * 100 : 0;
+    }
+  }
+
+  // ── 단계 7: ADX = Wilder Smoothing(DX) ───────────────────────
+  // 초기값: DX[period..2*period-1] 의 단순 평균 (period개 값)
+  let dxSum = 0;
+  for (let i = period; i <= 2 * period - 1; i++) {
+    if (dxSeries[i] !== null) dxSum += dxSeries[i]!;
+  }
+
+  let adxVal = dxSum / period;
+  result[2 * period - 1] = parseFloat(adxVal.toFixed(2));
+
+  // 이후: ADX[i] = (ADX[i-1] * (period-1) + DX[i]) / period
+  for (let i = 2 * period; i < n; i++) {
+    if (dxSeries[i] !== null) {
+      adxVal = (adxVal * (period - 1) + dxSeries[i]!) / period;
+      result[i] = parseFloat(adxVal.toFixed(2));
+    }
+  }
+
+  return result;
+}

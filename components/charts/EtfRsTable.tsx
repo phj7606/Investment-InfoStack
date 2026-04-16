@@ -21,7 +21,7 @@ import type { EtfRsResult } from "@/types";
 import { CATEGORY_LABELS } from "@/lib/constants/categories";
 import { EtfDetailSheet } from "@/components/charts/EtfDetailSheet";
 
-type SortKey = "rank" | "rsRaw" | "rsPercentile" | "rsRaw63" | "rsPercentile63";
+type SortKey = "rank" | "rsRaw" | "rsPercentile" | "rsRaw63" | "rsPercentile63" | "adx" | "compositeSignal";
 type SortDir = "asc" | "desc";
 
 interface EtfRsTableProps {
@@ -39,6 +39,17 @@ function getPercentileColor(pct: number | null): string {
   if (pct >= 50) return "text-green-400";
   if (pct >= 25) return "text-orange-400";
   return "text-red-500";
+}
+
+/**
+ * ADX 값에 따른 색상 클래스 반환
+ * < 25: 초록 (횡보장 — Raw63 복합신호 유효 구간)
+ * >= 25: 회색 (추세장 — 신호 필터 아웃)
+ */
+function getAdxColor(adxVal: number | null): string {
+  if (adxVal === null) return "text-muted-foreground";
+  if (adxVal < 25) return "text-green-500 font-semibold";
+  return "text-slate-400";
 }
 
 /**
@@ -173,6 +184,28 @@ export function EtfRsTable({ data, market }: EtfRsTableProps) {
                 RS%(252) <SortIcon col="rsPercentile" />
               </Button>
             </TableHead>
+            {/* ADX(14) — 횡보/추세 레짐 판단 필터 */}
+            <TableHead className="w-24 text-right">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 font-semibold"
+                onClick={() => handleSort("adx")}
+              >
+                ADX(14) <SortIcon col="adx" />
+              </Button>
+            </TableHead>
+            {/* 복합신호 — rsPercentile63 × ADX 필터 결합 */}
+            <TableHead className="w-36">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 font-semibold"
+                onClick={() => handleSort("compositeSignal")}
+              >
+                복합신호 <SortIcon col="compositeSignal" />
+              </Button>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -244,6 +277,36 @@ export function EtfRsTable({ data, market }: EtfRsTableProps) {
                     {row.rsPercentile !== null ? `${row.rsPercentile.toFixed(1)}%` : "—"}
                   </span>
                 </div>
+              </TableCell>
+
+              {/* ADX(14) — 횡보장(<25 초록)이면 복합신호 활성, 추세장(>=25 회색)이면 필터 아웃
+                  != null (loose): undefined도 함께 걸러냄 (캐시 호환성 — 구 캐시는 adx 필드 없음) */}
+              <TableCell className="text-right">
+                {row.adx != null ? (
+                  <div className={`flex items-center justify-end gap-1 text-xs tabular-nums ${getAdxColor(row.adx)}`}>
+                    <span>{row.adx.toFixed(1)}</span>
+                    <span className="text-[10px] opacity-70">
+                      {row.adx < 25 ? "횡보" : "추세"}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </TableCell>
+
+              {/* 복합신호 — ADX<25(횡보장)이면 rsPercentile63 Progress 표시, 추세장이면 필터 아웃 안내
+                  != null (loose): undefined 캐시 호환성 */}
+              <TableCell>
+                {row.compositeSignal != null ? (
+                  <div className="flex items-center gap-2 min-w-28">
+                    <Progress value={row.compositeSignal} className="h-2 flex-1" />
+                    <span className={`text-xs tabular-nums w-10 text-right ${getPercentileColor(row.compositeSignal)}`}>
+                      {row.compositeSignal.toFixed(1)}%
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-muted-foreground">추세장 필터</span>
+                )}
               </TableCell>
             </TableRow>
           ))}
