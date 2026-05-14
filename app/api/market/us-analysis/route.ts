@@ -61,7 +61,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // DFEDTARU: Fed Funds Target Upper Bound — FOMC 결정 때만 변경되는 계단형 데이터
   const [
     spxResult, nasdaqResult, vixResult, vvixResult, sdexResult, hyResult,
-    sofrResult, ust10yResult, fedFundsResult, moveResult,
+    sofrResult, ust10yResult, fedFundsResult, moveResult, ust2yResult,
+    breakeven10yResult,
   ] = await Promise.allSettled([
     fetchYahooHistory("^GSPC", parseDate(startDate), parseDate(endDate)),
     fetchYahooHistory("^IXIC", parseDate(startDate), parseDate(endDate)),
@@ -73,6 +74,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     fetchFredSeries("DGS10", startDate, endDate),
     fetchFredSeries("DFEDTARU", startDate, endDate),
     fetchYahooHistory("^MOVE", parseDate(startDate), parseDate(endDate)),
+    // DGS2: US 2-Year Treasury Yield — US 2Y & 10Y Yield 비교 차트용
+    fetchFredSeries("DGS2", startDate, endDate),
+    // T10YIE: 10-Year Breakeven Inflation Rate — 실질 수익률 분해 차트용
+    // 명목 수익률(DGS10) - 손익분기 인플레이션(T10YIE) = 실질 수익률
+    fetchFredSeries("T10YIE", startDate, endDate),
   ]);
 
   // Yahoo 거래일을 기준 날짜로 사용 (S&P500이 가장 안정적)
@@ -133,6 +139,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     tradingDates,
     fedFundsResult.status === "fulfilled" ? fedFundsResult.value : []
   );
+  // DGS2: US 2년물 국채 수익률 — 거래일 forward-fill
+  const ust2yAligned = alignFredToTradingDays(
+    tradingDates,
+    ust2yResult.status === "fulfilled" ? ust2yResult.value : []
+  );
+  // T10YIE: 10년 손익분기 인플레이션율 — 거래일 forward-fill
+  // 주말/공휴일에는 FRED 데이터 없으므로 직전 값으로 채움
+  const breakeven10yAligned = alignFredToTradingDays(
+    tradingDates,
+    breakeven10yResult.status === "fulfilled" ? breakeven10yResult.value : []
+  );
 
   // 통합 데이터 배열 구성
   const data: UsAnalysisBar[] = tradingDates.map((date, idx) => ({
@@ -147,6 +164,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     ust10y: ust10yAligned.get(date),
     fedFundsRate: fedFundsAligned.get(date),
     moveIndex: moveMap.get(date),
+    ust2y: ust2yAligned.get(date),
+    breakeven10y: breakeven10yAligned.get(date),
   }));
 
   const response: UsAnalysisResponse = {
