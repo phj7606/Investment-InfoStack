@@ -1,16 +1,17 @@
 "use client";
 
-// P8-04 AI 섹터 보고서 클라이언트 컴포넌트
-// 기능: 섹터 입력 → 멀티 LLM 보고서 생성(Claude/OpenAI/Gemini) → Q&A → 저장(MD/PDF)
+// AI 섹터 보고서 클라이언트 컴포넌트
+// 상태와 스트리밍 로직은 SectorReportContext에서 관리 (페이지 이동 후에도 유지)
+// 이 컴포넌트는 Context에서 읽어 렌더링만 담당
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -20,586 +21,479 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Bot,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Search,
-  Loader2,
-  RotateCcw,
-  CheckCircle2,
-  Circle,
-  Download,
-  FileText,
-  FileDown,
-  MessageSquare,
-  Send,
   ChevronDown,
-  ChevronUp,
-  Sparkles,
+  Download,
+  Printer,
+  Send,
+  Loader2,
+  Upload,
+  FileText,
+  AlertCircle,
+  RotateCcw,
+  Play,
 } from "lucide-react";
+import { useSectorReport } from "@/lib/sector-report/context";
 import type { LLMProvider } from "@/lib/sector-report/llm-client";
 
-// ── 상수 ────────────────────────────────────────────────────────
-
-// 6섹션 메타데이터 — 스트리밍 텍스트에서 헤딩 감지 시 진행 표시 업데이트
-const SECTIONS = [
-  { key: "consensus",    heading: "## 1. 증권사 컨센서스 요약",   label: "컨센서스" },
-  { key: "market",       heading: "## 2. Market Overview",       label: "Market" },
-  { key: "competitive",  heading: "## 3. Competitive Landscape", label: "Competitive" },
-  { key: "valuation",    heading: "## 4. Valuation",             label: "Valuation" },
-  { key: "implications", heading: "## 5. Investment Implications",label: "Implications" },
-  { key: "references",   heading: "## 6. References",            label: "References" },
-] as const;
-
-// 예시 섹터 칩
+// ── 예시 섹터 칩 ─────────────────────────────────────────────────
 const EXAMPLE_SECTORS = [
   "AI 반도체", "K-바이오테크", "전기차 배터리", "방산",
   "클라우드 SaaS", "조선", "글로벌 핀테크", "원자력 에너지",
 ];
 
-// LLM provider 선택지 (레이블 + 부연)
-const LLM_OPTIONS: Array<{ value: LLMProvider; label: string; note: string }> = [
-  { value: "claude",  label: "Claude Sonnet 4.6", note: "web_search 지원 · 기본" },
-  { value: "openai",  label: "GPT-5.4",           note: "OPENAI_API_KEY 필요" },
-  { value: "gemini",  label: "Gemini 3.1 Pro",    note: "GOOGLE_API_KEY 필요" },
+// ── LLM 선택기 드롭다운 옵션 ─────────────────────────────────────
+const LLM_OPTIONS: { value: LLMProvider; label: string }[] = [
+  { value: "claude", label: "Claude Sonnet 4.6" },
+  { value: "openai", label: "GPT-5.4" },
+  { value: "gemini", label: "Gemini 3.1 Pro" },
 ];
 
-// ── 유틸리티 ─────────────────────────────────────────────────────
-
-/** SSE 스트림을 읽어 텍스트 청크를 콜백으로 전달 */
-async function consumeSSE(
-  res: Response,
-  onChunk: (text: string) => void,
-): Promise<void> {
-  const reader = res.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split("\n\n");
-    buffer = parts.pop() ?? "";
-
-    for (const part of parts) {
-      const raw = part.startsWith("data: ") ? part.slice(6) : part;
-      if (!raw.trim()) continue;
-      let parsed: { text?: string; done?: boolean; error?: string };
-      try { parsed = JSON.parse(raw); } catch { continue; }
-      if (parsed.error) throw new Error(parsed.error);
-      if (parsed.done) return;
-      if (parsed.text) onChunk(parsed.text);
-    }
-  }
-}
-
-/** 보고서 Markdown을 파일로 다운로드 */
-function downloadMarkdown(content: string, sectorName: string) {
-  const date = new Date().toISOString().slice(0, 10);
-  const filename = `sector-report_${sectorName.replace(/\s+/g, "-")}_${date}.md`;
-  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/** 브라우저 인쇄 API로 PDF 저장 다이얼로그 열기
- *  인쇄 대상: id="sector-report-print" 영역만 출력
- *  사용자가 "PDF로 저장"을 선택하면 PDF 생성됨 (별도 라이브러리 불필요)
- */
-function printAsPDF() {
-  window.print();
-}
-
-// ── Q&A 메시지 타입 ───────────────────────────────────────────────
-interface QAMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+// ── PDF 인쇄용 스타일 ─────────────────────────────────────────────
+// 새 창에 보고서 HTML을 삽입할 때 사용하는 기본 prose 스타일
+// Next.js 레이아웃 밖에서 독립적으로 렌더링하므로 @media print가 올바르게 동작함
+const PDF_PRINT_STYLES = `
+  body { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif; font-size: 13px; line-height: 1.7; color: #111; padding: 24px 40px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin: 1.5rem 0 0.5rem; }
+  h2 { font-size: 1.2rem; font-weight: 600; margin: 1.2rem 0 0.4rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; }
+  h3 { font-size: 1rem; font-weight: 600; margin: 1rem 0 0.3rem; }
+  p { margin: 0.5rem 0; }
+  ul, ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+  li { margin: 0.2rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 0.8rem 0; }
+  th, td { border: 1px solid #d1d5db; padding: 6px 10px; text-align: left; }
+  th { background: #f3f4f6; font-weight: 600; }
+  code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 11px; font-family: monospace; }
+  blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; margin: 0.5rem 0; color: #555; }
+  strong { font-weight: 600; }
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+  @media print { body { padding: 0; } }
+`;
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────
-
 export function SectorReportClient() {
-  // 입력 상태
-  const [sectorName, setSectorName]   = useState("");
-  const [provider, setProvider]       = useState<LLMProvider>("claude");
+  // Context에서 전역 상태와 액션을 가져옴
+  const {
+    state,
+    setSectorName,
+    setProvider,
+    setPreviousReport,
+    handleGenerate,
+    handleQuestion,
+    reset,
+  } = useSectorReport();
 
-  // 보고서 상태
-  const [report, setReport]           = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [genError, setGenError]       = useState<string | null>(null);
-  const [completedSections, setCompletedSections] = useState<Set<string>>(new Set());
+  const {
+    sectorName,
+    provider,
+    previousReport,
+    report,
+    reportStatus,
+    collectedSources,
+    errorMessage,
+    qaMessages,
+    qaLoading,
+  } = state;
 
-  // Q&A 상태
-  const [qaOpen, setQaOpen]           = useState(false);
-  const [qaMessages, setQaMessages]   = useState<QAMessage[]>([]);
-  const [qaInput, setQaInput]         = useState("");
-  const [isAsking, setIsAsking]       = useState(false);
-  const [qaError, setQaError]         = useState<string | null>(null);
+  // 이전 리포트 패널 열림/닫힘 — UI 전용
+  const [prevReportOpen, setPrevReportOpen] = useState(false);
+  // Q&A 입력 — 전송 후 초기화
+  const [question, setQuestion] = useState("");
 
-  const abortRef  = useRef<AbortController | null>(null);
-  const qaEndRef  = useRef<HTMLDivElement | null>(null);
+  // 보고서 렌더링 DOM 참조 — PDF 내보내기 시 innerHTML 추출
+  const reportContentRef = useRef<HTMLDivElement>(null);
 
-  // ── 보고서 생성 ────────────────────────────────────────────────
-  const generateReport = useCallback(async (sector: string) => {
-    if (!sector.trim() || isGenerating) return;
+  // 스크롤 ref
+  const reportEndRef = useRef<HTMLDivElement>(null);
+  const qaEndRef = useRef<HTMLDivElement>(null);
 
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-
-    setReport("");
-    setGenError(null);
-    setCompletedSections(new Set());
-    setQaMessages([]);
-    setQaOpen(false);
-    setIsGenerating(true);
-
-    try {
-      const res = await fetch("/api/sector/ai-report", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sectorName: sector, provider }),
-        signal: abort.signal,
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "알 수 없는 오류" }));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
-
-      let accumulated = "";
-      await consumeSSE(res, (text) => {
-        accumulated += text;
-        setReport(accumulated);
-
-        // 헤딩 감지 → 섹션 진행 업데이트
-        setCompletedSections((prev) => {
-          const next = new Set(prev);
-          for (const sec of SECTIONS) {
-            if (!prev.has(sec.key) && accumulated.includes(sec.heading)) {
-              next.add(sec.key);
-            }
-          }
-          return next;
-        });
-      });
-    } catch (err) {
-      if ((err as Error).name === "AbortError") return;
-      setGenError((err as Error).message ?? "보고서 생성 중 오류가 발생했습니다.");
-    } finally {
-      setIsGenerating(false);
+  // 보고서 스트리밍 중 자동 스크롤
+  useEffect(() => {
+    if (reportStatus === "loading") {
+      reportEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [isGenerating, provider]);
+  }, [report, reportStatus]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    generateReport(sectorName);
-  };
-
-  const handleChipClick = (sector: string) => {
-    setSectorName(sector);
-    generateReport(sector);
-  };
-
-  const handleReset = () => {
-    abortRef.current?.abort();
-    setReport("");
-    setGenError(null);
-    setCompletedSections(new Set());
-    setSectorName("");
-    setIsGenerating(false);
-    setQaMessages([]);
-    setQaOpen(false);
-  };
-
-  // ── Q&A 질문 제출 ───────────────────────────────────────────────
-  const handleAsk = async () => {
-    const question = qaInput.trim();
-    if (!question || isAsking || !report) return;
-
-    setQaInput("");
-    setQaError(null);
-    setIsAsking(true);
-
-    // 사용자 메시지 즉시 표시
-    const userMsg: QAMessage = { role: "user", content: question };
-    setQaMessages((prev) => [...prev, userMsg]);
-
-    // 빈 assistant 메시지 자리 확보 — 스트리밍으로 채움
-    const assistantPlaceholder: QAMessage = { role: "assistant", content: "" };
-    setQaMessages((prev) => [...prev, assistantPlaceholder]);
-
-    try {
-      const res = await fetch("/api/sector/ai-report-qa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          reportMarkdown: report,
-          messages: qaMessages, // 현재까지의 이력 (새 질문 제외)
-          question,
-          sectorName,
-          provider,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "알 수 없는 오류" }));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
-
-      await consumeSSE(res, (text) => {
-        // 마지막 assistant 메시지 누적 업데이트
-        setQaMessages((prev) => {
-          const updated = [...prev];
-          const last = updated[updated.length - 1];
-          if (last?.role === "assistant") {
-            updated[updated.length - 1] = { ...last, content: last.content + text };
-          }
-          return updated;
-        });
-        // 스크롤 끝으로
-        qaEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      });
-    } catch (err) {
-      setQaError((err as Error).message ?? "답변 생성 중 오류가 발생했습니다.");
-      // 실패한 placeholder 제거
-      setQaMessages((prev) => prev.filter((_, i) => i !== prev.length - 1));
-    } finally {
-      setIsAsking(false);
+  // Q&A 응답 중 자동 스크롤
+  useEffect(() => {
+    if (qaLoading) {
+      qaEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
+  }, [qaMessages, qaLoading]);
+
+  // ── Q&A 전송 래퍼 ────────────────────────────────────────────
+  const onSendQuestion = async () => {
+    if (!question.trim() || qaLoading) return;
+    const q = question.trim();
+    setQuestion("");
+    await handleQuestion(q);
   };
 
-  const handleQaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Cmd/Ctrl + Enter로 제출
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleAsk();
-    }
+  // ── Markdown Export ──────────────────────────────────────────
+  const handleExportMarkdown = () => {
+    if (!report) return;
+    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${sectorName.trim() || "sector"}-report.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  // ── 렌더링 ─────────────────────────────────────────────────────
+  // ── PDF Export ───────────────────────────────────────────────
+  // window.print()은 Next.js 레이아웃 구조에서 @media print 셀렉터가
+  // 올바르게 적용되지 않으므로, 새 창에 보고서 HTML만 삽입 후 인쇄
+  const handleExportPdf = () => {
+    if (!reportContentRef.current) return;
+    const reportHtml = reportContentRef.current.innerHTML;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>${sectorName.trim() || "섹터"} 분석 보고서</title>
+  <style>${PDF_PRINT_STYLES}</style>
+</head>
+<body>
+  ${reportHtml}
+</body>
+</html>`);
+    printWindow.document.close();
+    // 이미지 등 로드 완료 후 인쇄 다이얼로그 표시
+    printWindow.onload = () => printWindow.print();
+    printWindow.print();
+  };
+
+  // ── 파일 업로드 처리 ─────────────────────────────────────────
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setPreviousReport((ev.target?.result as string) ?? "");
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const isGenerating = reportStatus === "collecting" || reportStatus === "loading";
+  const hasReport = report.length > 0;
+
   return (
-    <>
-      {/*
-        PDF 인쇄 스타일
-        display: none 방식은 Next.js 최상위 div가 숨겨지면 중첩된 자식도 함께 사라져서 사용 불가.
-        visibility: hidden → visible 방식으로 교체:
-          - * { visibility: hidden } 으로 전체를 숨기되 레이아웃은 유지
-          - #sector-report-print 과 그 자식에만 visibility: visible 복원
-          - visibility는 부모가 hidden이어도 자식에서 visible로 개별 덮어쓸 수 있음
-          - position: absolute 로 페이지 좌상단 배치하여 여백 없이 출력
-      */}
-      <style>{`
-        @media print {
-          * { visibility: hidden; }
-          #sector-report-print,
-          #sector-report-print * { visibility: visible; }
-          #sector-report-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            font-size: 12pt;
-            line-height: 1.6;
-            color: #1a1a1a;
-          }
-          #sector-report-print table {
-            border-collapse: collapse;
-            width: 100%;
-          }
-          #sector-report-print th,
-          #sector-report-print td {
-            border: 1px solid #ccc;
-            padding: 5px 8px;
-            font-size: 10pt;
-          }
-          #sector-report-print h1 { font-size: 18pt; }
-          #sector-report-print h2 { font-size: 14pt; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
-          #sector-report-print h3 { font-size: 12pt; }
-        }
-      `}</style>
-
-      <div className="space-y-4">
-        {/* ── 입력 패널 ── */}
-        <Card>
-          <CardContent className="pt-4 pb-4 space-y-3">
-            {/* 섹터 입력 + LLM 선택 + 생성 버튼 */}
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={sectorName}
-                  onChange={(e) => setSectorName(e.target.value)}
-                  placeholder="섹터명 입력 (예: AI 반도체, 전기차 배터리...)"
-                  className="pl-8 text-sm"
-                  disabled={isGenerating}
-                />
-              </div>
-
-              {/* LLM provider 선택 */}
-              <Select
-                value={provider}
-                onValueChange={(v) => setProvider(v as LLMProvider)}
+    <div className="space-y-4">
+      {/* ── 입력 패널 ──────────────────────────────────────────── */}
+      <Card>
+        <CardContent className="pt-4 pb-4 space-y-3">
+          {/* 섹터 입력 + 초기화 버튼 */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={sectorName}
+                onChange={(e) => setSectorName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isGenerating) handleGenerate();
+                }}
+                placeholder="섹터명 입력 (예: AI 반도체, 전기차 배터리...)"
+                className="pl-8 text-sm"
                 disabled={isGenerating}
-              >
-                <SelectTrigger className="w-40 text-xs shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LLM_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-xs">{opt.label}</span>
-                        <span className="text-[10px] text-muted-foreground">{opt.note}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                type="submit"
-                disabled={isGenerating || !sectorName.trim()}
-                size="sm"
-                className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                {isGenerating ? (
-                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />생성 중...</>
-                ) : (
-                  <><Bot className="h-3.5 w-3.5 mr-1.5" />보고서 생성</>
-                )}
-              </Button>
-
-              {/* 초기화 버튼 */}
-              {(report || isGenerating) && (
-                <Button type="button" variant="outline" size="sm" onClick={handleReset} className="shrink-0">
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </form>
-
-            {/* 예시 섹터 칩 */}
-            <div className="flex flex-wrap gap-1.5">
-              {EXAMPLE_SECTORS.map((sector) => (
-                <Badge
-                  key={sector}
-                  variant="secondary"
-                  className="cursor-pointer text-xs hover:bg-indigo-100 hover:text-indigo-700 dark:hover:bg-indigo-900 dark:hover:text-indigo-300 transition-colors"
-                  onClick={() => handleChipClick(sector)}
-                >
-                  {sector}
-                </Badge>
-              ))}
+              />
             </div>
+            {(hasReport || reportStatus !== "idle") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={reset}
+                disabled={isGenerating}
+                className="shrink-0 h-9 px-2 text-muted-foreground hover:text-destructive"
+                title="보고서 초기화"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* 예시 섹터 칩 */}
+          <div className="flex flex-wrap gap-1.5">
+            {EXAMPLE_SECTORS.map((sector) => (
+              <Badge
+                key={sector}
+                variant="secondary"
+                className="cursor-pointer text-xs hover:bg-[#D97757]/15 hover:text-[#D97757] transition-colors"
+                onClick={() => setSectorName(sector)}
+              >
+                {sector}
+              </Badge>
+            ))}
+          </div>
+
+          {/* LLM 드롭다운 + 분석 시작 버튼 (같은 라인) */}
+          <div className="flex items-center gap-2">
+            {/* LLM 모델 드롭다운 */}
+            <Select
+              value={provider}
+              onValueChange={(v) => setProvider(v as LLMProvider)}
+              disabled={isGenerating}
+            >
+              <SelectTrigger className="h-8 text-xs w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LLM_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* 분석 시작 버튼 — 드롭다운 우측, 소형 */}
+            <Button
+              onClick={handleGenerate}
+              disabled={!sectorName.trim() || isGenerating}
+              size="sm"
+              className="h-8 px-3 text-xs bg-[#D97757] hover:bg-[#c4694a] text-white shrink-0"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  {reportStatus === "collecting" ? "수집 중..." : "생성 중..."}
+                </>
+              ) : (
+                <>
+                  <Play className="h-3 w-3 mr-1.5" />
+                  분석 시작
+                </>
+              )}
+            </Button>
+
+            {/* 수집된 데이터 소스 (인라인) */}
+            {collectedSources.length > 0 && (
+              <span className="text-[10px] text-muted-foreground truncate">
+                {collectedSources.join(", ")}
+              </span>
+            )}
+          </div>
+
+          {/* 이전 리포트 참조 (Collapsible) */}
+          <Collapsible open={prevReportOpen} onOpenChange={setPrevReportOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform ${prevReportOpen ? "rotate-180" : ""}`}
+                />
+                이전 리포트 참조 (비교 분석용)
+                {previousReport && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                    설정됨
+                  </Badge>
+                )}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <Tabs defaultValue="file">
+                <TabsList className="h-7">
+                  <TabsTrigger value="file" className="text-xs px-3 h-6">
+                    <Upload className="h-3 w-3 mr-1" />
+                    파일 업로드
+                  </TabsTrigger>
+                  <TabsTrigger value="text" className="text-xs px-3 h-6">
+                    <FileText className="h-3 w-3 mr-1" />
+                    텍스트 입력
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="file" className="mt-2">
+                  <label className="flex items-center gap-2 cursor-pointer border border-dashed rounded-md p-3 hover:bg-muted/50 transition-colors">
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {previousReport
+                        ? `파일 로드됨 (${previousReport.length.toLocaleString()}자)`
+                        : ".md, .txt 파일을 선택하세요"}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".md,.txt"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </TabsContent>
+                <TabsContent value="text" className="mt-2">
+                  <Textarea
+                    value={previousReport}
+                    onChange={(e) => setPreviousReport(e.target.value)}
+                    placeholder="이전 분석 리포트 내용을 붙여넣으세요..."
+                    className="text-xs min-h-[80px] resize-none"
+                  />
+                </TabsContent>
+              </Tabs>
+              {previousReport && (
+                <button
+                  onClick={() => setPreviousReport("")}
+                  className="mt-1 text-[10px] text-muted-foreground hover:text-destructive"
+                >
+                  초기화
+                </button>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        </CardContent>
+      </Card>
+
+      {/* ── 오류 메시지 ─────────────────────────────────────────── */}
+      {reportStatus === "error" && (
+        <Card className="border-destructive/50">
+          <CardContent className="pt-4 flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive whitespace-pre-wrap">{errorMessage}</p>
           </CardContent>
         </Card>
+      )}
 
-        {/* ── 섹션 진행 표시 ── */}
-        {(isGenerating || report) && (
-          <div className="flex flex-wrap gap-2">
-            {SECTIONS.map((sec) => {
-              const isDone = completedSections.has(sec.key);
-              const nextIdx = SECTIONS.findIndex((s) => !completedSections.has(s.key));
-              const isCurrent = isGenerating && SECTIONS[nextIdx]?.key === sec.key;
-
-              return (
-                <div
-                  key={sec.key}
-                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors
-                    ${isDone
-                      ? "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
-                      : isCurrent
-                      ? "border-indigo-400 bg-indigo-100 text-indigo-800 dark:border-indigo-600 dark:bg-indigo-900 dark:text-indigo-200 animate-pulse"
-                      : "border-muted text-muted-foreground"
-                    }`}
-                >
-                  {isDone ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-                  {sec.label}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* ── 에러 ── */}
-        {genError && (
-          <Card className="border-destructive/40 bg-destructive/5">
-            <CardContent className="pt-4 pb-4">
-              <p className="text-sm text-destructive">{genError}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── 빈 상태 ── */}
-        {!report && !isGenerating && !genError && (
-          <Card className="border-dashed">
-            <CardContent className="py-12 flex flex-col items-center gap-3 text-center">
-              <Sparkles className="h-8 w-8 text-muted-foreground/50" />
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">AI 섹터 보고서</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  섹터명을 입력하거나 예시를 클릭하세요.
-                  <br />
-                  Claude(기본) · GPT-4o · Gemini 중 선택 가능합니다.
-                </p>
-              </div>
-              <p className="text-xs text-muted-foreground/50">
-                증권사 컨센서스 · Market Overview · Competitive · Valuation · Investment Implications
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── 보고서 본문 ── */}
-        {report && (
-          <>
-            <Separator />
-
-            {/* 액션 바: 저장 버튼 + Q&A 토글 */}
-            <div className="flex items-center justify-between">
+      {/* ── 보고서 영역 ─────────────────────────────────────────── */}
+      {(isGenerating || hasReport) && (
+        <Card>
+          <CardHeader className="pb-2 flex-row items-center justify-between">
+            <CardTitle className="text-sm font-medium">
+              {isGenerating ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#D97757]" />
+                  보고서 생성 중...
+                </span>
+              ) : (
+                "섹터 분석 보고서"
+              )}
+            </CardTitle>
+            {reportStatus === "done" && (
               <div className="flex gap-2">
-                {/* Markdown 다운로드 */}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => downloadMarkdown(report, sectorName)}
-                  className="text-xs"
+                  onClick={handleExportMarkdown}
+                  className="h-7 text-xs gap-1"
                 >
-                  <FileText className="h-3.5 w-3.5 mr-1.5" />
-                  MD 저장
+                  <Download className="h-3 w-3" />
+                  Markdown
                 </Button>
-                {/* PDF 저장 (브라우저 인쇄 → PDF) */}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={printAsPDF}
-                  className="text-xs"
+                  onClick={handleExportPdf}
+                  className="h-7 text-xs gap-1"
                 >
-                  <FileDown className="h-3.5 w-3.5 mr-1.5" />
-                  PDF 저장
+                  <Printer className="h-3 w-3" />
+                  PDF
                 </Button>
               </div>
-
-              {/* Q&A 패널 토글 */}
-              <Button
-                variant={qaOpen ? "default" : "outline"}
-                size="sm"
-                onClick={() => setQaOpen((v) => !v)}
-                className={`text-xs ${qaOpen ? "bg-indigo-600 hover:bg-indigo-700 text-white" : ""}`}
-              >
-                <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                보고서 Q&A
-                {qaOpen ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
-              </Button>
-            </div>
-
-            {/* ── Q&A 패널 ── */}
-            {qaOpen && (
-              <Card className="border-indigo-200 dark:border-indigo-800">
-                <CardHeader className="pb-2 pt-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-indigo-500" />
-                    보고서 Q&A
-                    <Badge variant="secondary" className="text-[10px] ml-1">
-                      {LLM_OPTIONS.find((o) => o.value === provider)?.label}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-0">
-                  {/* 대화 이력 */}
-                  {qaMessages.length === 0 && (
-                    <p className="text-xs text-muted-foreground py-2">
-                      보고서 내용에 대해 자유롭게 질문하세요. (Cmd+Enter로 전송)
-                    </p>
-                  )}
-
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {qaMessages.map((msg, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-lg px-3 py-2 text-sm ${
-                          msg.role === "user"
-                            ? "bg-indigo-50 dark:bg-indigo-950 ml-6"
-                            : "bg-muted mr-6"
-                        }`}
-                      >
-                        <span className="text-[10px] font-semibold text-muted-foreground block mb-1">
-                          {msg.role === "user" ? "질문" : "답변"}
-                        </span>
-                        {msg.role === "assistant" ? (
-                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {msg.content || (isAsking && i === qaMessages.length - 1 ? "…" : "")}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <p className="text-sm">{msg.content}</p>
-                        )}
-                      </div>
-                    ))}
-                    <div ref={qaEndRef} />
-                  </div>
-
-                  {/* Q&A 에러 */}
-                  {qaError && (
-                    <p className="text-xs text-destructive">{qaError}</p>
-                  )}
-
-                  {/* 질문 입력 */}
-                  <div className="flex gap-2">
-                    <Textarea
-                      value={qaInput}
-                      onChange={(e) => setQaInput(e.target.value)}
-                      onKeyDown={handleQaKeyDown}
-                      placeholder="보고서 내용에 대해 질문하세요... (Cmd+Enter 전송)"
-                      className="text-sm min-h-[60px] resize-none"
-                      disabled={isAsking}
-                    />
-                    <Button
-                      onClick={handleAsk}
-                      disabled={isAsking || !qaInput.trim()}
-                      size="sm"
-                      className="self-end shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white"
-                    >
-                      {isAsking ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Send className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
             )}
-
-            {/* ── Markdown 보고서 본문 (PDF 인쇄 대상) ── */}
+          </CardHeader>
+          <CardContent>
+            {/* ref로 DOM 참조 — PDF 내보내기 시 innerHTML 사용 */}
             <div
-              id="sector-report-print"
-              className="prose prose-sm dark:prose-invert max-w-none
-                [&_table]:w-full [&_table]:text-xs [&_table]:border-collapse
-                [&_th]:text-left [&_th]:py-1.5 [&_th]:px-2 [&_th]:border [&_th]:border-muted
-                [&_td]:py-1 [&_td]:px-2 [&_td]:border [&_td]:border-muted
-                [&_pre]:overflow-x-auto [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm"
+              ref={reportContentRef}
+              className="prose prose-sm dark:prose-invert max-w-none text-sm
+                prose-headings:font-semibold
+                prose-h1:text-lg prose-h2:text-base prose-h3:text-sm
+                prose-table:text-xs
+                prose-code:text-xs prose-code:bg-muted prose-code:px-1 prose-code:rounded"
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]}>
                 {report}
               </ReactMarkdown>
+              {isGenerating && (
+                <span className="inline-block w-0.5 h-4 bg-[#D97757] animate-pulse ml-0.5" />
+              )}
             </div>
+            <div ref={reportEndRef} />
+          </CardContent>
+        </Card>
+      )}
 
-            {/* 스트리밍 진행 중 끝단 스피너 */}
-            {isGenerating && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                분석 중...
+      {/* ── Q&A 영역 ────────────────────────────────────────────── */}
+      {reportStatus === "done" && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Q&A</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              보고서 내용에 대해 질문하거나 추가 정보를 요청하세요 (웹검색 포함)
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {qaMessages.length > 0 && (
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                {qaMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`
+                        max-w-[85%] rounded-lg px-3 py-2 text-sm
+                        ${msg.role === "user"
+                          ? "bg-[#D97757] text-white"
+                          : "bg-muted text-foreground"
+                        }
+                      `}
+                    >
+                      {msg.role === "assistant" ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm prose-p:my-1 prose-headings:my-1">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {msg.content}
+                          </ReactMarkdown>
+                          {qaLoading && idx === qaMessages.length - 1 && (
+                            <span className="inline-block w-0.5 h-3.5 bg-foreground animate-pulse ml-0.5" />
+                          )}
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div ref={qaEndRef} />
               </div>
             )}
-          </>
-        )}
-      </div>
-    </>
+
+            <div className="flex gap-2">
+              <Input
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !qaLoading) {
+                    e.preventDefault();
+                    onSendQuestion();
+                  }
+                }}
+                placeholder="보고서에 대해 질문하세요..."
+                className="text-sm"
+                disabled={qaLoading}
+              />
+              <Button
+                onClick={onSendQuestion}
+                disabled={!question.trim() || qaLoading}
+                size="sm"
+                className="shrink-0 bg-[#D97757] hover:bg-[#c4694a] text-white px-3"
+              >
+                {qaLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

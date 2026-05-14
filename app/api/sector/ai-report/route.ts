@@ -1,16 +1,18 @@
 // POST /api/sector/ai-report
-// P8-04 AI 섹터 보고서 스트리밍 생성
-// 멀티 LLM 지원: Claude(기본, web_search) | OpenAI | Gemini
-// SSE 방식으로 6섹션 보고서 점진적 전달
+// AI 섹터 보고서 스트리밍 생성
+// 1. SKILL.md 우선순위로 데이터 사전 수집 (DART → Alpha Vantage → yfinance)
+// 2. 수집 데이터 + 이전 리포트를 프롬프트에 주입
+// 3. 멀티 LLM 스트리밍 (Claude/OpenAI/Gemini 모두 웹검색 활성화)
 
 import { NextRequest } from "next/server";
 import { buildSectorSystemPrompt, buildSectorPrompt } from "@/lib/sector-report/prompts";
 import { streamLLM, type LLMProvider } from "@/lib/sector-report/llm-client";
+import { collectSectorData } from "@/lib/sector-report/data-collector";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest): Promise<Response> {
-  let body: { sectorName?: string; provider?: string };
+  let body: { sectorName?: string; provider?: string; previousReport?: string };
   try {
     body = await request.json();
   } catch {
@@ -22,12 +24,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     return Response.json({ error: "sectorName은 필수입니다." }, { status: 400 });
   }
 
-  // provider 기본값: claude
   const provider = (body.provider ?? "claude") as LLMProvider;
   const validProviders: LLMProvider[] = ["claude", "openai", "gemini"];
   if (!validProviders.includes(provider)) {
-    return Response.json({ error: `provider는 claude | openai | gemini 중 하나여야 합니다.` }, { status: 400 });
+    return Response.json(
+      { error: "provider는 claude | openai | gemini 중 하나여야 합니다." },
+      { status: 400 }
+    );
   }
+
+  const previousReport = body.previousReport?.trim() ?? "";
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -37,13 +43,26 @@ export async function POST(request: NextRequest): Promise<Response> {
       };
 
       try {
-        // 멀티 LLM 스트리밍 — provider에 따라 다른 SDK 호출
-        // Claude는 web_search 활성화, OpenAI·Gemini는 내부 지식 기반
+        // SKILL.md 우선순위로 데이터 사전 수집
+        // 실패해도 계속 진행 — LLM 웹검색으로 보완
+        enqueue({ status: "collecting" });
+        const collectedData = await collectSectorData(sectorName);
+
+        if (collectedData.sources.length > 0) {
+          enqueue({ status: "collected", sources: collectedData.sources });
+        }
+
+        // 수집 데이터 + 이전 리포트를 프롬프트에 주입
+        const userMessage = buildSectorPrompt(sectorName, collectedData, previousReport);
+
+        // 모든 provider에서 웹검색 활성화
+        // collectSectorData에서 감지한 sectorType을 system prompt에 전달해
+        // 데이터 우선순위 규칙이 KR/US에 맞게 정확히 적용되도록 함
         const gen = streamLLM({
           provider,
-          system: buildSectorSystemPrompt(),
-          userMessage: buildSectorPrompt(sectorName),
-          enableWebSearch: provider === "claude",
+          system: buildSectorSystemPrompt(collectedData.type),
+          userMessage,
+          enableWebSearch: true,
           maxTokens: 16000,
         });
 
@@ -66,7 +85,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "X-Accel-Buffering": "no",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }

@@ -68,13 +68,13 @@ ${reportMarkdown}`;
       };
 
       try {
-        // Q&A는 web_search 비활성 — 보고서 컨텍스트 기반 답변
+        // Q&A도 웹검색 활성화 — 보고서 컨텍스트 기반 + 보고서에 없는 최신 정보도 답변 가능
         const gen = streamLLM({
           provider,
           system: systemPrompt,
           userMessage: question,
           history: recentHistory,
-          enableWebSearch: false,
+          enableWebSearch: true,
           maxTokens: 4096,
         });
 

@@ -1,6 +1,10 @@
 // 서버 전용 — API Route에서만 import
 // 멀티 LLM 추상화 레이어: Claude(기본) | OpenAI | Gemini
-// 각 provider의 스트리밍 API를 공통 AsyncGenerator<string>으로 래핑
+// 모든 provider에서 웹검색 활성화 지원 (보고서 생성 + Q&A 모두)
+//
+// Claude:  web_search_20250305 도구 (Anthropic 네이티브)
+// OpenAI:  Responses API + web_search_preview 툴
+// Gemini:  googleSearch 그라운딩
 
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
@@ -14,7 +18,7 @@ export interface LLMStreamOptions {
   userMessage: string;
   // 이전 대화 이력 (Q&A 다회전 지원)
   history?: Array<{ role: "user" | "assistant"; content: string }>;
-  // 보고서 생성 시에만 true — Claude는 web_search 도구 활성화
+  // 웹검색 활성화 여부 — 보고서 생성·Q&A 모두 true
   enableWebSearch?: boolean;
   maxTokens?: number;
 }
@@ -25,21 +29,28 @@ export interface LLMStreamOptions {
  * 호출자는 for-await으로 순회 후 SSE 전송
  */
 export async function* streamLLM(opts: LLMStreamOptions): AsyncGenerator<string> {
-  const { provider, system, userMessage, history = [], enableWebSearch = false, maxTokens = 16000 } = opts;
+  const {
+    provider,
+    system,
+    userMessage,
+    history = [],
+    enableWebSearch = false,
+    maxTokens = 16000,
+  } = opts;
 
   if (provider === "claude") {
     yield* streamClaude({ system, userMessage, history, enableWebSearch, maxTokens });
   } else if (provider === "openai") {
-    yield* streamOpenAI({ system, userMessage, history, maxTokens });
+    yield* streamOpenAI({ system, userMessage, history, enableWebSearch, maxTokens });
   } else if (provider === "gemini") {
-    yield* streamGemini({ system, userMessage, history, maxTokens });
+    yield* streamGemini({ system, userMessage, history, enableWebSearch, maxTokens });
   } else {
     throw new Error(`지원하지 않는 provider: ${provider}`);
   }
 }
 
-// ── Claude (Anthropic) ──────────────────────────────────────────
-// web_search_20250305 도구 지원 — 보고서 생성 시 실시간 정보 수집
+// ── Claude (Anthropic) ──────────────────────────────────────────────
+// web_search_20250305 도구로 실시간 정보 수집
 async function* streamClaude(opts: {
   system: string;
   userMessage: string;
@@ -55,7 +66,6 @@ async function* streamClaude(opts: {
   const msgStream = client.messages.stream({
     model: "claude-sonnet-4-6",
     max_tokens: opts.maxTokens,
-    // 보고서 생성 시 web_search 활성화 — Q&A는 비활성화(컨텍스트 기반)
     ...(opts.enableWebSearch
       ? {
           tools: [
@@ -68,70 +78,107 @@ async function* streamClaude(opts: {
       : {}),
     system: opts.system,
     messages: [
-      ...opts.history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ...opts.history.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
       { role: "user" as const, content: opts.userMessage },
     ],
   });
 
   for await (const event of msgStream) {
-    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
       yield event.delta.text;
     }
   }
 }
 
-// ── OpenAI (GPT-5.4 / GPT-5.4-mini) ────────────────────────────
+// ── OpenAI (GPT-5.4 / GPT-5.4-mini) ────────────────────────────────
+// Responses API + web_search_preview 툴로 웹검색 지원
 // maxTokens 기준으로 모델 자동 선택:
-//   > 4096 → gpt-5.4 (보고서 생성 — 복잡한 분석, 긴 출력)
-//  <= 4096 → gpt-5.4-mini (Q&A — 빠른 응답, 비용 절감)
+//   > 4096 → gpt-5.4 (보고서 생성)
+//  <= 4096 → gpt-5.4-mini (Q&A — 빠른 응답)
 async function* streamOpenAI(opts: {
   system: string;
   userMessage: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
+  enableWebSearch: boolean;
   maxTokens: number;
 }): AsyncGenerator<string> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY가 설정되지 않았습니다. .env.local을 확인하세요.");
+  if (!apiKey)
+    throw new Error(
+      "OPENAI_API_KEY가 설정되지 않았습니다. .env.local을 확인하세요."
+    );
 
   const client = new OpenAI({ apiKey });
-
-  // 보고서 생성(16K)은 gpt-5.4, Q&A(4K 이하)는 gpt-5.4-mini로 비용 최적화
   const model = opts.maxTokens > 4096 ? "gpt-5.4" : "gpt-5.4-mini";
 
-  const stream = await client.chat.completions.create({
+  // Responses API: web_search_preview 툴 지원
+  // input 배열: system → history → user 순서로 구성
+  const input: OpenAI.Responses.ResponseInput = [
+    { role: "system", content: opts.system },
+    ...opts.history.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
+    { role: "user", content: opts.userMessage },
+  ];
+
+  const stream = await client.responses.create({
     model,
-    max_tokens: opts.maxTokens,
+    max_output_tokens: opts.maxTokens,
     stream: true,
-    messages: [
-      { role: "system", content: opts.system },
-      ...opts.history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-      { role: "user", content: opts.userMessage },
-    ],
+    tools: opts.enableWebSearch
+      ? [{ type: "web_search_preview" as const }]
+      : [],
+    input,
   });
 
-  for await (const chunk of stream) {
-    const text = chunk.choices[0]?.delta?.content;
-    if (text) yield text;
+  for await (const event of stream) {
+    // Responses API 스트리밍 이벤트: response.output_text.delta
+    if (
+      event.type === "response.output_text.delta" &&
+      event.delta
+    ) {
+      yield event.delta;
+    }
   }
 }
 
-// ── Google Gemini ────────────────────────────────────────────────
-// generateContentStream: 청크 단위 스트리밍
+// ── Google Gemini ────────────────────────────────────────────────────
+// googleSearch 그라운딩으로 웹검색 지원
+// gemini-3.1-pro-preview: 1M 토큰 컨텍스트 — 보고서 전체 주입 Q&A에 적합
+//
+// [주의] 429 Too Many Requests "free_tier_requests limit: 0" 오류 발생 시:
+//   → gemini-3.1-pro-preview는 free tier 할당량이 없는 모델입니다.
+//   → 해결 방법 1: Google AI Studio(aistudio.google.com/apikey) → API 키 관련 프로젝트 →
+//                  Google Cloud Console에서 결제 계정(Billing Account) 연결
+//   → 해결 방법 2: 해당 모델이 Vertex AI 전용인 경우, Google Cloud 서비스 계정 키 필요
 async function* streamGemini(opts: {
   system: string;
   userMessage: string;
   history: Array<{ role: "user" | "assistant"; content: string }>;
+  enableWebSearch: boolean;
   maxTokens: number;
 }): AsyncGenerator<string> {
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error("GOOGLE_API_KEY가 설정되지 않았습니다. .env.local을 확인하세요.");
+  if (!apiKey)
+    throw new Error(
+      "GOOGLE_API_KEY가 설정되지 않았습니다. .env.local을 확인하세요."
+    );
 
   const client = new GoogleGenerativeAI(apiKey);
-  // gemini-3.1-pro-preview: 1M 토큰 컨텍스트 — 보고서 전체 주입 Q&A에 적합
-  // (gemini-3-pro-preview는 2026.03.09 서비스 종료)
+
   const model = client.getGenerativeModel({
     model: "gemini-3.1-pro-preview",
     systemInstruction: opts.system,
+    // googleSearch 그라운딩: 활성화 시 실시간 웹 정보 수집
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools: opts.enableWebSearch ? [{ googleSearch: {} } as any] : [],
     generationConfig: { maxOutputTokens: opts.maxTokens },
   });
 
@@ -143,10 +190,25 @@ async function* streamGemini(opts: {
     })),
   });
 
-  const result = await chat.sendMessageStream(opts.userMessage);
-  for await (const chunk of result.stream) {
-    const text = chunk.text();
-    if (text) yield text;
+  try {
+    const result = await chat.sendMessageStream(opts.userMessage);
+    for await (const chunk of result.stream) {
+      const text = chunk.text();
+      if (text) yield text;
+    }
+  } catch (err) {
+    // 429 오류에 구체적인 해결 방법 안내
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("429") || message.includes("Too Many Requests")) {
+      throw new Error(
+        `Gemini API 할당량 초과 (429).\n` +
+        `gemini-3.1-pro-preview는 유료 티어 전용 모델입니다.\n\n` +
+        `해결 방법:\n` +
+        `1. Google AI Studio(aistudio.google.com) → API 키 → 연결된 Google Cloud 프로젝트에서 결제 계정(Billing Account)이 연결되어 있는지 확인\n` +
+        `2. 결제가 이미 활성화된 경우, 해당 모델은 Vertex AI를 통해서만 접근 가능할 수 있습니다. Google Cloud 콘솔에서 Generative Language API 할당량을 확인하세요.`
+      );
+    }
+    throw err;
   }
 }
 
