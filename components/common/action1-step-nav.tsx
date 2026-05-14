@@ -1,8 +1,9 @@
 "use client";
 
-// ACTION 1 공용 Step 진행 표시 컴포넌트 (Phase 7 — UI 리디자인)
-// 5단계 퍼널(섹터 조감 → 종목 압축 → 실적 채점 → 체크포인트 → 매수 결정)의
+// ACTION 1 공용 Step 진행 표시 컴포넌트 (Phase 7 — UI 리디자인 / Phase 8 — 4단계로 통합)
+// 4단계 퍼널(섹터 조감 → 종목 분석 → 체크포인트 → 매수 결정)의
 // 현재 위치를 시각화하고, 이전/다음 Step 이동 버튼을 제공
+// Step 2+3 통합: 종목 압축 + 실적 채점 → 종목 분석 (/dashboard/screen)
 // 완료된 Step: 체크 아이콘 / 현재 Step: 인디고 강조 + 펄스 dot / 미래 Step: 비활성
 
 import { useRouter } from "next/navigation";
@@ -11,15 +12,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Action1StepNavProps {
-  // 현재 활성 Step (1~5)
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  // 현재 활성 Step (1~4)
+  currentStep: 1 | 2 | 3 | 4;
 }
 
-// 5단계 퍼널 정의 — 경로와 레이블을 함께 관리하여 Step 이동 로직과 UI를 일관되게 유지
+// 4단계 퍼널 정의 — 경로와 레이블을 함께 관리하여 Step 이동 로직과 UI를 일관되게 유지
+// Phase 8: 종목 압축(2) + 실적 채점(3) → 종목 분석(2)으로 통합
 const STEPS: { label: string; href: string }[] = [
   { label: "섹터 조감", href: "/dashboard/sector" },
-  { label: "종목 압축", href: "/dashboard/screen" },
-  { label: "실적 채점", href: "/dashboard/earnings-analysis" },
+  { label: "종목 분석", href: "/dashboard/screen" },
   { label: "체크포인트", href: "/dashboard/earnings-preview" },
   { label: "매수 결정", href: "/dashboard/initiating-coverage" },
 ];

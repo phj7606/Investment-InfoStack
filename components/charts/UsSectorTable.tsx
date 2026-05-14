@@ -16,13 +16,15 @@ import { CATEGORY_LABELS } from "@/lib/constants/categories";
 import type { UsSectorReturn } from "@/lib/etf/us-sector-returns";
 import type { EtfRsResult } from "@/types";
 
-// ─── 테마 카테고리 집합 — 광역시장과 구분 ────────────────────────────────────────
-// 광역시장: broad_market, dividend, infrastructure, consumer, japan
-// 나머지는 모두 테마로 분류
+// ─── 테마 카테고리 집합 — 광역시장/GICS와 구분 ───────────────────────────────────
+// 광역시장: broad_market, tech, financials, industrials, energy, materials,
+//          utilities, real_estate, consumer_disc, consumer, comm_services,
+//          dividend, infrastructure, japan
+// 테마: china_tech, semiconductor, ai_software, defense, clean_energy,
+//       battery_ev, mobility, resources, innovation
 const THEME_CATEGORIES = new Set([
-  "china_tech", "battery_ev", "ai_software", "semiconductor",
-  "defense", "energy", "resources", "healthcare",
-  "mobility", "clean_energy", "innovation",
+  "china_tech", "semiconductor", "ai_software", "defense",
+  "clean_energy", "battery_ev", "mobility", "resources", "innovation",
 ]);
 
 function isBroad(category: string): boolean {

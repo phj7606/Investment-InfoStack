@@ -1,15 +1,20 @@
 "use client";
 
-// 시장 분석 탭 — 5개 동기화 차트
+// 시장 분석 — 동기화 차트 라이브러리
 // recharts 클라이언트 격리 필수 ("use client")
 // syncId="market-analysis" 로 모든 차트의 crosshair/툴팁이 자동 동기화된다
 //
-// 차트 구성:
+// 차트 구성 (Stock Market):
 //   1. S&P 500 & NASDAQ (이중 Y축, 350px)
 //   2. VIX & SDEX (이중 Y축, 200px)
 //   3. VIX & VVIX (이중 Y축, 200px)
 //   4. VVIX/VIX Ratio (단일 Y축, 200px)
+//
+// 차트 구성 (Bonds):
 //   5. ICE BofA HY Spread (단일 Y축, 200px)
+//   6. FED Funds Rate (단일 Y축, 계단형, 200px)
+//   7. US 2Y & 10Y Bond Yield (이중 Y축, 200px)
+//   8. US 10Y Yield & MOVE Index (이중 Y축, 200px)
 
 import { useState } from "react";
 import {
@@ -198,7 +203,7 @@ function lineProps(dataKey: string, color: string, yAxisId: "left" | "right" = "
 }
 
 // ─── Chart 1: S&P 500 & NASDAQ ───────────────────────────────────────────────
-function SpxNasdaqChart({ data }: { data: UsAnalysisBar[] }) {
+export function SpxNasdaqChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setHidden((prev) => {
@@ -244,7 +249,7 @@ function SpxNasdaqChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 2: VIX & SDEX ─────────────────────────────────────────────────────
-function VixSdexChart({ data }: { data: UsAnalysisBar[] }) {
+export function VixSdexChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setHidden((prev) => {
@@ -289,7 +294,7 @@ function VixSdexChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 3: VIX & VVIX ────────────────────────────────────────────────────
-function VixVvixChart({ data }: { data: UsAnalysisBar[] }) {
+export function VixVvixChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setHidden((prev) => {
@@ -334,7 +339,7 @@ function VixVvixChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 4: VVIX/VIX Ratio ────────────────────────────────────────────────
-function VvixVixRatioChart({ data }: { data: UsAnalysisBar[] }) {
+export function VvixVixRatioChart({ data }: { data: UsAnalysisBar[] }) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -382,7 +387,7 @@ function VvixVixRatioChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 5: ICE BofA HY Spread ─────────────────────────────────────────────
-function HySpreadChart({ data }: { data: UsAnalysisBar[] }) {
+export function HySpreadChart({ data }: { data: UsAnalysisBar[] }) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -425,7 +430,7 @@ function HySpreadChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 6: SOFR + 10Y Yield + FED Funds Rate ──────────────────────────────
-function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
+export function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setHidden((prev) => {
@@ -471,11 +476,10 @@ function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
             />
             <Line {...lineProps("sofr", COLORS.sofr, "left")} name="SOFR" hide={hidden.has("sofr")} />
             <Line {...lineProps("ust10y", COLORS.ust10y, "right")} name="10Y Yield" hide={hidden.has("ust10y")} />
-            {/* FED Funds Rate: 계단형(stepAfter) + 점선 표현 */}
+            {/* FED Funds Rate: 계단형(stepAfter) 실선 */}
             <Line
               {...lineProps("fedFundsRate", COLORS.fedFundsRate, "left")}
               type="stepAfter"
-              strokeDasharray="5 4"
               strokeWidth={1.5}
               name="FED Funds Rate"
               hide={hidden.has("fedFundsRate")}
@@ -488,7 +492,7 @@ function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
 }
 
 // ─── Chart 7: 10Y Yield + MOVE Index ────────────────────────────────────────
-function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
+export function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setHidden((prev) => {
@@ -530,10 +534,250 @@ function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
                 />
               }
             />
+            {/* 4.3 Key line / 4.5 Kill line — 주식 시장에 영향을 주는 10Y 금리 임계값 */}
+            <ReferenceLine yAxisId="left" y={4.3} stroke="#6b7280" strokeWidth={1}
+              label={{ value: "Key line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
+            <ReferenceLine yAxisId="left" y={4.5} stroke="#6b7280" strokeWidth={1}
+              label={{ value: "Kill line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
             <Line {...lineProps("ust10y", COLORS.ust10y, "left")} name="10Y Yield" hide={hidden.has("ust10y")} />
             <Line {...lineProps("moveIndex", COLORS.moveIndex, "right")} name="MOVE Index" hide={hidden.has("moveIndex")} />
           </ComposedChart>
         </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Chart 8: FED Funds Rate (단독) ──────────────────────────────────────────
+// SOFR 차트에서 FED Funds Rate만 추출 — Bonds 탭용 간결 버전
+export function FedFundsOnlyChart({ data }: { data: UsAnalysisBar[] }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">FED Funds Rate</CardTitle>
+        <CardDescription className="text-xs">
+          <span style={{ color: COLORS.fedFundsRate }}>● FED Funds Target Rate</span>
+          &nbsp;— FOMC 결정 시마다 변경되는 계단형 금리 (연율 %)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-0 pb-2">
+        <ResponsiveContainer width="100%" height={200}>
+          {/* right: 63 = 단일 Y축 차트의 우측 공간 균형 유지 */}
+          <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 63, left: 8, bottom: 4 }}>
+            <CartesianGrid {...cartesianGridProps} />
+            <XAxis {...commonXAxisProps} />
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              tick={{ fontSize: 11, fill: COLORS.fedFundsRate }}
+              axisLine={false}
+              tickLine={false}
+              width={55}
+              domain={["auto", "auto"]}
+              tickFormatter={(v: number) => `${v.toFixed(2)}`}
+            />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  labelMap={{ fedFundsRate: "FED Funds Rate" }}
+                  formatters={{ fedFundsRate: (v) => `${v.toFixed(2)}%` }}
+                />
+              }
+            />
+            {/* 계단형(stepAfter) + 점선 — FOMC 결정일 사이에는 고정 유지 */}
+            <Line
+              {...lineProps("fedFundsRate", COLORS.fedFundsRate, "left")}
+              type="stepAfter"
+              strokeDasharray="5 4"
+              strokeWidth={2}
+              name="FED Funds Rate"
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Chart 9: US 2Y & 10Y Bond Yield ────────────────────────────────────────
+// 단기(2년)와 장기(10년) 국채 수익률 비교 — 역전 여부로 침체 신호 판단
+export function Ust2y10yChart({ data }: { data: UsAnalysisBar[] }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">US 2-Year &amp; 10-Year Bond Yield</CardTitle>
+        <ToggleLegend
+          items={[
+            { key: "ust2y", label: "US 2-Year Yield", color: "#f59e0b" },   // amber-500
+            { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
+          ]}
+          hidden={hidden}
+          onToggle={toggle}
+        />
+      </CardHeader>
+      <CardContent className="p-0 pb-2">
+        <ResponsiveContainer width="100%" height={200}>
+          <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+            <CartesianGrid {...cartesianGridProps} />
+            <XAxis {...commonXAxisProps} />
+            {/* 두 수익률 모두 % 단위이므로 동일 스케일(좌측 Y축)로 표시 */}
+            <YAxis
+              yAxisId="left"
+              orientation="left"
+              tick={{ fontSize: 11, fill: "#f59e0b" }}
+              axisLine={false}
+              tickLine={false}
+              width={55}
+              domain={["auto", "auto"]}
+              tickFormatter={(v: number) => `${v.toFixed(2)}`}
+            />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fontSize: 11, fill: COLORS.ust10y }}
+              axisLine={false}
+              tickLine={false}
+              width={55}
+              domain={["auto", "auto"]}
+              tickFormatter={(v: number) => `${v.toFixed(2)}`}
+            />
+            <Tooltip
+              content={
+                <ChartTooltip
+                  labelMap={{ ust2y: "2Y Yield", ust10y: "10Y Yield" }}
+                  formatters={{
+                    ust2y: (v) => `${v.toFixed(2)}%`,
+                    ust10y: (v) => `${v.toFixed(2)}%`,
+                  }}
+                />
+              }
+            />
+            {/* 4.3 Key line / 4.5 Kill line — 10Y 수익률 기준 임계값 (right Y축) */}
+            <ReferenceLine yAxisId="right" y={4.3} stroke="#6b7280" strokeWidth={1}
+              label={{ value: "Key line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
+            <ReferenceLine yAxisId="right" y={4.5} stroke="#6b7280" strokeWidth={1}
+              label={{ value: "Kill line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
+            <Line {...lineProps("ust2y", "#f59e0b", "left")} name="2Y Yield" hide={hidden.has("ust2y")} />
+            <Line {...lineProps("ust10y", COLORS.ust10y, "right")} name="10Y Yield" hide={hidden.has("ust10y")} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Chart 10: 10Y 명목/실질 수익률 & 손익분기 인플레이션 ───────────────────
+// Fisher 방정식: 명목 수익률 = 실질 수익률 + 기대 인플레이션
+//   - 파란선: DGS10 — 10Y 명목 국채 수익률
+//   - 빨간선: T10YIE — 10Y 손익분기 인플레이션율 (시장 내재 인플레이션 기대치)
+//   - 초록선: realYield10y = DGS10 - T10YIE — 실질 수익률
+// 실질 수익률 < 0 → 채권 투자자가 실질 손실 수용 (극도의 위험 회피)
+// 실질 수익률 상승 → 금융 환경 긴축, 성장주·금·신흥국에 부담
+export function RealYieldChart({ data }: { data: UsAnalysisBar[] }) {
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggle = (key: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+
+  // 실질 수익률 데이터 존재 여부 확인
+  const hasData = data.some(
+    (d) => d.ust10y !== undefined || d.breakeven10y !== undefined
+  );
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-semibold">
+          10Y 실질 수익률 분해 (명목 = 실질 + 기대 인플레이션)
+        </CardTitle>
+        <ToggleLegend
+          items={[
+            { key: "ust10y",      label: "10Y 명목 수익률 (DGS10)",           color: "#3b82f6" },  // blue-500
+            { key: "breakeven10y", label: "10Y 손익분기 인플레이션 (T10YIE)", color: "#ef4444" },  // red-500
+            { key: "realYield10y", label: "10Y 실질 수익률 (=명목−BEI)",       color: "#22c55e" },  // green-500
+          ]}
+          hidden={hidden}
+          onToggle={toggle}
+        />
+      </CardHeader>
+      <CardContent className="p-0 pb-2">
+        {!hasData ? (
+          <div className="flex items-center justify-center h-[200px] text-sm text-muted-foreground">
+            FRED DGS10 / T10YIE 데이터 없음 — FRED API 키를 확인해 주세요.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            {/* right: 63 = 단일 Y축 차트 우측 여백 (이중 Y축과 정렬 일치) */}
+            <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 63, left: 8, bottom: 4 }}>
+              <CartesianGrid {...cartesianGridProps} />
+              <XAxis {...commonXAxisProps} />
+              {/* 단일 Y축 — 세 시리즈 모두 % 단위로 동일 스케일 사용 */}
+              <YAxis
+                yAxisId="left"
+                orientation="left"
+                tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                axisLine={false}
+                tickLine={false}
+                width={55}
+                domain={["auto", "auto"]}
+                tickFormatter={(v: number) => `${v.toFixed(1)}`}
+              />
+              {/* 0% 기준선 — 실질 수익률 플러스/마이너스 구분 (FRED 차트 검은 선 재현)
+                  CSS 변수 대신 고정 색상 사용 — SVG 내 CSS 변수 해석 불안정 방지 */}
+              <ReferenceLine
+                yAxisId="left"
+                y={0}
+                stroke="#1e293b"
+                strokeWidth={1}
+              />
+              <Tooltip
+                content={
+                  <ChartTooltip
+                    labelMap={{
+                      ust10y:       "명목 10Y",
+                      breakeven10y: "손익분기 인플레이션",
+                      realYield10y: "실질 10Y",
+                    }}
+                    formatters={{
+                      ust10y:       (v) => `${v.toFixed(2)}%`,
+                      breakeven10y: (v) => `${v.toFixed(2)}%`,
+                      realYield10y: (v) => `${v.toFixed(2)}%`,
+                    }}
+                  />
+                }
+              />
+              {/* 파란선: 명목 10Y 수익률 */}
+              <Line
+                {...lineProps("ust10y", "#3b82f6", "left")}
+                name="명목 10Y"
+                hide={hidden.has("ust10y")}
+              />
+              {/* 빨간선: 손익분기 인플레이션율 */}
+              <Line
+                {...lineProps("breakeven10y", "#ef4444", "left")}
+                name="손익분기 인플레이션"
+                hide={hidden.has("breakeven10y")}
+              />
+              {/* 초록선: 실질 수익률 (명목 - BEI, 클라이언트에서 계산 주입) */}
+              <Line
+                {...lineProps("realYield10y", "#22c55e", "left")}
+                name="실질 10Y"
+                hide={hidden.has("realYield10y")}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );

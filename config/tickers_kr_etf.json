@@ -30,7 +30,8 @@
 
   { "symbol": "305720", "name": "KODEX 2차전지산업",                  "exchange": "KS", "category": "theme",  "sector_group": "2차전지",      "sector_layer": "layer2", "sector_rep": true  },
 
-  { "symbol": "449450", "name": "PLUS K방산",                         "exchange": "KS", "category": "theme",  "sector_group": "방위산업/우주항공", "sector_layer": "layer2", "sector_rep": true  },
+  { "symbol": "449450", "name": "PLUS K방산",                         "exchange": "KS", "category": "theme",  "sector_group": "방위산업",         "sector_layer": "layer2", "sector_rep": true  },
+  { "symbol": "421320", "name": "PLUS 우주항공&UAM",                  "exchange": "KS", "category": "theme",  "sector_group": "우주항공/UAM",      "sector_layer": "layer2", "sector_rep": true  },
 
   { "symbol": "466920", "name": "SOL 조선TOP3플러스",                 "exchange": "KS", "category": "sector", "sector_group": "조선",         "sector_layer": "layer2", "sector_rep": true  },
 

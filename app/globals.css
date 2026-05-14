@@ -157,3 +157,19 @@
     transform: none;
   }
 }
+/* 섹터 보고서 PDF 인쇄 스타일
+   window.print() 호출 시 보고서 영역(#sector-report-content)만 출력 */
+@media print {
+  body > * {
+    display: none !important;
+  }
+  #sector-report-content {
+    display: block !important;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+}

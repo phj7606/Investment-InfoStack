@@ -39,6 +39,34 @@
         "TEMPLATES_USE": "en",
         "ENABLE_GUI": "true"
       }
+    },
+    "korea-stock-mcp": {
+      "command": "npx",
+      "args": ["-y", "korea-stock-mcp@latest"],
+      "env": {
+        "DART_API_KEY": "ef7ccdcaed36eadb1b5357405f1ac78b0bcffd5a",
+        "KRX_API_KEY": "365ADE7440DA44D0B6D2AD50B9DC7121F6EDEE01"
+      }
+    },
+    "yfinance": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/Alex2Yang97/yahoo-finance-mcp",
+        "yahoo-finance-mcp"
+      ]
+    },
+    "financial-datasets": {
+      "command": "/Users/mac/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/mac/mcp-server",
+        "run",
+        "server.py"
+      ],
+      "env": {
+        "FINANCIAL_DATASETS_API_KEY": ""
+      }
     }
   }
 }

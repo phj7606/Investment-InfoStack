@@ -14,7 +14,6 @@ import {
   Settings,
   Map,
   ScanSearch,
-  TrendingUp,
   Radar,
   Star,
   Calendar,
@@ -23,6 +22,7 @@ import {
   ClipboardList,
   FileBarChart,
   Bot,
+  Globe,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,8 +39,16 @@ import { UserMenu } from "@/components/common/user-menu";
 import { SITE_CONFIG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
-// ACTION 1 · 종목 탐색 — 5단계 퍼널 (Step 1~5)
-// 순서가 있는 워크플로우이므로 step 번호를 별도로 관리
+// ACTION 1 · 종목 탐색 선행 독립 메뉴 — 시장 환경 (스텝 번호 없음)
+// 섹터 조감 전에 거시 환경을 파악하는 단계
+const MARKET_ENV_ITEM = {
+  title: "시장 환경",
+  href: "/dashboard/market",
+  icon: Globe,
+};
+
+// ACTION 1 · 종목 탐색 — 4단계 퍼널 (Step 1~4)
+// Phase 8: 종목 압축(2) + 실적 채점(3) → 종목 분석(2)으로 통합, step 번호 재정렬
 const ACTION1_ITEMS = [
   {
     step: 1,
@@ -50,24 +58,18 @@ const ACTION1_ITEMS = [
   },
   {
     step: 2,
-    title: "종목 압축",
+    title: "종목 분석",
     href: "/dashboard/screen",
     icon: ScanSearch,
   },
   {
     step: 3,
-    title: "실적 채점",
-    href: "/dashboard/earnings-analysis",
-    icon: TrendingUp,
-  },
-  {
-    step: 4,
     title: "체크포인트",
     href: "/dashboard/earnings-preview",
     icon: Radar,
   },
   {
-    step: 5,
+    step: 4,
     title: "매수 결정",
     href: "/dashboard/initiating-coverage",
     icon: Star,
@@ -174,6 +176,38 @@ export function DashboardSidebar() {
             <span className="text-[10px] font-semibold text-muted-foreground tracking-wide">종목 탐색</span>
           </SidebarGroupLabel>
           <SidebarMenu>
+            {/* ── 시장 환경 — 스텝 번호 없는 독립 선행 메뉴 ── */}
+            {(() => {
+              const active = isActive(MARKET_ENV_ITEM.href);
+              const Icon = MARKET_ENV_ITEM.icon;
+              return (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={active}>
+                    <Link
+                      href={MARKET_ENV_ITEM.href}
+                      className={cn(
+                        // 활성 메뉴: 인디고 왼쪽 보더 강조
+                        active && "border-l-2 border-indigo-500 !text-indigo-600 dark:!text-indigo-400 !bg-indigo-500/8"
+                      )}
+                    >
+                      <span className="flex items-center gap-1.5 flex-1">
+                        {/* 스텝 번호 대신 Globe 아이콘 배지 */}
+                        <span className={cn(
+                          "inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0 transition-colors",
+                          active
+                            ? "bg-indigo-500 text-white"
+                            : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                        )}>
+                          <Globe className="w-2.5 h-2.5" />
+                        </span>
+                        {MARKET_ENV_ITEM.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })()}
+            {/* ── 4단계 퍼널 스텝 메뉴 ── */}
             {ACTION1_ITEMS.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href);
@@ -188,19 +222,7 @@ export function DashboardSidebar() {
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      {/* Step 번호 + 메뉴 제목 */}
-                      <span className="flex items-center gap-1.5 flex-1">
-                        {/* 인디고 테마 원형 스텝 뱃지 */}
-                        <span className={cn(
-                          "inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-black shrink-0 transition-colors",
-                          active
-                            ? "bg-indigo-500 text-white"
-                            : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-                        )}>
-                          {item.step}
-                        </span>
-                        {item.title}
-                      </span>
+                      <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
