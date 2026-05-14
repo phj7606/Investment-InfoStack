@@ -1,2 +1,3 @@
 - [기술스택 전환 이력](project_stack_migration.md) — Python+Streamlit → Next.js+TypeScript 전환 결정 (2026.03.27, PRD/ROADMAP v1.1)
 - [프로젝트 개요](project_overview.md) — 투자 분석 플랫폼 핵심 목적, 모듈(M1~M4), 커버리지, 분석 프레임워크 요약
+- [Step 3 체크포인트 구조 재설계](project_step3_checkpoint_redesign.md) — Claude 스트리밍 폐기 → 재무제표 수집+4대 질문 탭 구조 전환 (2026.05.13, PRD v4.2/ROADMAP v4.3)
