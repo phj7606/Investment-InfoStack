@@ -2,10 +2,13 @@
 
 // 분석 리포트 렌더링 컴포넌트 (P5-03, P5-06)
 // - streaming 중: 전체 텍스트 실시간 렌더링 (스크롤 추적)
-// - complete: 섹션별 Tabs로 전환 + 저장 버튼
+// - complete: 섹션별 Tabs로 전환 + 저장/다운로드/PDF 버튼
+//
+// PDF 출력: 새 창에 렌더링된 HTML을 복사 후 window.print() 호출
+// → 브라우저 기본 인쇄 다이얼로그 → "PDF로 저장" 선택
 
-import { useEffect, useRef, useMemo } from "react";
-import { Download, Save, Loader2 } from "lucide-react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
+import { Download, Save, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -23,7 +26,6 @@ interface AnalysisReportProps {
 }
 
 // 보고서 Markdown을 ## 헤딩 기준으로 섹션 분할
-// 각 섹션의 시작 헤딩 이후 다음 헤딩 전까지의 내용을 추출
 function parseSections(markdown: string): Record<string, string> {
   const headingValues = Object.values(SECTION_HEADINGS);
   const sections: Record<string, string> = {};
@@ -38,7 +40,7 @@ function parseSections(markdown: string): Record<string, string> {
     sections[heading] = markdown.slice(start, end !== -1 ? end : markdown.length).trim();
   }
 
-  // 섹션 구분 전 앞부분 (제목, 기본 정보 등)
+  // 첫 섹션 이전 헤더 블록 (기업명, 분석일 등)
   const firstSectionStart = Math.min(
     ...headingValues.map((h) => markdown.indexOf(h)).filter((i) => i !== -1)
   );
@@ -59,6 +61,36 @@ const TAB_LABELS = [
   { key: SECTION_HEADINGS.conclusion, short: "종합 의견", full: "종합 의견" },
 ] as const;
 
+// ── 인쇄용 CSS ────────────────────────────────────────────────────────
+// 새 창에서만 사용 — Tailwind 없이 시맨틱 HTML 태그를 직접 스타일링
+const PRINT_STYLES = `
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+    max-width: 900px; margin: 0 auto; padding: 32px;
+    color: #1a1a1a; line-height: 1.65; font-size: 14px;
+  }
+  h1 { font-size: 22px; font-weight: 700; border-bottom: 2px solid #222; padding-bottom: 8px; margin: 0 0 16px; }
+  h2 { font-size: 17px; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin: 24px 0 12px; color: #1a1a2e; }
+  h3 { font-size: 15px; font-weight: 600; margin: 18px 0 8px; }
+  h4 { font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
+  p { margin: 0 0 10px; }
+  ul, ol { padding-left: 24px; margin: 0 0 10px; }
+  li { margin: 2px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; page-break-inside: avoid; }
+  th { background: #f0f0f0; font-weight: 600; padding: 7px 10px; border: 1px solid #ccc; text-align: left; font-size: 13px; }
+  td { padding: 7px 10px; border: 1px solid #ccc; font-size: 13px; }
+  pre { background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; margin: 10px 0; page-break-inside: avoid; }
+  code { font-family: 'Courier New', Consolas, monospace; font-size: 12px; background: #f0f0f0; padding: 1px 4px; border-radius: 2px; }
+  pre code { background: none; padding: 0; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 16px 0; }
+  blockquote { border-left: 3px solid #aaa; padding: 4px 0 4px 12px; margin: 10px 0; color: #555; font-style: italic; }
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+  @page { margin: 15mm 12mm; size: A4; }
+  @media print { body { padding: 0; } }
+`;
+
 export function AnalysisReport({
   status,
   streamingText,
@@ -67,6 +99,8 @@ export function AnalysisReport({
   onSaveToHistory,
 }: AnalysisReportProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 인쇄 전용 렌더링 영역 — 화면에 숨기되 DOM 유지, innerHTML 추출용
+  const printContentRef = useRef<HTMLDivElement>(null);
 
   // 스트리밍 중 자동 하단 스크롤
   useEffect(() => {
@@ -80,6 +114,38 @@ export function AnalysisReport({
     () => (result ? parseSections(result.reportMarkdown) : {}),
     [result]
   );
+
+  // PDF 저장 — 렌더링된 HTML을 새 창으로 열어 브라우저 인쇄 다이얼로그 호출
+  // 브라우저 기본 "PDF로 저장" 기능 활용 (추가 라이브러리 없음)
+  const handlePrint = useCallback(() => {
+    if (!printContentRef.current || !result) return;
+
+    const content = printContentRef.current.innerHTML;
+    const title = `${result.companyName} (${result.ticker}) 분석 보고서`;
+
+    const w = window.open("", "_blank", "width=960,height=760");
+    if (!w) {
+      alert("팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.");
+      return;
+    }
+
+    w.document.write(`<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <style>${PRINT_STYLES}</style>
+</head>
+<body>
+${content}
+</body>
+</html>`);
+
+    w.document.close();
+    w.focus();
+    // 렌더링 완료 후 인쇄 다이얼로그 열기
+    setTimeout(() => w.print(), 400);
+  }, [result]);
 
   if (status === "idle") return null;
 
@@ -106,9 +172,9 @@ export function AnalysisReport({
             )}
           </div>
 
-          {/* 완료 후 저장 버튼 표시 */}
+          {/* 완료 후 액션 버튼 — 이력 저장 / MD 다운로드 / PDF 저장 */}
           {status === "complete" && result && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -125,13 +191,22 @@ export function AnalysisReport({
                 className="gap-1.5 h-8 text-xs"
               >
                 <Download className="h-3.5 w-3.5" />
-                MD 다운로드
+                MD 저장
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="gap-1.5 h-8 text-xs"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                PDF 저장
               </Button>
             </div>
           )}
         </div>
 
-        {/* 완료 후 메타 정보 표시 */}
+        {/* 완료 후 메타 정보 */}
         {status === "complete" && result && (
           <p className="text-xs text-muted-foreground">
             {result.exchange} · 분석일:{" "}
@@ -143,60 +218,64 @@ export function AnalysisReport({
       <CardContent>
         {/* 스트리밍 중: 전체 텍스트 실시간 렌더링 */}
         {status === "streaming" && (
-          <div
-            ref={scrollRef}
-            className="max-h-[600px] overflow-y-auto pr-1"
-          >
+          <div ref={scrollRef} className="max-h-[600px] overflow-y-auto pr-1">
             <MarkdownRenderer content={streamingText} />
-            {/* 스트리밍 커서 표시 */}
+            {/* 스트리밍 커서 */}
             <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-0.5 align-middle" />
           </div>
         )}
 
         {/* 완료: 섹션별 Tabs */}
         {status === "complete" && result && (
-          <Tabs defaultValue="executive">
-            <TabsList className="flex-wrap h-auto gap-1 mb-4">
+          <>
+            <Tabs defaultValue="executive">
+              <TabsList className="flex-wrap h-auto gap-1 mb-4">
+                {TAB_LABELS.map((tab) => (
+                  <TabsTrigger
+                    key={tab.key}
+                    value={tab.short.toLowerCase().replace(/\s+/g, "-").replace(/·/g, "")}
+                    className="text-xs"
+                  >
+                    {tab.short}
+                  </TabsTrigger>
+                ))}
+                <TabsTrigger value="full" className="text-xs">
+                  전체
+                </TabsTrigger>
+              </TabsList>
+
               {TAB_LABELS.map((tab) => (
-                <TabsTrigger
+                <TabsContent
                   key={tab.key}
                   value={tab.short.toLowerCase().replace(/\s+/g, "-").replace(/·/g, "")}
-                  className="text-xs"
+                  className="mt-0"
                 >
-                  {tab.short}
-                </TabsTrigger>
+                  <div className="max-h-[600px] overflow-y-auto pr-1">
+                    {sections[tab.key] ? (
+                      <MarkdownRenderer content={sections[tab.key]} />
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        해당 섹션 정보가 없습니다.
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
               ))}
-              {/* 전체 보기 탭 */}
-              <TabsTrigger value="full" className="text-xs">
-                전체
-              </TabsTrigger>
-            </TabsList>
 
-            {TAB_LABELS.map((tab) => (
-              <TabsContent
-                key={tab.key}
-                value={tab.short.toLowerCase().replace(/\s+/g, "-").replace(/·/g, "")}
-                className="mt-0"
-              >
+              {/* 전체 보기 */}
+              <TabsContent value="full" className="mt-0">
                 <div className="max-h-[600px] overflow-y-auto pr-1">
-                  {sections[tab.key] ? (
-                    <MarkdownRenderer content={sections[tab.key]} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground py-4 text-center">
-                      해당 섹션 정보가 없습니다.
-                    </p>
-                  )}
+                  <MarkdownRenderer content={result.reportMarkdown} />
                 </div>
               </TabsContent>
-            ))}
+            </Tabs>
 
-            {/* 전체 보기 */}
-            <TabsContent value="full" className="mt-0">
-              <div className="max-h-[600px] overflow-y-auto pr-1">
-                <MarkdownRenderer content={result.reportMarkdown} />
-              </div>
-            </TabsContent>
-          </Tabs>
+            {/* 인쇄 전용 숨김 렌더링 영역 — PDF 출력 시 innerHTML 추출 */}
+            {/* display:none이어도 React가 DOM에 렌더링하므로 innerHTML 접근 가능 */}
+            <div ref={printContentRef} style={{ display: "none" }} aria-hidden>
+              <MarkdownRenderer content={result.reportMarkdown} />
+            </div>
+          </>
         )}
 
         {/* 에러 상태 */}

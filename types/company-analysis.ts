@@ -5,7 +5,8 @@
 export interface CompanyAnalysisInput {
   ticker: string;
   exchange: "KRX" | "NYSE" | "NASDAQ" | "TSE" | "HKEX" | "OTHER";
-  companyName?: string; // 미입력 시 Claude가 ticker로 추정
+  companyName?: string;     // 미입력 시 Claude가 ticker로 추정
+  previousReport?: string;  // 이전 분석 보고서 Markdown (비교 분석용)
 }
 
 /** 생성 완료된 분석 결과 */

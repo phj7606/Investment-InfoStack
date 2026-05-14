@@ -4,7 +4,7 @@
 // localStorage 기반 최대 20건 저장 + Sheet UI로 목록 표시
 
 import { useState, useEffect, useCallback } from "react";
-import { History, Trash2, ChevronRight } from "lucide-react";
+import { History, Trash2, ChevronRight, BookMarked } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -112,6 +112,8 @@ interface AnalysisHistoryProps {
   onSelect: (item: AnalysisHistoryItem) => void;
   onDelete: (id: string) => void;
   onClear: () => void;
+  // 이전 분석을 새 분석의 참고 컨텍스트로 사용할 때 호출
+  onUseAsReference?: (item: AnalysisHistoryItem) => void;
 }
 
 export function AnalysisHistory({
@@ -119,6 +121,7 @@ export function AnalysisHistory({
   onSelect,
   onDelete,
   onClear,
+  onUseAsReference,
 }: AnalysisHistoryProps) {
   return (
     <Sheet>
@@ -192,6 +195,21 @@ export function AnalysisHistory({
                     </div>
 
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* 이전 분석으로 참고 버튼 — hover 시 표시 */}
+                      {onUseAsReference && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="새 분석의 참고 보고서로 사용"
+                          className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:text-indigo-600"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onUseAsReference(item);
+                          }}
+                        >
+                          <BookMarked className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {/* 삭제 버튼 — hover 시 표시 */}
                       <Button
                         variant="ghost"

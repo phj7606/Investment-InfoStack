@@ -175,10 +175,11 @@ ${SECTION_HEADINGS.conclusion}
 
 /**
  * 사용자 분석 요청 prompt 빌더
- * ticker, exchange, companyName을 자연스러운 분석 요청으로 변환
+ * ticker, exchange, companyName, previousReport를 분석 요청으로 변환
+ * previousReport가 있으면 이전 보고서를 컨텍스트로 주입해 비교 분석 지시
  */
 export function buildAnalysisPrompt(input: CompanyAnalysisInput): string {
-  const { ticker, exchange, companyName } = input;
+  const { ticker, exchange, companyName, previousReport } = input;
 
   // 거래소별 검색 언어 힌트
   const searchHint =
@@ -190,7 +191,12 @@ export function buildAnalysisPrompt(input: CompanyAnalysisInput): string {
     ? `${companyName} (${ticker}, ${exchange})`
     : `${ticker} (${exchange} 상장)`;
 
-  return `${target} 기업에 대한 심층 투자 분석 보고서를 작성해주세요.
+  // 이전 보고서가 있으면 비교 분석 컨텍스트 블록 생성
+  const previousReportBlock = previousReport?.trim()
+    ? `\n\n## 이전 분석 보고서 (비교 참고용)\n\n${previousReport.trim()}\n\n---\n**비교 분석 지시:** 이전 보고서와 비교하여 달라진 지표·트렌드·투자 의견을 보고서 말미에 "## 이전 분석 대비 주요 변화" 섹션으로 반드시 추가하라. 이전 분석의 Bull Case / Bear Case 중 실현되거나 해소된 것이 있다면 명시하라.\n\n`
+    : "";
+
+  return `${target} 기업에 대한 심층 투자 분석 보고서를 작성해주세요.${previousReportBlock}
 
 웹 검색으로 다음 정보를 수집하세요. ${searchHint}
 

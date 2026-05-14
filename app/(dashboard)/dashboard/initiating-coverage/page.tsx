@@ -48,7 +48,7 @@ export default function InitiatingCoveragePage() {
   return (
     <div>
       {/* ACTION 1 Step 진행 표시 바 */}
-      <Action1StepNav currentStep={5} />
+      <Action1StepNav currentStep={4} />
 
       <div className="p-6 max-w-5xl mx-auto">
         <PageHeader
