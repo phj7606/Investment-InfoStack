@@ -23,13 +23,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { CompanyAnalysisInput } from "@/types/company-analysis";
 
 const formSchema = z.object({
+  // 기업명을 기본 입력으로 사용 — 사용자가 직관적으로 기업명을 먼저 입력
+  companyName: z
+    .string()
+    .min(1, "기업명을 입력하세요.")
+    .max(100, "기업명은 100자 이하여야 합니다."),
+  exchange: z.enum(["KRX", "NYSE", "NASDAQ", "TSE", "HKEX", "OTHER"]),
   ticker: z
     .string()
-    .min(1, "Ticker를 입력하세요.")
+    .min(1, "종목코드(Ticker)를 입력하세요.")
     .max(20, "Ticker는 20자 이하여야 합니다.")
     .transform((v) => v.trim().toUpperCase()),
-  exchange: z.enum(["KRX", "NYSE", "NASDAQ", "TSE", "HKEX", "OTHER"]),
-  companyName: z.string().max(100).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -58,7 +62,7 @@ const EXCHANGE_OPTIONS = [
 ] as const;
 
 export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previousReportLabel }: AnalysisInputFormProps) {
-  const initialExchange = (defaultValues?.exchange ?? "NASDAQ") as FormValues["exchange"];
+  const initialExchange = (defaultValues?.exchange ?? "KRX") as FormValues["exchange"];
 
   const {
     register,
@@ -70,9 +74,10 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      // 기업명을 첫 번째 필드로 설정 — 기본값은 빈 문자열
+      companyName: defaultValues?.companyName ?? "",
       exchange: initialExchange,
       ticker: defaultValues?.ticker ?? "",
-      companyName: defaultValues?.companyName ?? "",
     },
   });
 
@@ -81,9 +86,9 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
   useEffect(() => {
     if (!defaultValues?.ticker) return;
     reset({
-      ticker: defaultValues.ticker ?? "",
-      exchange: (defaultValues.exchange ?? "NASDAQ") as FormValues["exchange"],
       companyName: defaultValues.companyName ?? "",
+      exchange: (defaultValues.exchange ?? "KRX") as FormValues["exchange"],
+      ticker: defaultValues.ticker ?? "",
     });
   }, [defaultValues?.ticker, defaultValues?.exchange, defaultValues?.companyName, reset]);
 
@@ -107,20 +112,20 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
           onSubmit={handleSubmit((values) => onSubmit(values as CompanyAnalysisInput))}
           className="flex flex-wrap gap-3 items-end"
         >
-          {/* Ticker 입력 */}
-          <div className="space-y-1.5 min-w-28">
-            <Label htmlFor="ticker" className="text-xs font-medium">
-              Ticker <span className="text-destructive">*</span>
+          {/* 기업명 — 기본 검색 입력 (필수) */}
+          <div className="space-y-1.5 min-w-40">
+            <Label htmlFor="companyName" className="text-xs font-medium">
+              기업명 <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="ticker"
-              placeholder="예: AAPL, 005930"
-              className="h-9 uppercase"
-              {...register("ticker")}
+              id="companyName"
+              placeholder="예: 삼성전자, Apple Inc."
+              className="h-9"
+              {...register("companyName")}
               disabled={isLoading}
             />
-            {errors.ticker && (
-              <p className="text-xs text-destructive">{errors.ticker.message}</p>
+            {errors.companyName && (
+              <p className="text-xs text-destructive">{errors.companyName.message}</p>
             )}
           </div>
 
@@ -152,18 +157,21 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
             )}
           </div>
 
-          {/* 기업명 (선택) */}
-          <div className="space-y-1.5 min-w-40">
-            <Label htmlFor="companyName" className="text-xs font-medium">
-              기업명 <span className="text-muted-foreground text-xs">(선택)</span>
+          {/* 종목코드(Ticker) — 기업명 입력 후 보조 입력 */}
+          <div className="space-y-1.5 min-w-28">
+            <Label htmlFor="ticker" className="text-xs font-medium">
+              종목코드 <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="companyName"
-              placeholder="예: Apple Inc."
-              className="h-9"
-              {...register("companyName")}
+              id="ticker"
+              placeholder="예: 005930, AAPL"
+              className="h-9 uppercase"
+              {...register("ticker")}
               disabled={isLoading}
             />
+            {errors.ticker && (
+              <p className="text-xs text-destructive">{errors.ticker.message}</p>
+            )}
           </div>
 
           {/* 분석 시작 버튼 */}
