@@ -44,6 +44,8 @@ const COLORS = {
   ust10y: "#ef4444",      // red-500 (이미지 참조)
   fedFundsRate: "#16a34a",// green-700 dashed (이미지 참조)
   moveIndex: "#a21caf",   // fuchsia-700 (이미지 참조)
+  iorb: "#0d9488",        // teal-600 — IORB는 SOFR/Fed Funds Rate 사이 위치하는 실효 정책금리
+  yieldSpread: "#8b5cf6", // violet-500 — 10Y-2Y 스프레드 (장단기 금리차)
 } as const;
 
 // ─── 공통 차트 설정 ─────────────────────────────────────────────────────────
@@ -429,7 +431,9 @@ export function HySpreadChart({ data }: { data: UsAnalysisBar[] }) {
   );
 }
 
-// ─── Chart 6: SOFR + 10Y Yield + FED Funds Rate ──────────────────────────────
+// ─── Chart 6: SOFR + 10Y Yield + FED Funds Rate + IORB ───────────────────────
+// IORB(Interest on Reserve Balances): Fed이 은행 지준금에 지급하는 금리
+// SOFR ≈ IORB ≈ Fed Funds Rate (단기 정책금리 밴드 내 위치) — 3개 비교로 정책 실효성 판단
 export function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
@@ -442,10 +446,11 @@ export function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-semibold">SOFR &amp; US 10-Year Bond Yield</CardTitle>
+        <CardTitle className="text-sm font-semibold">SOFR &amp; US 10-Year Bond Rate Yield</CardTitle>
         <ToggleLegend
           items={[
             { key: "sofr", label: "SOFR", color: COLORS.sofr },
+            { key: "iorb", label: "IORB", color: COLORS.iorb },
             { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
             { key: "fedFundsRate", label: "FED Funds Rate", color: COLORS.fedFundsRate },
           ]}
@@ -458,16 +463,17 @@ export function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
           <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid {...cartesianGridProps} />
             <XAxis {...commonXAxisProps} />
-            {/* 좌측: SOFR + FED Funds Rate (동일 % 스케일) */}
+            {/* 좌측: SOFR + IORB + FED Funds Rate (동일 % 스케일) */}
             <YAxis {...leftYAxisProps(COLORS.sofr)} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
             {/* 우측: 10Y Yield */}
             <YAxis {...rightYAxisProps(COLORS.ust10y)} tickFormatter={(v: number) => `${v.toFixed(2)}`} />
             <Tooltip
               content={
                 <ChartTooltip
-                  labelMap={{ sofr: "SOFR", ust10y: "10Y Yield", fedFundsRate: "FED Funds Rate" }}
+                  labelMap={{ sofr: "SOFR", iorb: "IORB", ust10y: "10Y Yield", fedFundsRate: "FED Funds Rate" }}
                   formatters={{
                     sofr: (v) => `${v.toFixed(2)}%`,
+                    iorb: (v) => `${v.toFixed(2)}%`,
                     ust10y: (v) => `${v.toFixed(2)}%`,
                     fedFundsRate: (v) => `${v.toFixed(2)}%`,
                   }}
@@ -475,6 +481,8 @@ export function SofrYieldChart({ data }: { data: UsAnalysisBar[] }) {
               }
             />
             <Line {...lineProps("sofr", COLORS.sofr, "left")} name="SOFR" hide={hidden.has("sofr")} />
+            {/* IORB: 준비금 이자율 — SOFR와 거의 같이 움직이지만 소폭 높음 */}
+            <Line {...lineProps("iorb", COLORS.iorb, "left")} name="IORB" hide={hidden.has("iorb")} />
             <Line {...lineProps("ust10y", COLORS.ust10y, "right")} name="10Y Yield" hide={hidden.has("ust10y")} />
             {/* FED Funds Rate: 계단형(stepAfter) 실선 */}
             <Line
@@ -534,11 +542,11 @@ export function YieldMoveChart({ data }: { data: UsAnalysisBar[] }) {
                 />
               }
             />
-            {/* 4.3 Key line / 4.5 Kill line — 주식 시장에 영향을 주는 10Y 금리 임계값 */}
-            <ReferenceLine yAxisId="left" y={4.3} stroke="#6b7280" strokeWidth={1}
-              label={{ value: "Key line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
-            <ReferenceLine yAxisId="left" y={4.5} stroke="#6b7280" strokeWidth={1}
-              label={{ value: "Kill line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
+            {/* 4.3 / 4.5 — 주식 시장에 영향을 주는 10Y 금리 임계값 */}
+            <ReferenceLine yAxisId="left" y={4.3} stroke="#64748b" strokeWidth={0.5} strokeDasharray="2 2"
+              label={{ value: "4.3", position: "insideTopRight", fontSize: 10, fill: "#64748b" }} />
+            <ReferenceLine yAxisId="left" y={4.5} stroke="#64748b" strokeWidth={0.5} strokeDasharray="2 2"
+              label={{ value: "4.5", position: "insideTopRight", fontSize: 10, fill: "#64748b" }} />
             <Line {...lineProps("ust10y", COLORS.ust10y, "left")} name="10Y Yield" hide={hidden.has("ust10y")} />
             <Line {...lineProps("moveIndex", COLORS.moveIndex, "right")} name="MOVE Index" hide={hidden.has("moveIndex")} />
           </ComposedChart>
@@ -601,6 +609,7 @@ export function FedFundsOnlyChart({ data }: { data: UsAnalysisBar[] }) {
 
 // ─── Chart 9: US 2Y & 10Y Bond Yield ────────────────────────────────────────
 // 단기(2년)와 장기(10년) 국채 수익률 비교 — 역전 여부로 침체 신호 판단
+// yieldSpread(10Y-2Y): 양수=정상 장단기 구조, 음수=역전(역사적 침체 선행 지표)
 export function Ust2y10yChart({ data }: { data: UsAnalysisBar[] }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
@@ -616,8 +625,9 @@ export function Ust2y10yChart({ data }: { data: UsAnalysisBar[] }) {
         <CardTitle className="text-sm font-semibold">US 2-Year &amp; 10-Year Bond Yield</CardTitle>
         <ToggleLegend
           items={[
-            { key: "ust2y", label: "US 2-Year Yield", color: "#f59e0b" },   // amber-500
+            { key: "ust2y", label: "US 2-Year Yield", color: "#f59e0b" },         // amber-500
             { key: "ust10y", label: "US 10-Year Yield", color: COLORS.ust10y },
+            { key: "yieldSpread", label: "10Y-2Y Spread", color: COLORS.yieldSpread },
           ]}
           hidden={hidden}
           onToggle={toggle}
@@ -628,21 +638,22 @@ export function Ust2y10yChart({ data }: { data: UsAnalysisBar[] }) {
           <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid {...cartesianGridProps} />
             <XAxis {...commonXAxisProps} />
-            {/* 두 수익률 모두 % 단위이므로 동일 스케일(좌측 Y축)로 표시 */}
+            {/* 좌측: 2Y + 10Y Yield — 동일 % 스케일, 기준선(4.0/4.3/4.5)도 이 축 기준 */}
             <YAxis
               yAxisId="left"
               orientation="left"
-              tick={{ fontSize: 11, fill: "#f59e0b" }}
+              tick={{ fontSize: 11, fill: COLORS.ust10y }}
               axisLine={false}
               tickLine={false}
               width={55}
               domain={["auto", "auto"]}
               tickFormatter={(v: number) => `${v.toFixed(2)}`}
             />
+            {/* 우측: 10Y-2Y 스프레드 전용 축 — 0~2% 범위로 변화폭이 잘 보이게 */}
             <YAxis
               yAxisId="right"
               orientation="right"
-              tick={{ fontSize: 11, fill: COLORS.ust10y }}
+              tick={{ fontSize: 11, fill: COLORS.yieldSpread }}
               axisLine={false}
               tickLine={false}
               width={55}
@@ -652,21 +663,31 @@ export function Ust2y10yChart({ data }: { data: UsAnalysisBar[] }) {
             <Tooltip
               content={
                 <ChartTooltip
-                  labelMap={{ ust2y: "2Y Yield", ust10y: "10Y Yield" }}
+                  labelMap={{ ust2y: "2Y Yield", ust10y: "10Y Yield", yieldSpread: "10Y-2Y Spread" }}
                   formatters={{
                     ust2y: (v) => `${v.toFixed(2)}%`,
                     ust10y: (v) => `${v.toFixed(2)}%`,
+                    yieldSpread: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`,
                   }}
                 />
               }
             />
-            {/* 4.3 Key line / 4.5 Kill line — 10Y 수익률 기준 임계값 (right Y축) */}
-            <ReferenceLine yAxisId="right" y={4.3} stroke="#6b7280" strokeWidth={1}
-              label={{ value: "Key line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
-            <ReferenceLine yAxisId="right" y={4.5} stroke="#6b7280" strokeWidth={1}
-              label={{ value: "Kill line", position: "insideTopRight", fontSize: 10, fill: "#6b7280" }} />
+            {/* 4.0 / 4.3 / 4.5 기준선 — 좌측(10Y) 축 기준 */}
+            <ReferenceLine yAxisId="left" y={4.0} stroke="#64748b" strokeWidth={0.5} strokeDasharray="2 2"
+              label={{ value: "4.0", position: "insideTopRight", fontSize: 10, fill: "#64748b" }} />
+            <ReferenceLine yAxisId="left" y={4.3} stroke="#64748b" strokeWidth={0.5} strokeDasharray="2 2"
+              label={{ value: "4.3", position: "insideTopRight", fontSize: 10, fill: "#64748b" }} />
+            <ReferenceLine yAxisId="left" y={4.5} stroke="#64748b" strokeWidth={0.5} strokeDasharray="2 2"
+              label={{ value: "4.5", position: "insideTopRight", fontSize: 10, fill: "#64748b" }} />
             <Line {...lineProps("ust2y", "#f59e0b", "left")} name="2Y Yield" hide={hidden.has("ust2y")} />
-            <Line {...lineProps("ust10y", COLORS.ust10y, "right")} name="10Y Yield" hide={hidden.has("ust10y")} />
+            <Line {...lineProps("ust10y", COLORS.ust10y, "left")} name="10Y Yield" hide={hidden.has("ust10y")} />
+            {/* 스프레드: 우측 전용 축 — 변화폭이 제대로 표시됨 */}
+            <Line
+              {...lineProps("yieldSpread", COLORS.yieldSpread, "right")}
+              strokeWidth={1.5}
+              name="10Y-2Y Spread"
+              hide={hidden.has("yieldSpread")}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </CardContent>
@@ -722,7 +743,7 @@ export function RealYieldChart({ data }: { data: UsAnalysisBar[] }) {
             <ComposedChart data={data} syncId={SYNC_ID} margin={{ top: 4, right: 63, left: 8, bottom: 4 }}>
               <CartesianGrid {...cartesianGridProps} />
               <XAxis {...commonXAxisProps} />
-              {/* 단일 Y축 — 세 시리즈 모두 % 단위로 동일 스케일 사용 */}
+              {/* 단일 Y축 — 세 시리즈 모두 % 단위, 도메인 고정으로 1% 기준선 전부 표시 */}
               <YAxis
                 yAxisId="left"
                 orientation="left"
@@ -730,17 +751,31 @@ export function RealYieldChart({ data }: { data: UsAnalysisBar[] }) {
                 axisLine={false}
                 tickLine={false}
                 width={55}
-                domain={["auto", "auto"]}
-                tickFormatter={(v: number) => `${v.toFixed(1)}`}
+                domain={[-1.5, 5.5]}
+                ticks={[-1, 0, 1, 2, 3, 4, 5]}
+                tickFormatter={(v: number) => `${v.toFixed(0)}`}
               />
               {/* 0% 기준선 — 실질 수익률 플러스/마이너스 구분 (FRED 차트 검은 선 재현)
                   CSS 변수 대신 고정 색상 사용 — SVG 내 CSS 변수 해석 불안정 방지 */}
               <ReferenceLine
                 yAxisId="left"
                 y={0}
-                stroke="#1e293b"
-                strokeWidth={1}
+                stroke="#64748b"
+                strokeWidth={0.5}
+                strokeDasharray="2 2"
               />
+              {/* 1% 단위 기준선 — -1 ~ 5% 범위 */}
+              {[-1, 1, 2, 3, 4, 5].map((v) => (
+                <ReferenceLine
+                  key={v}
+                  yAxisId="left"
+                  y={v}
+                  stroke="#64748b"
+                  strokeWidth={0.5}
+                  strokeDasharray="2 2"
+                  label={{ value: `${v}%`, position: "insideTopRight", fontSize: 9, fill: "#64748b" }}
+                />
+              ))}
               <Tooltip
                 content={
                   <ChartTooltip

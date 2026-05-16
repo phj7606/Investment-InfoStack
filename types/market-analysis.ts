@@ -27,6 +27,8 @@ export interface UsAnalysisBar {
   ust10y?: number;
   /** FED Funds Target Rate Upper Bound (%) — FRED DFEDTARU, 계단형 */
   fedFundsRate?: number;
+  /** Interest on Reserve Balances (%) — FRED IORB, 초단기 정책금리 실효값 */
+  iorb?: number;
   /** ICE BofA MOVE Index (채권 변동성) — Yahoo ^MOVE */
   moveIndex?: number;
   /** US 2-Year Treasury Yield (%) — FRED DGS2 */
@@ -38,6 +40,11 @@ export interface UsAnalysisBar {
    * realYield10y = ust10y - breakeven10y (Fisher 방정식 근사)
    */
   realYield10y?: number;
+  /**
+   * 10Y-2Y 수익률 스프레드 (%) — 클라이언트에서 계산 후 주입
+   * yieldSpread = ust10y - ust2y (장단기 금리차, 양수=정상, 음수=역전)
+   */
+  yieldSpread?: number;
 }
 
 /** /api/market/us-analysis 응답 구조 */

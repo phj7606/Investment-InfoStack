@@ -160,9 +160,10 @@ export function MarketEnvironmentClient() {
     setDateRange({ startDate: start, endDate: end, period });
   }
 
-  // VVIX/VIX 비율 + 10Y 실질 수익률 클라이언트 계산 후 주입
+  // VVIX/VIX 비율 + 10Y 실질 수익률 + 10Y-2Y 스프레드 클라이언트 계산 후 주입
   // realYield10y = 명목 수익률(DGS10) - 손익분기 인플레이션(T10YIE)
   // Fisher 방정식 근사: 양수=실질 플러스, 음수=인플레이션이 명목보다 높은 극단 상황
+  // yieldSpread = 10Y - 2Y: 양수=정상(장기>단기), 음수=역전(침체 선행 지표)
   const enrichedDailyData: UsAnalysisBar[] = dailyData.map((d) => ({
     ...d,
     vvixVixRatio:
@@ -172,6 +173,10 @@ export function MarketEnvironmentClient() {
     realYield10y:
       d.ust10y != null && d.breakeven10y != null
         ? d.ust10y - d.breakeven10y
+        : undefined,
+    yieldSpread:
+      d.ust10y != null && d.ust2y != null
+        ? d.ust10y - d.ust2y
         : undefined,
   }));
 

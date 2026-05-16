@@ -56,13 +56,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .slice(0, 10);
   const startDate = searchParams.get("startDate") ?? defaultStart;
 
-  // 10개 시리즈 병렬 수집 — 일부 실패해도 나머지 데이터 반환
+  // 11개 시리즈 병렬 수집 — 일부 실패해도 나머지 데이터 반환
   // ^SDEX: Yahoo Finance의 S&P 500 Downside Risk Index (FRED SDEX 시리즈 없음)
   // DFEDTARU: Fed Funds Target Upper Bound — FOMC 결정 때만 변경되는 계단형 데이터
+  // IORB: Interest on Reserve Balances — Fed 준비금 이자율, SOFR·Fed Funds Rate와 함께 단기 정책금리 비교
   const [
     spxResult, nasdaqResult, vixResult, vvixResult, sdexResult, hyResult,
     sofrResult, ust10yResult, fedFundsResult, moveResult, ust2yResult,
-    breakeven10yResult,
+    breakeven10yResult, iorbResult,
   ] = await Promise.allSettled([
     fetchYahooHistory("^GSPC", parseDate(startDate), parseDate(endDate)),
     fetchYahooHistory("^IXIC", parseDate(startDate), parseDate(endDate)),
@@ -79,6 +80,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // T10YIE: 10-Year Breakeven Inflation Rate — 실질 수익률 분해 차트용
     // 명목 수익률(DGS10) - 손익분기 인플레이션(T10YIE) = 실질 수익률
     fetchFredSeries("T10YIE", startDate, endDate),
+    // IORB: Interest on Reserve Balances — SOFR 차트에 단기 정책금리 실효값으로 추가
+    fetchFredSeries("IORB", startDate, endDate),
   ]);
 
   // Yahoo 거래일을 기준 날짜로 사용 (S&P500이 가장 안정적)
@@ -150,6 +153,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     tradingDates,
     breakeven10yResult.status === "fulfilled" ? breakeven10yResult.value : []
   );
+  // IORB: 준비금 이자율 — SOFR·Fed Funds Rate와 함께 단기 정책금리 비교용
+  const iorbAligned = alignFredToTradingDays(
+    tradingDates,
+    iorbResult.status === "fulfilled" ? iorbResult.value : []
+  );
 
   // 통합 데이터 배열 구성
   const data: UsAnalysisBar[] = tradingDates.map((date, idx) => ({
@@ -166,6 +174,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     moveIndex: moveMap.get(date),
     ust2y: ust2yAligned.get(date),
     breakeven10y: breakeven10yAligned.get(date),
+    iorb: iorbAligned.get(date),
   }));
 
   const response: UsAnalysisResponse = {
