@@ -361,7 +361,7 @@ export function Checkpoint3Client({ rawData }: Props) {
                 <ReferenceLine
                   y={wacc}
                   stroke={COLORS.wacc}
-                  strokeDasharray="4 2"
+                  strokeDasharray="2 2"
                   label={{ value: `WACC ${wacc}%`, position: "insideTopRight", fontSize: 10, fill: COLORS.wacc }}
                 />
                 <Line dataKey="roa"  name="ROA"  stroke={COLORS.roa}  dot={false} strokeWidth={2} connectNulls />
@@ -489,7 +489,7 @@ export function Checkpoint3Client({ rawData }: Props) {
               <Tooltip content={<PctTooltip />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               {/* 100% 기준선 — gross loss 경계 */}
-              <ReferenceLine yAxisId="cost" y={100} stroke={COLORS.refLine} strokeDasharray="3 2"
+              <ReferenceLine yAxisId="cost" y={100} stroke={COLORS.refLine} strokeDasharray="2 2"
                 label={{ value: "100%", position: "insideTopLeft", fontSize: 9, fill: COLORS.refLine }} />
               <ReferenceLine yAxisId="margin" y={0} stroke="hsl(var(--border))" strokeWidth={1} />
               <Bar yAxisId="cost"   dataKey="cogsRatio" name="매출원가율" fill={COLORS.cogsRatio} fillOpacity={0.7} radius={[2,2,0,0]} />

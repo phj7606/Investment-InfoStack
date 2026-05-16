@@ -472,7 +472,7 @@ export function Checkpoint4Client({ rawData }: Props) {
                 <ReferenceLine
                   y={1}
                   stroke={COLORS.ccrPos}
-                  strokeDasharray="4 2"
+                  strokeDasharray="2 2"
                   label={{ value: "CCR=1", position: "insideTopRight", fontSize: 10, fill: COLORS.ccrPos }}
                 />
                 {/* CCR 선 그래프 — 추세 파악에 최적화, 각 점은 CCR 값에 따라 3색 구분 */}
@@ -615,12 +615,12 @@ export function Checkpoint4Client({ rawData }: Props) {
                 />
                 <Tooltip content={<CfTooltip unit={unit} />} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
-                {/* 0 기준선 — "0" 라벨로 양/음 경계를 명확히 표시 */}
+                {/* 0 기준선 — 가는 점선으로 양/음 경계 표시 */}
                 <ReferenceLine
                   y={0}
-                  stroke="hsl(var(--foreground))"
+                  stroke="#94a3b8"
                   strokeWidth={1}
-                  label={{ value: "0", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  strokeDasharray="2 2"
                 />
                 {/* 영업CF — 핵심 현금 창출력 */}
                 <Line
