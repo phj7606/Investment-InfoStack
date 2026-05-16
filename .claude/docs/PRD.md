@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.3 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.14 | **상태**: Living Document
+> **버전**: v4.4 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.16 | **상태**: Living Document
 
 ---
 
@@ -64,7 +64,7 @@ Step 5: 매수 결정
 | `/dashboard` | 홈 | 3개 Action 워크플로우 카드 | ✅ |
 | `/dashboard/market` | A1 선행 | 시장 환경 (거시경제지표 차트) | ✅ |
 | `/dashboard/sector` | A1 Step 1 | 섹터 조감 + AI 섹터 보고서 | ✅ |
-| `/dashboard/screen` | A1 Step 2 | 종목 분석 (개별주식 스크리너 + 실적 채점 탭) | 🔄 |
+| `/dashboard/screen` | A1 Step 2 | 종목 분석 (주가 성과 + 개별주식 스크리너 + 실적 채점 탭) | 🔄 |
 | `/dashboard/earnings-preview` | A1 Step 3 | 체크포인트 | ✅ |
 | `/dashboard/initiating-coverage` | A1 Step 4 | 매수 결정 (기업 분석) | 🔄 |
 | `/dashboard/thesis` | A2 Step 1 | Thesis 관리 | ⬜ |
@@ -107,7 +107,7 @@ Step 5: 매수 결정
 
 **공통 UI**: 모든 Step 페이지 상단에 `[1 섹터조감]→[2 종목분석]→[3 체크포인트]→[4 매수결정]` 진행 표시 + 이전/다음 Step 버튼 (인디고 테마) ✅
 
-> Step 2 "종목 분석"은 개별주식 스크리너 탭 + 실적 채점 탭 2개로 구성. `/dashboard/earnings-analysis`는 이 페이지로 redirect.
+> Step 2 "종목 분석"은 주가 성과 탭 + 개별주식 스크리너 탭 + 실적 채점 탭 3개로 구성. `/dashboard/earnings-analysis`는 이 페이지로 redirect.
 
 #### Step 1 — 섹터 조감 (`/dashboard/sector`)
 
@@ -120,10 +120,11 @@ Step 5: 매수 결정
 
 #### Step 2 — 종목 분석 (`/dashboard/screen`)
 
-> 개별주식 스크리너 탭 + 실적 채점 탭 2개 구성. `/dashboard/earnings-analysis`는 이 페이지로 redirect.
+> 주가 성과 + 개별주식 스크리너 + 실적 채점 탭 3개 구성. `/dashboard/earnings-analysis`는 이 페이지로 redirect.
 
 | ID | 기능 | 설명 | 상태 |
 |----|------|------|------|
+| A2-00 | 주가 성과 분석 탭 | 종목 입력 + 거래소 선택(KRX/US) + 기간 선택 → 히스토리컬 성과 분석 6개 차트 탭(정규화 가격/누적수익률/변동성항력/MDD/월별수익률/누적월별). 성과 요약 카드 10개 지표(CAGR/총수익률/MDD/변동성/Sharpe/Sortino/Calmar/월승률/Beta/상관계수). 자동완성 종목 검색(KRX: 네이버 금융, US: Yahoo Finance). sessionStorage 기반 분석 상태 유지(메뉴 이동 후 복원). 벤치마크: KOSPI(KRX)/S&P500+NASDAQ(US) | ✅ |
 | A2-01 | 개별주식 스크리너 탭 | screen SKILL 기반 재무(ROE/영업이익률/부채비율) + 밸류에이션(PER/PBR/EV/EBITDA) 복합 필터. Claude web_search 후보 발굴 → API 수집 → 필터 게이트 → 보고서 스트리밍. 이전 분석 참고(파일 업로드/.md 또는 기업분석 히스토리 선택) | ✅ |
 | A2-02 | 실적 채점 탭 | 티커 + 거래소 선택(KOSPI/KOSDAQ/NASDAQ/NYSE). Claude API 기반 최근 분기 EPS/매출 컨센서스 대비 Beat/Miss 분석. 매출성장률/영업이익률/EPS 분기별 KPI 트렌드 차트 | ✅ |
 | A2-03 | ETF RS 스크리너 탭 | RS + 모멘텀 복합 필터. **레거시 `/dashboard/screener` → 통합 이전 필요** | 🔄 |
@@ -342,9 +343,10 @@ Step 5: 매수 결정
   ├── lib/etf/us-sector-returns.ts → UsSectorTable
   └── lib/sector-report/data-collector.ts + lib/sector-report/llm-client.ts → SectorReportClient
 
-/dashboard/screen (Step 2 — 탭 2개)
-  ├── [탭1 개별주식 스크리너] lib/stock-screener/* → StockScreenerClient → /api/equity-research/screen
-  ├── [탭2 실적 채점] lib/earnings-analysis/prompts.ts → /api/earnings-analysis → EarningsAnalysisClient
+/dashboard/screen (Step 2 — 탭 3개)
+  ├── [탭1 주가 성과 분석] lib/fetchers/krx.ts + lib/fetchers/yahoo.ts → StockPerformanceClient → /api/stock-performance, /api/stock-performance/search
+  ├── [탭2 개별주식 스크리너] lib/stock-screener/* → StockScreenerClient → /api/equity-research/screen
+  ├── [탭3 실적 채점] lib/earnings-analysis/prompts.ts → /api/earnings-analysis → EarningsAnalysisClient
   └── [미구현 탭] lib/etf/rs.ts + lib/etf/momentum.ts → EtfRsTable + EtfMomentumChart
 /dashboard/earnings-analysis → redirect → /dashboard/screen
 
@@ -400,7 +402,8 @@ Step 5: 매수 결정
 | v4.1 | 2026.04.24 | ACTION 1 퍼널 5단계→4단계 반영. Step 2 명칭 "종목 압축"→"종목 분석". 실적 채점 Step 2 탭 통합. 체크포인트 Step 4→3, 매수 결정 Step 5→4. 페이지 맵 earnings-analysis 제거(redirect) |
 | v4.2 | 2026.05.13 | Step 3 체크포인트 전면 재구성 반영 — 재무제표 수집 인프라 완료, 4대 질문 탭 구조(1/4 구현 중). A3-01~A3-04(기존 실적 채점 기준 생성 방식) → A3-01~A3-06(재무제표 수집+테이블+4대 질문 탭)으로 기능 ID 전면 재작성. 페이지 맵 earnings-preview 상태 ✅→🔄 수정. 섹션 7 데이터 흐름도 earnings-preview 업데이트 |
 | v4.3 | 2026.05.14 | Step 3 체크포인트 4대 질문 탭 전체 완성 — A3-03(체크포인트 1) ✅, A3-04(체크포인트 2: 이익/YoY/QoQ/CCC) ✅, A3-05(체크포인트 3: ROA/ROE/ROIC/DuPont/비용구조) ✅, A3-06(체크포인트 4: CCR/CF트렌드/FCF) ✅. A3-01 ratioItems 수집 추가, 기업명 자동 추출 반영. 페이지 맵 earnings-preview 🔄→✅. 섹션 7 Checkpoint2~4Client 데이터 흐름도 추가 |
+| v4.4 | 2026.05.16 | `/dashboard/screen` 주가 성과 분석 탭(A2-00) 요구사항 추가 — 6개 차트/10개 성과 지표/종목 자동완성/sessionStorage 상태 유지. 페이지 맵 3탭 구조 반영. 섹션 7 데이터 흐름도 탭1 주가 성과 분석 추가 |
 
 ---
 
-*v4.3 | 2026.05.14 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v4.4 | 2026.05.16 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*

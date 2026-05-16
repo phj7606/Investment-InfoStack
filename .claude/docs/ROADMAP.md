@@ -1,6 +1,6 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.4 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.14 | **상태**: Living Document
+> **버전**: v4.5 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.16 | **상태**: Living Document
 
 ---
 
@@ -83,11 +83,12 @@
 
 ### Step 2 — 종목 분석 (`/dashboard/screen`) 🔄 부분 완료
 
-> 개별주식 스크리너 + 실적 채점을 2개 탭으로 통합한 페이지. (구 Step 2 종목 압축 + 구 Step 3 실적 채점 통합)
+> 주가 성과 + 개별주식 스크리너 + 실적 채점을 3개 탭으로 통합한 페이지. (구 Step 2 종목 압축 + 구 Step 3 실적 채점 통합 + 주가 성과 분석 탭 신규 추가)
 > `/dashboard/earnings-analysis`는 이 페이지로 redirect 처리됨.
 
 | ID | 태스크 | 우선순위 | 상태 |
 |----|--------|---------|------|
+| P8-12 | 주가 성과 분석 탭 — 히스토리컬 성과 분석 (정규화 가격/누적수익률/변동성항력/MDD/월별수익률/누적월별 6개 차트). 성과 요약 카드 10개 지표(CAGR/MDD/Sharpe/Sortino/Calmar/Beta/상관계수/월승률). 자동완성 종목 검색(KRX·US). sessionStorage 분석 상태 유지. `StockPerformanceClient.tsx`, `/api/stock-performance`, `/api/stock-performance/search`, `lib/fetchers/krx.ts` EUC-KR 디코딩+KOSPI 장기 지원, `lib/fetchers/yahoo.ts` ETF quoteType 허용. 벤치마크: KOSPI(KRX)/S&P500+NASDAQ(US) | 🔴 | ✅ |
 | P8-07 | 개별주식 스크리너 탭 — screen SKILL 기반 4단계 처리(Phase A~D). 이전 분석 참고(파일 업로드/.md + 분석 이력 선택). `StockScreenerClient.tsx`, `lib/stock-screener/*`, `/api/equity-research/screen` | 🔴 | ✅ |
 | P8-11 | 실적 채점 탭 — Beat/Miss 분석 + KPI 트렌드 차트. `EarningsAnalysisClient.tsx`, `/api/earnings-analysis`, `lib/earnings-analysis/prompts.ts` | 🔴 | ✅ |
 | P8-08 | ETF RS 스크리너 탭 이전 — 레거시 `components/screener/` → `/dashboard/screen` 탭으로 통합 | 🟡 | ⬜ |
@@ -100,12 +101,12 @@
 
 | ID | 태스크 | 상태 |
 |----|--------|------|
-| P8-14 | 재무제표 수집 인프라 — FnGuide(KR) HTML 파싱 / Alpha Vantage(US) API. 30일 TTL 캐시 + 연도 증분 업데이트. `FundamentalScreeningClient.tsx`, `lib/fundamental-screening/*`, `/api/fundamental-screening` (`dataOnly` 플래그 포함). FnGuide `<title>` 태그에서 기업명 자동 추출(`companyName` 필드). 캐시 키 fs4→fs5, `mergeStatements` 개선 | ✅ |
+| P8-14 | 재무제표 수집 인프라 — FnGuide(KR) HTML 파싱 / Alpha Vantage(US) API. 30일 TTL 캐시 + 연도 증분 업데이트. `FundamentalScreeningClient.tsx`, `lib/fundamental-screening/*`, `/api/fundamental-screening` (`dataOnly` 플래그 포함). FnGuide `<title>` 태그에서 기업명 자동 추출(`companyName` 필드). 캐시 키 fs4→fs5, `mergeStatements` 개선. `lib/fundamental-screening/merge.ts` 분리(mergeStatements 독립 모듈화) | ✅ |
 | P8-15 | 재무제표 테이블 — sj_div별 섹션(IS/BS/CF/CIS/SCE) 접기/펼치기. 연간/분기 탭 전환(FnGuide KR 전용). 종목별 localStorage 저장/불러오기. 페이지 이동 후 sessionStorage 데이터 복원. `FinancialRawDataTable.tsx` | ✅ |
 | P8-16 | 체크포인트 1: 돈이 많은 기업인가 — BS 재무상태표 기반 비영업자산(유동금융자산+현금및현금성자산+장기금융자산+관계기업등지분관련투자자산) vs 금융부채(단기사채+단기차입금+유동성장기부채+유동금융부채+장기차입금+비유동금융부채) 연도별 합산. recharts ComposedChart: 비영업자산 vs 금융부채 grouped bar + 차이 bar(양수=순현금/초록, 음수=순차입/빨강). 매칭 계정 목록 표시. `Checkpoint1Client.tsx` | ✅ |
-| P8-17 | 체크포인트 2: 이익을 내는가 — IS 손익계산서 기반 매출액/영업이익/순이익 트렌드 Line 차트, 영업이익률 추이, YoY/QoQ 성장률. CCC(현금전환주기) 활동성 지표. Naver API 기반 계정 수집. `Checkpoint2Client.tsx` | ✅ |
+| P8-17 | 체크포인트 2: 이익을 내는가 — IS 손익계산서 기반 매출액/영업이익/순이익 트렌드 Line 차트, 영업이익률 추이, YoY/QoQ 성장률. CCC(현금전환주기) 활동성 지표. Naver API 기반 계정 수집. `Checkpoint2Client.tsx`. 증감율 Line(매출액/영업이익 트렌드) + CCC Line → monotone에서 linear 직선으로 변경 | ✅ |
 | P8-18 | 체크포인트 3: 극대화 가능한가 — FnGuide SVD_FinanceRatio.asp에서 ratioItems 자동 추출. ROA/ROE/ROIC 트렌드 Line 차트. DuPont 분해: 순이익률 × 자산회전율 × 레버리지(3개 독립 미니차트). 비용구조 비율: 매출원가율+판관비율(Bar)+영업이익률(Line). BS 계정 exactOnly 로직 추가(자산/자본 총계 FnGuide 표기 차이 대응). `Checkpoint3Client.tsx`, `types/fundamental-screening.ts` `ratioItems`/`quarterlyRatioItems` 필드 추가 | ✅ |
-| P8-19 | 체크포인트 4: 현금을 버는가 — CCR(Cash Conversion Ratio = 영업CF/당기순이익) Bar 차트(에메랄드/앰버/레드 3단계 색상). 현금흐름 트렌드 Line 차트: 영업CF/Capex(음수)/재무CF/FCF. Capex 계정과목 설정 패널(Checkpoint1 AccountSelector 패턴, 기본값: 유형자산의증가+무형자산의증가). `Checkpoint4Client.tsx` | ✅ |
+| P8-19 | 체크포인트 4: 현금을 버는가 — CCR(Cash Conversion Ratio = 영업CF/당기순이익) Bar 차트(에메랄드/앰버/레드 3단계 색상). 현금흐름 트렌드 Line 차트: 영업CF/Capex(음수)/재무CF/FCF. Capex 계정과목 설정 패널(Checkpoint1 AccountSelector 패턴, 기본값: 유형자산의증가+무형자산의증가). `Checkpoint4Client.tsx`. CCR Line + FCF 구성 Line → monotone에서 linear 직선으로 변경 | ✅ |
 
 ### Step 4 — 매수 결정 (`/dashboard/initiating-coverage`) 🔄 부분 완료
 
@@ -124,6 +125,7 @@
 
 - [x] 선행 시장 환경 전용 페이지
 - [x] Step 1 섹터 조감 전체 기능 (시장 환경/한국 섹터/미국 섹터/AI 보고서)
+- [x] Step 2 주가 성과 분석 탭
 - [x] Step 2 개별주식 스크리너 탭 + 실적 채점 탭
 - [ ] Step 2 ETF 스크리너/RS/모멘텀 `/dashboard/screen` 통합
 - [x] Step 3 체크포인트 — 재무제표 수집 인프라 + 테이블 ✅
@@ -266,7 +268,8 @@
 | v4.2 | 2026.04.28 | Step 3 체크포인트 미구현 상태로 정정(✅→⬜). P8-14/15/16 상태 정정. P8-02 KR ETF 개선 비고, P8-03 US ETF 개선 비고 추가 |
 | v4.3 | 2026.05.13 | Step 3 체크포인트 전면 재구성 — Claude 스트리밍 방식 폐기, 4대 질문별 시각화 탭 구조로 전환. P8-14(재무제표 수집 인프라) ✅, P8-15(재무제표 테이블) ✅, P8-16(체크포인트 1: 돈이 많은 기업인가) 🔄, P8-17~19(체크포인트 2~4) ⬜ 신규 세분화. Step 4 태스크 ID P8-17~24 → P8-20~27로 재정렬. Phase 8 완료 기준 Step 3 항목 2개로 분리 |
 | v4.4 | 2026.05.14 | P8-18(체크포인트 3: 극대화 가능한가) + P8-19(체크포인트 4: 현금을 버는가) 구현 완료. Step 3 4대 질문 탭 전체 완성(4/4). FnGuide 기업명 자동 추출(`<title>` 태그), BS 계정 exactOnly 로직 추가(자산/자본 총계 표기 차이 대응). `ratioItems`/`quarterlyRatioItems` 타입 필드 추가. P8-16 상태 🔄→✅, P8-17 상태 ⬜→✅. Phase 8 Step 3 완료 기준 반영 |
+| v4.5 | 2026.05.16 | P8-12 주가 성과 분석 탭 구현 완료(6개 차트+10개 성과 지표+종목 자동완성 검색+sessionStorage 상태 유지). Checkpoint2/4 차트 라인 monotone→linear 직선화. 펀더멘털 스크리닝 merge.ts 독립 모듈 분리. Step 2 설명 3탭 구조(주가 성과+개별주식 스크리너+실적 채점) 반영. Phase 8 완료 기준 Step 2 주가 성과 분석 탭 추가 |
 
 ---
 
-*v4.4 | 2026.05.14 | Living Document*
+*v4.5 | 2026.05.16 | Living Document*
