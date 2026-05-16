@@ -296,7 +296,7 @@ function TrendChart({
           maxBarSize={48}
         />
 
-        {/* 증감율 Line — 오른쪽 축 */}
+        {/* 증감율 Line — 오른쪽 축 / type="linear"로 꺾인 직선 연결 */}
         <Line
           yAxisId="right"
           dataKey="growth"
@@ -305,7 +305,7 @@ function TrendChart({
           strokeWidth={1.5}
           dot={{ r: 3, fill: COLORS.growth }}
           connectNulls={false}
-          type="monotone"
+          type="linear"
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -788,7 +788,7 @@ export function Checkpoint2Client({ rawData }: Props) {
                   stroke={COLORS.ccc}
                   strokeWidth={2}
                   dot={{ r: 4, fill: COLORS.ccc, strokeWidth: 0 }}
-                  type="monotone"
+                  type="linear"
                   connectNulls={false}
                 />
               </ComposedChart>

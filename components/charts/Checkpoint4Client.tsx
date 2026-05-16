@@ -8,8 +8,9 @@
 //   - Net Income: rawItems (sj_div="IS", 당기순이익)
 //
 // 차트 구성:
-//   1) CCR (Cash Conversion Ratio) = Operating CF / Net Income (Bar)
-//   2) Operating CF / Capex / Financing CF / FCF 트렌드 (Line)
+//   1) CCR (Cash Conversion Ratio) = Operating CF / Net Income (Line — 추세 파악에 최적)
+//   2) FCF 구성 트렌드 — 영업CF + |Capex| + FCF (선 그래프)
+//   3) 현금흐름 전체 — 영업CF + 재무CF + FCF (선 그래프)
 //
 // Capex 계정과목 설정: Checkpoint1 AccountSelector 패턴 동일
 //   - 기본값: 유형자산의증가 + 무형자산의증가 (KR), Capital Expenditure (CapEx) (US)
@@ -20,7 +21,6 @@ import {
   ComposedChart,
   Bar,
   Line,
-  Cell,
   ReferenceLine,
   XAxis,
   YAxis,
@@ -376,28 +376,28 @@ export function Checkpoint4Client({ rawData }: Props) {
     return { year: yr, ccr, opCf, netInc: net };
   });
 
-  // ── 차트 2: CF 트렌드 데이터 ─────────────────────────────────────────────
+  // ── 차트 2 & 3: CF 트렌드 데이터 ────────────────────────────────────────
 
   type CfRow = {
     year: string;
-    opCf:     number | null;  // 영업CF (양수 = 창출)
-    capex:    number | null;  // Capex (음수 표시 = 현금유출)
-    financingCf: number | null;
-    fcf:      number | null;  // FCF = OpCF - |Capex|
+    opCf:        number | null;  // 영업CF (양수 Bar → +방향)
+    capexNeg:    number | null;  // Capex 음수 변환 (Bar → -방향, 현금유출 시각화)
+    financingCf: number | null;  // 재무CF (Line)
+    fcf:         number | null;  // FCF = 영업CF − |Capex| (Line)
   };
 
   const cfTrendData: CfRow[] = cfYears.map((yr) => {
-    const opCf    = getVal(opCfItem,  yr);
-    const finCf   = getVal(finCfItem, yr);
+    const opCf     = getVal(opCfItem,  yr);
+    const finCf    = getVal(finCfItem, yr);
     const capexRaw = capexByYear[yr];  // 양수값 (현금유출 절대값)
-    // Capex를 음수로 변환하여 차트에 현금유출 방향으로 표시
+    // Capex를 음수로 변환 — Bar가 0선 아래로 표시되어 현금유출 방향을 직관적으로 표현
     const capexNeg = capexRaw != null ? -Math.abs(capexRaw) : null;
-    // FCF = 영업CF - |Capex| (Capex가 없으면 null)
-    const fcf     = opCf != null && capexRaw != null ? opCf - Math.abs(capexRaw) : null;
+    // FCF = 영업CF − |Capex| (Capex가 없으면 null)
+    const fcf      = opCf != null && capexRaw != null ? opCf - Math.abs(capexRaw) : null;
     return {
       year:        yr,
       opCf,
-      capex:       capexNeg,
+      capexNeg,
       financingCf: finCf,
       fcf,
     };
@@ -440,13 +440,13 @@ export function Checkpoint4Client({ rawData }: Props) {
         </div>
       )}
 
-      {/* ── 차트 1: CCR (Cash Conversion Ratio) ── */}
+      {/* ── 차트 1: CCR (Cash Conversion Ratio) — 선 그래프 ── */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">CCR (Cash Conversion Ratio)</CardTitle>
           <CardDescription className="text-xs">
-            CCR = 영업현금흐름 ÷ 당기순이익. CCR &gt; 1 = 이익보다 현금을 더 많이 창출 (에메랄드).
-            CCR &lt; 0 = 이익/손실과 현금 방향 불일치 (레드).
+            CCR = 영업현금흐름 ÷ 당기순이익. CCR &gt; 1 = 이익보다 현금을 더 많이 창출.
+            점 색상: 에메랄드(≥1) · 앰버(0~1) · 레드(&lt;0)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -475,100 +475,189 @@ export function Checkpoint4Client({ rawData }: Props) {
                   strokeDasharray="4 2"
                   label={{ value: "CCR=1", position: "insideTopRight", fontSize: 10, fill: COLORS.ccrPos }}
                 />
-                {/* CCR Bar — 값에 따라 색상 3단계 구분 */}
-                <Bar dataKey="ccr" name="CCR" radius={[2, 2, 0, 0]}>
-                  {ccrData.map((d, i) => {
+                {/* CCR 선 그래프 — 추세 파악에 최적화, 각 점은 CCR 값에 따라 3색 구분 */}
+                <Line
+                  dataKey="ccr"
+                  name="CCR"
+                  stroke="#64748b"
+                  strokeWidth={2}
+                  connectNulls
+                  dot={(props: { cx: number; cy: number; payload: { ccr: number | null; year: string } }) => {
+                    const { cx, cy, payload } = props;
+                    // CCR 값에 따라 점 색상 결정: 우량(에메랄드) / 보통(앰버) / 부정(레드)
                     const color =
-                      d.ccr == null ? COLORS.ccrMid
-                      : d.ccr >= 1  ? COLORS.ccrPos
-                      : d.ccr >= 0  ? COLORS.ccrMid
+                      payload.ccr == null ? COLORS.ccrMid
+                      : payload.ccr >= 1  ? COLORS.ccrPos
+                      : payload.ccr >= 0  ? COLORS.ccrMid
                       : COLORS.ccrNeg;
-                    return <Cell key={i} fill={color} fillOpacity={0.8} />;
-                  })}
-                </Bar>
+                    return (
+                      <circle
+                        key={`ccr-dot-${payload.year}`}
+                        cx={cx}
+                        cy={cy}
+                        r={5}
+                        fill={color}
+                        stroke="white"
+                        strokeWidth={1.5}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 6 }}
+                />
               </ComposedChart>
             </ResponsiveContainer>
           )}
         </CardContent>
       </Card>
 
-      {/* ── 차트 2: CF 트렌드 — 영업CF / Capex / 재무CF / FCF ── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <CardTitle className="text-sm">현금흐름 트렌드</CardTitle>
-              <CardDescription className="text-xs">
-                영업CF(에메랄드) · Capex 음수 표시(레드) · 재무CF(오렌지) · FCF = 영업CF − |Capex|(인디고)
-              </CardDescription>
+      {/* ── 차트 2 & 3: 2열 그리드 배치 ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* ── 차트 2: FCF 구성 트렌드 — 영업CF(Bar+) / Capex(Bar-) / FCF(Line) ── */}
+        {/* Bar 조합: 영업CF는 양수 방향, Capex는 음수 방향 → FCF = 두 Bar의 합을 선으로 표시 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <CardTitle className="text-sm">FCF 구성 트렌드</CardTitle>
+                <CardDescription className="text-xs">
+                  영업CF(녹색 Bar+) · Capex(레드 Bar−) · FCF = 영업CF−|Capex|(인디고 선)
+                </CardDescription>
+              </div>
+              {!hasCapex && (
+                <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+                  Capex 미선택
+                </Badge>
+              )}
             </div>
-            {/* Capex 미선택 경고 배지 */}
-            {!hasCapex && (
-              <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
-                Capex 계정 미선택 — FCF 미표시
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={280}>
-            <ComposedChart data={cfTrendData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="year" tick={{ fontSize: 11 }} />
-              <YAxis
-                tickFormatter={(v) => fmtAxis(v as number, unit)}
-                tick={{ fontSize: 10 }}
-                width={52}
-              />
-              <Tooltip content={<CfTooltip unit={unit} />} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <ReferenceLine y={0} stroke="hsl(var(--foreground))" strokeWidth={1} />
-              {/* 영업CF — 양수일수록 현금 창출 우량 */}
-              <Line
-                dataKey="opCf"
-                name={`영업CF (${unit})`}
-                stroke={COLORS.operatingCF}
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                connectNulls
-              />
-              {/* Capex — 음수 방향 표시 (현금 유출) */}
-              {hasCapex && (
+          </CardHeader>
+          <CardContent className="px-2">
+            <ResponsiveContainer width="100%" height={240}>
+              {/*
+                barGap 미설정 — recharts가 카테고리 폭에 맞춰 두 Bar를 자동 크기로 배치
+                opCf (양수) → 0선 위, capexNeg (음수) → 0선 아래, 각자 0에서 출발
+              */}
+              <ComposedChart
+                data={cfTrendData}
+                margin={{ top: 8, right: 12, bottom: 0, left: 0 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                <YAxis
+                  tickFormatter={(v) => fmtAxis(v as number, unit)}
+                  tick={{ fontSize: 10 }}
+                  width={52}
+                />
+                <Tooltip content={<CfTooltip unit={unit} />} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                <ReferenceLine y={0} stroke="hsl(var(--foreground))" strokeWidth={1} />
+                {/* 영업CF — 양수값, 0선 위로 */}
+                <Bar
+                  dataKey="opCf"
+                  name={`영업CF (${unit})`}
+                  fill={COLORS.operatingCF}
+                  fillOpacity={0.85}
+                  radius={[2, 2, 0, 0]}
+                />
+                {/* Capex — 음수값(capexNeg), 0선 아래로 */}
+                {hasCapex && (
+                  <Bar
+                    dataKey="capexNeg"
+                    name={`Capex (${unit})`}
+                    fill={COLORS.capex}
+                    fillOpacity={0.75}
+                    radius={[0, 0, 2, 2]}
+                  />
+                )}
+                {/* FCF 선 — 영업CF − |Capex| 잉여현금 추세 */}
+                {hasCapex && (
+                  <Line
+                    dataKey="fcf"
+                    name={`FCF (${unit})`}
+                    stroke={COLORS.fcf}
+                    strokeWidth={2.5}
+                    dot={{ r: 3 }}
+                    connectNulls
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* ── 차트 3: 현금흐름 전체 트렌드 — 영업CF / 재무CF / FCF (선 그래프) ── */}
+        {/* 영업·재무 현금흐름과 FCF의 구조적 관계를 한 눈에 파악 */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <CardTitle className="text-sm">현금흐름 트렌드</CardTitle>
+                <CardDescription className="text-xs">
+                  영업CF(에메랄드) · 재무CF(오렌지 점선) · FCF(인디고)
+                </CardDescription>
+              </div>
+              {!hasCapex && (
+                <Badge variant="outline" className="text-[10px] shrink-0 text-muted-foreground">
+                  Capex 미선택
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="px-2">
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={cfTrendData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="year" tick={{ fontSize: 10 }} />
+                <YAxis
+                  tickFormatter={(v) => fmtAxis(v as number, unit)}
+                  tick={{ fontSize: 10 }}
+                  width={52}
+                />
+                <Tooltip content={<CfTooltip unit={unit} />} />
+                <Legend wrapperStyle={{ fontSize: 10 }} />
+                {/* 0 기준선 — "0" 라벨로 양/음 경계를 명확히 표시 */}
+                <ReferenceLine
+                  y={0}
+                  stroke="hsl(var(--foreground))"
+                  strokeWidth={1}
+                  label={{ value: "0", position: "insideTopLeft", fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                />
+                {/* 영업CF — 핵심 현금 창출력 */}
                 <Line
-                  dataKey="capex"
-                  name={`Capex (${unit})`}
-                  stroke={COLORS.capex}
+                  dataKey="opCf"
+                  name={`영업CF (${unit})`}
+                  stroke={COLORS.operatingCF}
                   strokeWidth={2}
-                  strokeDasharray="5 3"
                   dot={{ r: 3 }}
                   connectNulls
                 />
-              )}
-              {/* 재무CF */}
-              <Line
-                dataKey="financingCf"
-                name={`재무CF (${unit})`}
-                stroke={COLORS.financingCF}
-                strokeWidth={2}
-                strokeDasharray="3 2"
-                dot={{ r: 3 }}
-                connectNulls
-              />
-              {/* FCF = 영업CF − |Capex| */}
-              {hasCapex && (
+                {/* 재무CF — 차입/상환/배당 등 재무 활동 */}
                 <Line
-                  dataKey="fcf"
-                  name={`FCF (${unit})`}
-                  stroke={COLORS.fcf}
-                  strokeWidth={2.5}
-                  dot={{ r: 4 }}
+                  dataKey="financingCf"
+                  name={`재무CF (${unit})`}
+                  stroke={COLORS.financingCF}
+                  strokeWidth={2}
+                  strokeDasharray="3 2"
+                  dot={{ r: 3 }}
                   connectNulls
                 />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+                {/* FCF — 주주에게 귀속되는 잉여현금 */}
+                {hasCapex && (
+                  <Line
+                    dataKey="fcf"
+                    name={`FCF (${unit})`}
+                    stroke={COLORS.fcf}
+                    strokeWidth={2.5}
+                    dot={{ r: 4 }}
+                    connectNulls
+                  />
+                )}
+              </ComposedChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+      </div>{/* end grid */}
 
       {/* ── Capex 계정과목 설정 패널 ── */}
       {/* Checkpoint1 AccountSelector와 동일 패턴 — CF 항목 중 선택/추가/제거 */}
@@ -613,7 +702,13 @@ export function Checkpoint4Client({ rawData }: Props) {
         <p>Capex = 유형자산의증가 + 무형자산의증가 (설정 패널에서 변경 가능)</p>
         <p>FCF (Free Cash Flow) = 영업현금흐름 − |Capex|</p>
         <p className="pt-1 text-[11px]">
-          CCR &gt; 1: 이익보다 현금 창출 우수 | CCR = 1: 이익 = 현금 | CCR &lt; 1: 이익 대비 현금 부족
+          CCR 차트 — 점 색상: 에메랄드(≥1 우량) · 앰버(0~1 보통) · 레드(&lt;0 부정)
+        </p>
+        <p className="text-[11px]">
+          FCF 구성 차트 — 녹색 Bar(영업CF+) + 레드 Bar(Capex−) + 인디고 선(FCF): Bar 높이 차이 = FCF
+        </p>
+        <p className="text-[11px]">
+          현금흐름 트렌드 — 영업·재무 CF와 FCF의 구조적 관계를 선으로 한 눈에 비교
         </p>
       </div>
 
