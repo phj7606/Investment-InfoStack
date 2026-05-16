@@ -275,8 +275,69 @@ interface KrxIndexHistoryRaw {
 }
 
 /**
+ * 네이버 금융 차트 API(sise.nhn)로 KOSPI 지수 일별 종가 시계열 조회
+ * 개별종목과 동일한 엔드포인트를 symbol=KOSPI로 호출
+ * 응답: text/xml;charset=EUC-KR — arrayBuffer + TextDecoder('euc-kr')로 디코딩 필수
+ * count=2000으로 최근 약 8년치 데이터를 한 번에 요청하므로 2Y/5Y 기간도 지원
+ *
+ * @param startDate - "YYYY-MM-DD"
+ * @param endDate   - "YYYY-MM-DD"
+ */
+async function fetchNaverKospiHistory(
+  startDate: string,
+  endDate: string
+): Promise<KospiHistoryBar[]> {
+  // symbol=KOSPI: 네이버 금융 KOSPI 지수 차트 데이터 (istock.nhn은 404)
+  const url =
+    `https://fchart.stock.naver.com/sise.nhn` +
+    `?symbol=KOSPI&timeframe=day&count=2000&requestType=0`;
+
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "Referer": "https://finance.naver.com/",
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+
+  if (!res.ok) throw new Error(`Naver KOSPI 차트 오류: ${res.status}`);
+
+  // 응답이 EUC-KR로 인코딩되어 있으므로 text() 대신 arrayBuffer + TextDecoder 사용
+  const buffer = await res.arrayBuffer();
+  const xml = new TextDecoder("euc-kr").decode(buffer);
+
+  const matches = [...xml.matchAll(/<item data="([^"]+)"/g)];
+  if (matches.length === 0) throw new Error("Naver KOSPI 응답에 데이터 없음");
+
+  const startCompact = startDate.replace(/-/g, "");
+  const endCompact = endDate.replace(/-/g, "");
+
+  return matches
+    .map((match): KospiHistoryBar | null => {
+      const parts = match[1].split("|");
+      if (parts.length < 5) return null;
+      const dateRaw = parts[0];
+      // 필드 순서: date|open|high|low|close|volume (개별종목과 동일)
+      const closePrice = parseFloat(parts[4]) || 0;
+      if (closePrice <= 0) return null;
+
+      const dateIso = `${dateRaw.slice(0, 4)}-${dateRaw.slice(4, 6)}-${dateRaw.slice(6, 8)}`;
+      return { date: dateIso, closePrice };
+    })
+    .filter((bar): bar is KospiHistoryBar => {
+      if (!bar) return false;
+      const compact = bar.date.replace(/-/g, "");
+      return compact >= startCompact && compact <= endCompact;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * KOSPI 지수 일별 종가 시계열 조회
- * KRX 히스토리 API 실패 시 Yahoo Finance `^KS11` fallback 사용
+ * 데이터 소스 우선순위:
+ *   1. Naver fchart istock.nhn — 긴 기간(2Y, 5Y)도 안정적으로 지원
+ *   2. KRX API — 단기간에는 신뢰성 높음, 장기 기간은 응답 없을 수 있음
+ *   3. Yahoo Finance `^KS11` — 네트워크 차단 환경에서는 실패
  *
  * @param startDate - "YYYYMMDD" 또는 "YYYY-MM-DD"
  * @param endDate   - "YYYYMMDD" 또는 "YYYY-MM-DD"
@@ -285,6 +346,22 @@ export async function fetchKospiHistory(
   startDate: string,
   endDate: string
 ): Promise<KospiHistoryBar[]> {
+  // ISO 형식("YYYY-MM-DD")으로 정규화 (Naver 함수가 ISO를 요구)
+  const startIso = startDate.includes("-") ? startDate : krxDateToIso(startDate);
+  const endIso   = endDate.includes("-")   ? endDate   : krxDateToIso(endDate);
+
+  // 1. Naver fchart istock.nhn 우선 시도 (긴 기간도 count=2000으로 커버)
+  try {
+    const naverBars = await fetchNaverKospiHistory(startIso, endIso);
+    if (naverBars.length > 0) {
+      console.log(`[KOSPI] Naver fchart 성공: ${naverBars.length}개`);
+      return naverBars;
+    }
+  } catch (naverErr) {
+    console.warn("Naver KOSPI 히스토리 조회 실패:", naverErr);
+  }
+
+  // 2. KRX API fallback
   const start = startDate.includes("-") ? isoToKrxDate(startDate) : startDate;
   const end   = endDate.includes("-")   ? isoToKrxDate(endDate)   : endDate;
 
@@ -312,11 +389,20 @@ export async function fetchKospiHistory(
       .filter((bar) => bar.closePrice > 0)
       .sort((a, b) => a.date.localeCompare(b.date));
   } catch (err) {
-    // KRX API 실패 시 Yahoo Finance ^KS11 fallback
-    console.warn("KRX KOSPI 히스토리 조회 실패, Yahoo Finance fallback:", err);
-    const bars = await fetchYahooHistory("^KS11", startDate, endDate);
-    return bars.map((b) => ({ date: b.date, closePrice: b.close }));
+    console.warn("KRX KOSPI 히스토리 조회 실패:", err);
   }
+
+  // 3. Yahoo Finance fallback — 네트워크 차단 환경에서는 실패할 수 있음
+  try {
+    const bars = await fetchYahooHistory("^KS11", startDate, endDate);
+    if (bars.length > 0) return bars.map((b) => ({ date: b.date, closePrice: b.close }));
+  } catch (yahooErr) {
+    console.warn("Yahoo ^KS11 fallback도 실패:", yahooErr);
+  }
+
+  // 모든 소스 실패 → 빈 배열 반환, 상위(route.ts)에서 에러 처리
+  console.error("KOSPI 데이터 수집 실패 — Naver·KRX·Yahoo 모두 불가");
+  return [];
 }
 
 // KRX VKOSPI 일별 추이 응답 타입
@@ -499,6 +585,189 @@ export async function fetchForeignNetBuying(
       netBuyingAmount: parseInt(row.FRGNR_NETBUY_AMT.replace(/,/g, ""), 10) || 0,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ────────────────────────────────────────────────────────────────
+// 네이버 금융 한국 개별 종목 시세 조회
+// 종목 검색(searchNaverFinanceTickers)과 시세 이력을 동일 출처로 통일
+// ────────────────────────────────────────────────────────────────
+
+/** 네이버 금융 개별종목 일별 OHLCV 데이터 포인트 */
+export interface NaverStockHistoryBar {
+  // "YYYY-MM-DD"
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/** fetchNaverStockHistory 반환 타입 — 가격 데이터 + XML에서 추출한 기업명 */
+export interface NaverStockResult {
+  bars: NaverStockHistoryBar[];
+  /** <chartdata name="..."> 속성에서 추출한 기업명 (예: "삼성전기") */
+  name?: string;
+}
+
+/**
+ * 네이버 금융 차트 API로 한국 개별 주식의 일별 시세를 조회
+ * 엔드포인트: fchart.stock.naver.com/sise.nhn
+ * 응답 형식: XML — <item data="YYYYMMDD|시가|고가|저가|종가|거래량"/>
+ *
+ * count=2000 으로 최근 약 8년치를 한 번에 요청한 뒤 날짜 범위로 필터링
+ * 조회 실패 시 Yahoo Finance `.KS`/`.KQ` fallback 사용
+ *
+ * @param code      - 6자리 종목코드 (예: "005930")
+ * @param startDate - 시작일 ("YYYY-MM-DD")
+ * @param endDate   - 종료일 ("YYYY-MM-DD")
+ */
+export async function fetchNaverStockHistory(
+  code: string,
+  startDate: string,
+  endDate: string
+): Promise<NaverStockResult> {
+  const url =
+    `https://fchart.stock.naver.com/sise.nhn` +
+    `?symbol=${encodeURIComponent(code)}&timeframe=day&count=2000&requestType=0`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        // 네이버 금융 내부 도메인으로 Referer 지정 필수
+        "Referer": "https://finance.naver.com/",
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!res.ok) throw new Error(`Naver 차트 API 오류: ${res.status}`);
+
+    // 응답이 EUC-KR로 인코딩되어 있으므로 text() 대신 arrayBuffer + TextDecoder 사용
+    // text()는 UTF-8로 디코딩해 한글이 깨짐 (Content-Type: text/xml;charset=EUC-KR)
+    const buffer = await res.arrayBuffer();
+    const xml = new TextDecoder("euc-kr").decode(buffer);
+
+    // <chartdata symbol="009150" name="삼성전기" ...> 태그에서 기업명 추출
+    const nameMatch = xml.match(/<chartdata[^>]+name="([^"]+)"/);
+    const name = nameMatch?.[1];
+
+    // XML 파싱: <item data="20240101|75000|76000|74000|75500|18000000"/>
+    // 정규식으로 item 태그 data 속성 추출 (XML 파서 없이 처리)
+    const matches = [...xml.matchAll(/<item data="([^"]+)"/g)];
+
+    if (matches.length === 0) throw new Error("Naver 차트 응답에 데이터 없음");
+
+    // 날짜 범위 필터링을 위한 비교용 YYYYMMDD 문자열
+    const startCompact = startDate.replace(/-/g, "");
+    const endCompact = endDate.replace(/-/g, "");
+
+    const bars = matches
+      .map((match): NaverStockHistoryBar | null => {
+        const parts = match[1].split("|");
+        if (parts.length < 6) return null;
+
+        const dateRaw = parts[0]; // "YYYYMMDD"
+        const close = parseInt(parts[4], 10) || 0;
+        if (close <= 0) return null;
+
+        return {
+          date: `${dateRaw.slice(0, 4)}-${dateRaw.slice(4, 6)}-${dateRaw.slice(6, 8)}`,
+          open: parseInt(parts[1], 10) || close,
+          high: parseInt(parts[2], 10) || close,
+          low: parseInt(parts[3], 10) || close,
+          close,
+          volume: parseInt(parts[5], 10) || 0,
+        };
+      })
+      .filter((bar): bar is NaverStockHistoryBar => {
+        if (!bar) return false;
+        const compact = bar.date.replace(/-/g, "");
+        // 요청 날짜 범위 내 데이터만 포함
+        return compact >= startCompact && compact <= endCompact;
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return { bars, name };
+  } catch (err) {
+    // 네이버 API 실패 시 Yahoo Finance fallback (.KS → .KQ 순서)
+    console.warn(`Naver 개별종목 조회 실패 (${code}), Yahoo Finance fallback:`, err);
+    try {
+      const bars = await fetchYahooHistory(`${code}.KS`, startDate, endDate);
+      if (bars.length > 0) return { bars };
+      const kqBars = await fetchYahooHistory(`${code}.KQ`, startDate, endDate);
+      return { bars: kqBars };
+    } catch {
+      return { bars: [] };
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────
+// 네이버 금융 종목 검색 (한국 주식 기업명 → 종목코드 변환)
+// ────────────────────────────────────────────────────────────────
+
+/** 네이버 금융 자동완성 응답 단일 항목 */
+interface NaverFinanceItem {
+  code: string;     // 6자리 종목코드 (예: "005930")
+  name: string;     // 기업명 (예: "삼성전자")
+  market: "KS" | "KQ"; // KS = 유가증권(KOSPI), KQ = 코스닥(KOSDAQ)
+}
+
+/**
+ * 네이버 금융 자동완성 API로 한국 주식 종목 코드 검색
+ * Yahoo Finance 검색 API가 한국어 쿼리에서 불안정한 문제의 대안
+ *
+ * @param query - 검색어 (기업명 또는 종목명 일부, 예: "삼성전자", "삼성")
+ * @returns 검색 결과 배열 (빈 배열 = 검색 실패 또는 결과 없음)
+ */
+export async function searchNaverFinanceTickers(
+  query: string
+): Promise<NaverFinanceItem[]> {
+  const url = `https://ac.finance.naver.com/ac?q=${encodeURIComponent(query)}&q_enc=UTF-8&st=111&r_format=json&r_enc=UTF-8&r_lt=111&l=0&lt=10`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        // 네이버 금융 도메인을 Referer로 지정해야 CORS 유사 제한을 우회
+        "Referer": "https://finance.naver.com/",
+        "Accept": "application/json, text/javascript, */*",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) return [];
+
+    const text = await res.text();
+    // 네이버 자동완성 응답은 JSON이 아닌 경우가 있어 안전하게 파싱
+    let data: { items?: string[][][] };
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return [];
+    }
+
+    // 응답 구조: { items: [ [["기업명", "코드", "타입", ...], ...], [] ] }
+    // items[0]: 국내주식 결과, items[1]: 해외주식 결과 (미사용)
+    const items: string[][] = data?.items?.[0] ?? [];
+    if (!items.length) return [];
+
+    return items
+      .filter((item) => item.length >= 2)
+      .map((item) => {
+        const name = item[0];
+        const code = item[1];
+        // 마켓 타입: "1" = 유가증권(KOSPI), "2" = 코스닥(KOSDAQ)
+        // 주의: 네이버 API 버전에 따라 다를 수 있음 → 코드 자릿수로 재확인 가능
+        const typeFlag = item[2] ?? "1";
+        const market: "KS" | "KQ" = typeFlag === "2" ? "KQ" : "KS";
+        return { code, name, market };
+      })
+      .filter((item) => /^\d{6}$/.test(item.code)); // 6자리 숫자 코드만 허용
+  } catch {
+    return [];
+  }
 }
 
 // KRX 신용잔고 응답 타입

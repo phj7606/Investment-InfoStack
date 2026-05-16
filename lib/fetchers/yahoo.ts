@@ -27,6 +27,18 @@ const YahooFinanceClass = require("yahoo-finance2").default as new () => {
     close: number;
     volume?: number;
   }>>;
+  // 기업명 또는 키워드로 종목 검색 — 티커 자동 완성에 사용
+  search: (query: string, opts?: { newsCount?: number; quotesCount?: number }) => Promise<{
+    quotes: Array<{
+      symbol: string;
+      shortname?: string;
+      longname?: string;
+      // "Equity" | "ETF" | "MUTUALFUND" | "INDEX" 등
+      typeDisp?: string;
+      // 거래소 표시명 (예: "NYSE", "NasdaqGS", "KSE")
+      exchDisp?: string;
+    }>;
+  }>;
 };
 
 // 모듈 수준 싱글톤 인스턴스 (매 호출마다 재생성 방지)
@@ -135,4 +147,105 @@ export function toYahooKrSymbol(
   exchange: "KS" | "KQ" = "KS"
 ): string {
   return `${krxSymbol}.${exchange}`;
+}
+
+/** Yahoo Finance HTTP 검색 결과 단일 항목 */
+interface YahooSearchQuote {
+  symbol: string;
+  shortname?: string;
+  longname?: string;
+  quoteType?: string;  // "EQUITY" | "ETF" | "INDEX" 등
+  typeDisp?: string;
+  exchDisp?: string;
+}
+
+/**
+ * Yahoo Finance 검색 API에 직접 HTTP 요청 (yahoo-finance2 라이브러리 우회)
+ * yahoo-finance2의 schema validation이 한국어 응답에서 오류를 발생시키는 경우를 방지하기 위해
+ * 직접 fetch를 사용한다.
+ */
+async function fetchYahooSearch(query: string): Promise<YahooSearchQuote[]> {
+  const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0&lang=en`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        // Yahoo Finance가 일반 브라우저 요청처럼 인식하도록
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+        "Accept": "application/json",
+      },
+      // 5초 타임아웃
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    // 응답 구조: { finance: { result: [{ quotes: [...] }] } }
+    // 또는 직접: { quotes: [...] }
+    return (
+      data?.finance?.result?.[0]?.quotes ??
+      data?.quotes ??
+      []
+    );
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 기업명 또는 키워드로 Yahoo Finance에서 티커 심볼을 검색
+ *
+ * @param query    - 검색어 (기업명 또는 티커, 예: "삼성전자", "Apple", "AAPL")
+ * @param exchange - 거래소 ("KRX" | "NYSE" | "NASDAQ")
+ * @returns { symbol, name } 또는 null (검색 결과 없음)
+ */
+export async function searchYahooTicker(
+  query: string,
+  exchange: "KRX" | "NYSE" | "NASDAQ"
+): Promise<{ symbol: string; name: string } | null> {
+  // yahoo-finance2 라이브러리 대신 직접 HTTP fetch 사용
+  // → schema validation 오류 없이 안정적으로 동작
+  const quotes = await fetchYahooSearch(query);
+
+  if (exchange === "KRX") {
+    // 한국 주식: .KS (유가증권) 또는 .KQ (KOSDAQ) 접미사 우선
+    const krQuote =
+      quotes.find((q) => q.symbol?.endsWith(".KS")) ??
+      quotes.find((q) => q.symbol?.endsWith(".KQ"));
+
+    if (krQuote) {
+      return {
+        symbol: krQuote.symbol,
+        name: krQuote.shortname ?? krQuote.longname ?? krQuote.symbol,
+      };
+    }
+  } else {
+    // 미국 주식: 점(.)이 없는 순수 티커 + EQUITY 타입
+    const targetExchanges =
+      exchange === "NASDAQ"
+        ? ["NasdaqGS", "NasdaqCM", "Nasdaq", "NASDAQ"]
+        : ["NYSE", "NYSEArca", "New York"];
+
+    // EQUITY + ETF 모두 허용 — INDEX, MUTUALFUND 등은 제외
+    const isTradeableType = (q: YahooSearchQuote) =>
+      q.quoteType === "EQUITY" || q.quoteType === "ETF";
+
+    const usQuote =
+      // 거래소 완전 일치
+      quotes.find(
+        (q) =>
+          !q.symbol?.includes(".") &&
+          isTradeableType(q) &&
+          targetExchanges.some((ex) => q.exchDisp?.includes(ex))
+      ) ??
+      // 거래소 불문, EQUITY/ETF 타입 + 순수 티커
+      quotes.find((q) => !q.symbol?.includes(".") && isTradeableType(q));
+
+    if (usQuote) {
+      return {
+        symbol: usQuote.symbol,
+        name: usQuote.shortname ?? usQuote.longname ?? usQuote.symbol,
+      };
+    }
+  }
+
+  return null;
 }
