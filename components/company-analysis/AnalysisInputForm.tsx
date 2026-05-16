@@ -1,7 +1,8 @@
 "use client";
 
 // 기업 분석 입력 폼 (P5-01)
-// Ticker / 거래소 / 기업명(선택) 입력 → 분석 시작
+// Ticker + 거래소 입력만으로 분석 시작
+// 기업명은 API 응답(rawData.companyName)에서 자동 추출되므로 입력 불필요
 // react-hook-form + zod 패턴 (기존 인증 폼과 동일)
 
 import { useEffect } from "react";
@@ -23,12 +24,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import type { CompanyAnalysisInput } from "@/types/company-analysis";
 
 const formSchema = z.object({
-  // 기업명을 기본 입력으로 사용 — 사용자가 직관적으로 기업명을 먼저 입력
-  companyName: z
-    .string()
-    .min(1, "기업명을 입력하세요.")
-    .max(100, "기업명은 100자 이하여야 합니다."),
   exchange: z.enum(["KRX", "NYSE", "NASDAQ", "TSE", "HKEX", "OTHER"]),
+  // KRX: 6자리 숫자, US: 알파벳 티커 — 모두 수용
   ticker: z
     .string()
     .min(1, "종목코드(Ticker)를 입력하세요.")
@@ -74,8 +71,6 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      // 기업명을 첫 번째 필드로 설정 — 기본값은 빈 문자열
-      companyName: defaultValues?.companyName ?? "",
       exchange: initialExchange,
       ticker: defaultValues?.ticker ?? "",
     },
@@ -86,19 +81,17 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
   useEffect(() => {
     if (!defaultValues?.ticker) return;
     reset({
-      companyName: defaultValues.companyName ?? "",
       exchange: (defaultValues.exchange ?? "KRX") as FormValues["exchange"],
       ticker: defaultValues.ticker ?? "",
     });
-  }, [defaultValues?.ticker, defaultValues?.exchange, defaultValues?.companyName, reset]);
+  }, [defaultValues?.ticker, defaultValues?.exchange, reset]);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">재무제표</CardTitle>
         <CardDescription>
-          분석할 기업의 Ticker와 거래소를 입력하세요. Claude가 최신 정보를 수집하여 분석
-          보고서를 작성합니다.
+          종목코드(Ticker)와 거래소를 입력하세요. KRX는 6자리 숫자(예: 005930), 미국은 티커(예: AAPL)를 입력합니다.
           {/* 이전 분석 참고 중일 때 안내 */}
           {previousReportLabel && (
             <span className="block mt-1 text-indigo-600 dark:text-indigo-400 font-medium">
@@ -112,23 +105,6 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
           onSubmit={handleSubmit((values) => onSubmit(values as CompanyAnalysisInput))}
           className="flex flex-wrap gap-3 items-end"
         >
-          {/* 기업명 — 기본 검색 입력 (필수) */}
-          <div className="space-y-1.5 min-w-40">
-            <Label htmlFor="companyName" className="text-xs font-medium">
-              기업명 <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="companyName"
-              placeholder="예: 삼성전자, Apple Inc."
-              className="h-9"
-              {...register("companyName")}
-              disabled={isLoading}
-            />
-            {errors.companyName && (
-              <p className="text-xs text-destructive">{errors.companyName.message}</p>
-            )}
-          </div>
-
           {/* 거래소 선택 */}
           <div className="space-y-1.5 min-w-44">
             <Label htmlFor="exchange" className="text-xs font-medium">
@@ -157,8 +133,8 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
             )}
           </div>
 
-          {/* 종목코드(Ticker) — 기업명 입력 후 보조 입력 */}
-          <div className="space-y-1.5 min-w-28">
+          {/* 종목코드(Ticker) — 주 입력 필드 */}
+          <div className="space-y-1.5 min-w-36">
             <Label htmlFor="ticker" className="text-xs font-medium">
               종목코드 <span className="text-destructive">*</span>
             </Label>
@@ -183,7 +159,7 @@ export function AnalysisInputForm({ onSubmit, isLoading, defaultValues, previous
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                분석 중...
+                수집 중...
               </>
             ) : (
               <>

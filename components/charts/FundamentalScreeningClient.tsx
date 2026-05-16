@@ -90,7 +90,6 @@ export function FundamentalScreeningClient() {
       setCurrentInput({
         ticker: restored.ticker,
         exchange: restored.exchange as CompanyAnalysisInput["exchange"],
-        companyName: restored.companyName,
       });
 
       // rawData 복원 (sessionStorage — 동일 ticker만)
@@ -135,7 +134,6 @@ export function FundamentalScreeningClient() {
         body: JSON.stringify({
           ticker: input.ticker,
           exchange: input.exchange,
-          companyName: input.companyName,
           forceRefresh: opts?.forceRefresh ?? false,
           dataOnly: true, // Claude 분석 생략 — 체크포인트 탭에서 직접 계산
         }),
@@ -150,6 +148,9 @@ export function FundamentalScreeningClient() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
+      // API가 반환한 실제 ticker/companyName — 사용자 입력과 다를 수 있음
+      let resolvedTicker = input.ticker;
+      let resolvedCompanyName = input.ticker; // 기본값: ticker로 대체
 
       outer: while (true) {
         const { done, value } = await reader.read();
@@ -170,9 +171,14 @@ export function FundamentalScreeningClient() {
             if (parsed.rawData) {
               const fresh = parsed.rawData as FinancialStatements;
 
+              // API가 반환한 실제 ticker와 companyName 캡처
+              // FnGuide: rawData.ticker = 종목코드(6자리), rawData.companyName = 페이지 제목 자동 추출
+              if (fresh.ticker) resolvedTicker = fresh.ticker;
+              if (fresh.companyName) resolvedCompanyName = fresh.companyName;
+
               // ── localStorage 기존 저장 데이터와 병합 ──────────────────
               // FnGuide는 최근 4~5개년만 반환하므로, 로컬에 저장된 과거 연도를 보존
-              const saveKey = savedDataKey(input.ticker, input.exchange);
+              const saveKey = savedDataKey(resolvedTicker, input.exchange);
               const savedStr = localStorage.getItem(saveKey);
 
               let merged: FinancialStatements;
@@ -205,10 +211,11 @@ export function FundamentalScreeningClient() {
       }
 
       // 수집 완료 — savedList 인덱스에 자동 등록 (처음 수집 시 / 기존 항목 갱신)
+      // resolvedTicker/resolvedCompanyName: 사용자 입력이 아닌 API 응답 기준
       const newEntry: SavedEntry = {
-        ticker:      input.ticker,
+        ticker:      resolvedTicker,
         exchange:    input.exchange,
-        companyName: input.companyName ?? input.ticker,
+        companyName: resolvedCompanyName,
         savedAt:     new Date().toISOString(),
       };
       setSavedList((prev) => {
@@ -221,8 +228,8 @@ export function FundamentalScreeningClient() {
       });
 
       setResult({
-        ticker:      input.ticker,
-        companyName: input.companyName ?? input.ticker,
+        ticker:      resolvedTicker,
+        companyName: resolvedCompanyName,
         exchange:    input.exchange,
         generatedAt: new Date().toISOString(),
       });
@@ -252,7 +259,6 @@ export function FundamentalScreeningClient() {
       const input: CompanyAnalysisInput = {
         ticker: entry.ticker,
         exchange: entry.exchange as CompanyAnalysisInput["exchange"],
-        companyName: entry.companyName,
       };
       setRawData(loadedRaw);
       setCurrentInput(input);
@@ -578,22 +584,23 @@ export function FundamentalScreeningClient() {
                 3) 없으면 ticker로 대체
                 KRX 종목은 클릭 시 네이버 증권 페이지로 이동 */}
             {rawData.exchange === "KRX" ? (
+              // KRX: rawData.ticker = API가 반환한 실제 종목코드(6자리) → 네이버 증권 직접 링크
               <a
-                href={`https://stock.naver.com/domestic/stock/${currentInput?.ticker ?? rawData.ticker}/price`}
+                href={`https://stock.naver.com/domestic/stock/${rawData.ticker}/price`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-bold text-base leading-tight truncate hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors"
               >
-                {currentInput?.companyName || rawData.companyName || currentInput?.ticker || rawData.ticker}
+                {rawData.companyName || rawData.ticker}
               </a>
             ) : (
               <span className="font-bold text-base leading-tight truncate">
-                {currentInput?.companyName || rawData.companyName || currentInput?.ticker || rawData.ticker}
+                {rawData.companyName || rawData.ticker}
               </span>
             )}
-            {/* ticker는 거래소 Badge에 통합 — "KRX · 066970" 형태 */}
+            {/* ticker는 거래소 Badge에 통합 — "KRX · 329180" 형태 */}
             <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0">
-              {rawData.exchange} · {currentInput?.ticker ?? rawData.ticker}
+              {rawData.exchange} · {rawData.ticker}
             </Badge>
             <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">
               {rawData.dataSource}
