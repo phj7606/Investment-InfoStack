@@ -378,9 +378,10 @@ export function Checkpoint2Client({ rawData }: Props) {
       .then((data: NaverActivityResult) => setActivityData(data))
       .catch((err) => console.error("[Checkpoint2] Naver activity 수집 실패:", err))
       .finally(() => setActivityLoading(false));
-  // rawData.ticker + exchange 변경 시 재수집
+  // rawData 자체를 의존성으로 사용 — 같은 ticker 재분석 시에도 재조회
+  // (ticker만 의존성으로 쓰면 재분석해도 effect가 실행되지 않아 이전 실패 결과가 남음)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rawData.ticker, rawData.exchange]);
+  }, [rawData]);
 
   // 선택된 기간의 items
   const displayItems =
@@ -472,14 +473,18 @@ export function Checkpoint2Client({ rawData }: Props) {
    */
   const cccChartData = (() => {
     if (isKR) {
-      // Naver API 데이터 사용
-      if (!activityData?.rows?.length) return [];
-      return activityData.rows
-        .filter((r) => r.receivableTurnover && r.inventoryTurnover && r.payableTurnover)
-        .map((r) => {
+      // Naver 활동성 API 데이터 사용
+      // receivableTurnover가 있는 연도만 포함 — inventoryTurnover/payableTurnover가
+      // null인 기업(재고 없음, 매입채무 없음)은 해당 항목을 0일로 처리
+      const naverRows = activityData?.rows?.filter((r) => r.receivableTurnover) ?? [];
+
+      if (naverRows.length > 0) {
+        return naverRows.map((r) => {
           const dso = 365 / r.receivableTurnover!;
-          const dio = 365 / r.inventoryTurnover!;
-          const dpo = 365 / r.payableTurnover!;
+          // 재고자산회전율이 없는 기업(순수 서비스업 등)은 DIO=0으로 처리
+          const dio = r.inventoryTurnover ? 365 / r.inventoryTurnover : 0;
+          // 매입채무회전율이 없는 기업은 DPO=0으로 처리
+          const dpo = r.payableTurnover   ? 365 / r.payableTurnover   : 0;
           const ccc = dso + dio - dpo;
           return {
             year: r.year,
@@ -489,6 +494,51 @@ export function Checkpoint2Client({ rawData }: Props) {
             CCC: parseFloat(ccc.toFixed(1)),
           };
         });
+      }
+
+      // Naver 데이터가 전혀 없으면 rawItems에서 직접 계산 (폴백)
+      // — ticker가 잘못되었거나 Naver가 데이터를 제공하지 않는 종목 대응
+      const annualItems = rawData.rawItems;
+      const revKr   = extractAccount(annualItems, "IS", KR.revenue,      true);
+      const recvKr  = extractAccount(annualItems, "BS", KR.receivables,  true);
+      const invKr   = extractAccount(annualItems, "BS", KR.inventory,    true);
+      const payKr   = extractAccount(annualItems, "BS", KR.payables,     true);
+
+      const revVals  = getValues(revKr,  annualYears);
+      const recvVals = getValues(recvKr, annualYears);
+      const invVals  = getValues(invKr,  annualYears);
+      const payVals  = getValues(payKr,  annualYears);
+
+      return annualYears
+        .map((yr, i) => {
+          if (i === 0) return null; // 전기 데이터 없는 첫 연도 제외
+          const rev  = revVals[i];
+          const recv = recvVals[i];
+          if (!rev || !recv) return null; // 매출·매출채권은 필수
+          const recvPrev = recvVals[i - 1];
+          if (!recvPrev) return null;
+
+          const avgRecv = (recvPrev + recv) / 2;
+          const dso = (avgRecv / rev) * 365;
+
+          // 재고자산/매입채무는 없어도 계산 가능 (0으로 처리)
+          const inv     = invVals[i]  ?? 0;
+          const invPrev = invVals[i - 1] ?? 0;
+          const pay     = payVals[i]  ?? 0;
+          const payPrev = payVals[i - 1] ?? 0;
+          const dio = ((invPrev + inv) / 2 / rev) * 365;
+          const dpo = ((payPrev + pay) / 2 / rev) * 365;
+          const ccc = dso + dio - dpo;
+
+          return {
+            year: yr,
+            DSO: parseFloat(dso.toFixed(1)),
+            DIO: parseFloat(dio.toFixed(1)),
+            DPO: parseFloat((-dpo).toFixed(1)),
+            CCC: parseFloat(ccc.toFixed(1)),
+          };
+        })
+        .filter((d): d is NonNullable<typeof d> => d !== null);
     } else {
       // US: rawItems 직접 계산 (분모=Revenue, 분자=(전기+당기)/2 평균)
       const annualItems = rawData.rawItems;
