@@ -9,10 +9,11 @@
 //   idle → collecting → complete
 //   *    → error
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
-  FileText, DatabaseZap, Save, FolderOpen, Trash2, ChevronDown, ChevronUp,
+  FileText, DatabaseZap, FolderOpen, Trash2, ChevronDown, ChevronUp,
+  Download, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +25,7 @@ import { Checkpoint1Client } from "@/components/charts/Checkpoint1Client";
 import { Checkpoint2Client } from "@/components/charts/Checkpoint2Client";
 import { Checkpoint3Client } from "@/components/charts/Checkpoint3Client";
 import { Checkpoint4Client } from "@/components/charts/Checkpoint4Client";
+import { mergeStatements } from "@/lib/fundamental-screening/merge";
 import type { CompanyAnalysisInput } from "@/types/company-analysis";
 import type { FinancialStatements } from "@/types/fundamental-screening";
 
@@ -52,6 +54,13 @@ interface SavedEntry {
 
 type ScreeningStatus = "idle" | "collecting" | "complete" | "error";
 
+// JSON 내보내기/가져오기 포맷
+interface ExportData {
+  version: "1.0";
+  exportedAt: string;
+  entries: Array<SavedEntry & { rawData: FinancialStatements }>;
+}
+
 export function FundamentalScreeningClient() {
   const [status, setStatus] = useState<ScreeningStatus>("idle");
   const [result, setResult] = useState<ScreeningResult | null>(null);
@@ -59,6 +68,9 @@ export function FundamentalScreeningClient() {
   const [rawData, setRawData] = useState<FinancialStatements | null>(null);
   const [savedList, setSavedList] = useState<SavedEntry[]>([]);
   const [savedOpen, setSavedOpen] = useState(false);
+
+  // 파일 가져오기용 hidden input ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── 마운트 시 복원 ────────────────────────────────────────────────
   useEffect(() => {
@@ -154,7 +166,36 @@ export function FundamentalScreeningClient() {
             const parsed = JSON.parse(line.slice(6));
 
             if (parsed.error) throw new Error(parsed.error);
-            if (parsed.rawData) setRawData(parsed.rawData);
+
+            if (parsed.rawData) {
+              const fresh = parsed.rawData as FinancialStatements;
+
+              // ── localStorage 기존 저장 데이터와 병합 ──────────────────
+              // FnGuide는 최근 4~5개년만 반환하므로, 로컬에 저장된 과거 연도를 보존
+              const saveKey = savedDataKey(input.ticker, input.exchange);
+              const savedStr = localStorage.getItem(saveKey);
+
+              let merged: FinancialStatements;
+              if (savedStr) {
+                try {
+                  const { rawData: saved } = JSON.parse(savedStr) as { rawData: FinancialStatements };
+                  // saved(과거 포함) + fresh(최신) → 전 연도 보존
+                  merged = mergeStatements(saved, fresh);
+                } catch {
+                  // 저장 데이터 파싱 실패 시 fresh 그대로 사용
+                  merged = fresh;
+                }
+              } else {
+                merged = fresh;
+              }
+
+              // 병합 결과를 화면에 반영 + localStorage에 자동 저장
+              setRawData(merged);
+              try {
+                localStorage.setItem(saveKey, JSON.stringify({ rawData: merged }));
+              } catch { /* 저장 실패 시 무시 (용량 초과 등) */ }
+            }
+
             if (parsed.done) break outer;
           } catch (e) {
             if (e instanceof SyntaxError) continue;
@@ -163,11 +204,26 @@ export function FundamentalScreeningClient() {
         }
       }
 
-      // 수집 완료
-      setResult({
-        ticker: input.ticker,
+      // 수집 완료 — savedList 인덱스에 자동 등록 (처음 수집 시 / 기존 항목 갱신)
+      const newEntry: SavedEntry = {
+        ticker:      input.ticker,
+        exchange:    input.exchange,
         companyName: input.companyName ?? input.ticker,
-        exchange: input.exchange,
+        savedAt:     new Date().toISOString(),
+      };
+      setSavedList((prev) => {
+        const filtered = prev.filter(
+          (s) => !(s.ticker === newEntry.ticker && s.exchange === newEntry.exchange)
+        );
+        const updated = [newEntry, ...filtered];
+        localStorage.setItem(SAVED_INDEX_KEY, JSON.stringify(updated));
+        return updated;
+      });
+
+      setResult({
+        ticker:      input.ticker,
+        companyName: input.companyName ?? input.ticker,
+        exchange:    input.exchange,
         generatedAt: new Date().toISOString(),
       });
       setStatus("complete");
@@ -185,33 +241,6 @@ export function FundamentalScreeningClient() {
     setCurrentInput(input);
     await runCollect(input);
   }, [runCollect]);
-
-  // ── 현재 분석 저장 ───────────────────────────────────────────────
-  const handleSave = useCallback(() => {
-    if (!rawData || !result || !currentInput) return;
-    try {
-      const key = savedDataKey(currentInput.ticker, currentInput.exchange);
-      localStorage.setItem(key, JSON.stringify({ rawData }));
-      const entry: SavedEntry = {
-        ticker: currentInput.ticker,
-        exchange: currentInput.exchange,
-        companyName: currentInput.companyName ?? currentInput.ticker,
-        savedAt: new Date().toISOString(),
-      };
-      const newList = [
-        entry,
-        ...savedList.filter(
-          (s) => !(s.ticker === entry.ticker && s.exchange === entry.exchange)
-        ),
-      ];
-      setSavedList(newList);
-      localStorage.setItem(SAVED_INDEX_KEY, JSON.stringify(newList));
-      setSavedOpen(true);
-      toast.success(`${currentInput.ticker} 저장 완료`);
-    } catch {
-      toast.error("저장에 실패했습니다. 저장 공간을 확인하세요.");
-    }
-  }, [rawData, result, currentInput, savedList]);
 
   // ── 저장된 분석 불러오기 ─────────────────────────────────────────
   const handleLoad = useCallback((entry: SavedEntry) => {
@@ -252,29 +281,208 @@ export function FundamentalScreeningClient() {
     toast.success(`${entry.ticker} 삭제 완료`);
   }, [savedList]);
 
+  // ── 가져오기 공통 처리 ────────────────────────────────────────────
+  // JSON 텍스트를 파싱해 localStorage에 병합 — 파일 획득 경로(FSAPI/input)와 분리
+  const processImportText = useCallback((text: string) => {
+    try {
+      const parsed = JSON.parse(text) as ExportData;
+      if (!Array.isArray(parsed.entries)) throw new Error("올바른 형식이 아닙니다.");
+
+      let added = 0;
+      let merged = 0;
+      const newIndex = [...savedList];
+
+      for (const entry of parsed.entries) {
+        const saveKey = savedDataKey(entry.ticker, entry.exchange);
+        const existingStr = localStorage.getItem(saveKey);
+
+        let finalRawData: FinancialStatements;
+        if (existingStr) {
+          const { rawData: existing } = JSON.parse(existingStr) as { rawData: FinancialStatements };
+          // 양쪽에서 빠진 연도를 서로 보완 — 기존을 fresh(우선), 가져온 것을 saved로
+          finalRawData = mergeStatements(entry.rawData, existing);
+          merged++;
+        } else {
+          finalRawData = entry.rawData;
+          added++;
+        }
+
+        localStorage.setItem(saveKey, JSON.stringify({ rawData: finalRawData }));
+
+        const existingIdx = newIndex.findIndex(
+          (s) => s.ticker === entry.ticker && s.exchange === entry.exchange
+        );
+        const newEntry: SavedEntry = {
+          ticker:      entry.ticker,
+          exchange:    entry.exchange,
+          companyName: entry.companyName,
+          savedAt:     entry.savedAt,
+        };
+        if (existingIdx >= 0) newIndex[existingIdx] = newEntry;
+        else newIndex.unshift(newEntry);
+      }
+
+      setSavedList(newIndex);
+      localStorage.setItem(SAVED_INDEX_KEY, JSON.stringify(newIndex));
+      setSavedOpen(true);
+
+      const msg = [
+        added  > 0 ? `신규 ${added}개` : "",
+        merged > 0 ? `병합 ${merged}개` : "",
+      ].filter(Boolean).join(", ");
+      toast.success(`가져오기 완료 — ${msg}`);
+    } catch (err) {
+      toast.error(`가져오기 실패: ${err instanceof Error ? err.message : "파일 형식 오류"}`);
+    }
+  }, [savedList]);
+
+  // ── JSON 내보내기 ─────────────────────────────────────────────────
+  // File System Access API 지원 시 → 네이티브 "다른 이름으로 저장" 다이얼로그
+  // 미지원 브라우저(Firefox 등) → blob URL 다운로드로 폴백
+  const handleExport = useCallback(async () => {
+    if (savedList.length === 0) {
+      toast.error("내보낼 저장 데이터가 없습니다.");
+      return;
+    }
+
+    const entries: ExportData["entries"] = [];
+    for (const entry of savedList) {
+      const str = localStorage.getItem(savedDataKey(entry.ticker, entry.exchange));
+      if (!str) continue;
+      try {
+        const { rawData: rd } = JSON.parse(str) as { rawData: FinancialStatements };
+        entries.push({ ...entry, rawData: rd });
+      } catch { /* 파싱 실패 항목 건너뜀 */ }
+    }
+
+    const json = JSON.stringify(
+      { version: "1.0", exportedAt: new Date().toISOString(), entries } satisfies ExportData,
+      null, 2
+    );
+    const suggestedName = `fs-analysis-${new Date().toISOString().slice(0, 10)}.json`;
+
+    // File System Access API — 크롬/엣지에서 저장 경로 선택 가능
+    if ("showSaveFilePicker" in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName,
+          types: [{ description: "JSON 파일", accept: { "application/json": [".json"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(json);
+        await writable.close();
+        toast.success(`${entries.length}개 종목 내보내기 완료`);
+        return;
+      } catch (err) {
+        // 사용자가 취소한 경우 — 에러 없이 종료
+        if ((err as Error).name === "AbortError") return;
+        // 그 외 오류 → 폴백으로 진행
+      }
+    }
+
+    // 폴백: blob URL 다운로드 (저장 위치는 브라우저 기본 설정 따름)
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = suggestedName;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${entries.length}개 종목 내보내기 완료`);
+  }, [savedList]);
+
+  // ── JSON 가져오기 ─────────────────────────────────────────────────
+  // File System Access API 지원 시 → 네이티브 파일 열기 다이얼로그
+  // 미지원 시 → hidden <input type="file"> 폴백
+  const handleImportClick = useCallback(async () => {
+    if ("showOpenFilePicker" in window) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const [handle] = await (window as any).showOpenFilePicker({
+          types: [{ description: "JSON 파일", accept: { "application/json": [".json"] } }],
+          multiple: false,
+        });
+        const file = await handle.getFile();
+        processImportText(await file.text());
+        return;
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+      }
+    }
+    // 폴백: hidden input
+    fileInputRef.current?.click();
+  }, [processImportText]);
+
+  // hidden input onChange — showOpenFilePicker 미지원 브라우저 폴백
+  const handleImportChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    const reader = new FileReader();
+    reader.onload = (ev) => processImportText(ev.target?.result as string);
+    reader.readAsText(file);
+  }, [processImportText]);
+
   const isLoading = status === "collecting";
 
   return (
     <div className="space-y-4">
       {/* ── 저장된 분석 목록 ── */}
-      {savedList.length > 0 && (
-        <Card>
+      <Card>
+        {/* 파일 가져오기용 hidden input — 버튼 클릭으로 트리거 */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          className="hidden"
+          onChange={handleImportChange}
+        />
+
+        <div className="flex items-center justify-between px-4 py-2.5">
+          {/* 왼쪽: 토글 버튼 */}
           <button
-            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium hover:bg-muted/40 transition-colors"
+            className="flex items-center gap-2 text-sm font-medium hover:text-foreground/80 transition-colors"
             onClick={() => setSavedOpen((v) => !v)}
           >
-            <div className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              <span>저장된 분석</span>
+            <FolderOpen className="h-4 w-4 text-muted-foreground" />
+            <span>저장된 분석</span>
+            {savedList.length > 0 && (
               <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
                 {savedList.length}
               </Badge>
-            </div>
+            )}
             {savedOpen
               ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
               : <ChevronDown className="h-4 w-4 text-muted-foreground" />
             }
           </button>
+
+          {/* 오른쪽: 내보내기 / 가져오기 */}
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={handleExport}
+              disabled={savedList.length === 0}
+              title="저장된 분석 전체를 JSON 파일로 내보내기"
+            >
+              <Download className="h-3.5 w-3.5" />
+              내보내기
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={handleImportClick}
+              title="JSON 파일에서 분석 데이터 가져오기"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              가져오기
+            </Button>
+          </div>
+        </div>
 
           {savedOpen && (
             <div className="border-t divide-y divide-border/50">
@@ -291,10 +499,23 @@ export function FundamentalScreeningClient() {
                     <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">
                       {entry.exchange}
                     </Badge>
+                    {/* KRX 종목 기업명 — 클릭 시 네이버 증권으로 이동 */}
                     {entry.companyName && entry.companyName !== entry.ticker && (
-                      <span className="text-xs text-muted-foreground truncate">
-                        {entry.companyName}
-                      </span>
+                      entry.exchange === "KRX" ? (
+                        <a
+                          href={`https://stock.naver.com/domestic/stock/${entry.ticker}/price`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs text-muted-foreground truncate hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors"
+                        >
+                          {entry.companyName}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-muted-foreground truncate">
+                          {entry.companyName}
+                        </span>
+                      )
                     )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -313,8 +534,14 @@ export function FundamentalScreeningClient() {
               ))}
             </div>
           )}
+
+          {/* 저장 항목 없을 때 안내 */}
+          {savedList.length === 0 && savedOpen && (
+            <div className="border-t px-4 py-3 text-xs text-muted-foreground">
+              분석하기를 실행하면 자동 저장됩니다.
+            </div>
+          )}
         </Card>
-      )}
 
       {/* ── 입력 폼 ── */}
       <AnalysisInputForm
@@ -343,35 +570,34 @@ export function FundamentalScreeningClient() {
       {/* ── 수집된 재무제표 테이블 ── */}
       {rawData && status === "complete" && (
         <>
-          {/* 기업 헤더 + 저장 버튼 */}
-          <div className="flex items-center justify-between gap-3">
-            {/* 기업명 / Ticker / 거래소 */}
-            <div className="flex items-center gap-2 min-w-0">
-              {/* 기업명 우선순위:
-                  1) 사용자 입력 companyName (폼에서 직접 입력)
-                  2) rawData.companyName (FnGuide <title> 자동 추출)
-                  3) 없으면 기업명 span 생략, ticker만 굵게 표시 */}
-              {/* 기업명 — 없으면 ticker로 대체 */}
+          {/* 기업 헤더 */}
+          <div className="flex items-center gap-2 min-w-0">
+            {/* 기업명 우선순위:
+                1) 사용자 입력 companyName (폼에서 직접 입력)
+                2) rawData.companyName (FnGuide <title> 자동 추출)
+                3) 없으면 ticker로 대체
+                KRX 종목은 클릭 시 네이버 증권 페이지로 이동 */}
+            {rawData.exchange === "KRX" ? (
+              <a
+                href={`https://stock.naver.com/domestic/stock/${currentInput?.ticker ?? rawData.ticker}/price`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-base leading-tight truncate hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline transition-colors"
+              >
+                {currentInput?.companyName || rawData.companyName || currentInput?.ticker || rawData.ticker}
+              </a>
+            ) : (
               <span className="font-bold text-base leading-tight truncate">
                 {currentInput?.companyName || rawData.companyName || currentInput?.ticker || rawData.ticker}
               </span>
-              {/* ticker는 거래소 Badge에 통합 — "KRX · 066970" 형태 */}
-              <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0">
-                {rawData.exchange} · {currentInput?.ticker ?? rawData.ticker}
-              </Badge>
-              <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">
-                {rawData.dataSource}
-              </Badge>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 h-8 text-xs shrink-0"
-              onClick={handleSave}
-            >
-              <Save className="h-3.5 w-3.5" />
-              저장
-            </Button>
+            )}
+            {/* ticker는 거래소 Badge에 통합 — "KRX · 066970" 형태 */}
+            <Badge variant="outline" className="text-[10px] h-5 px-1.5 shrink-0">
+              {rawData.exchange} · {currentInput?.ticker ?? rawData.ticker}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0">
+              {rawData.dataSource}
+            </Badge>
           </div>
 
           <FinancialRawDataTable statements={rawData} />
