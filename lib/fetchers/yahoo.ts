@@ -95,8 +95,83 @@ export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]>
 }
 
 /**
+ * Yahoo Finance v8 chart API를 curl 서브프로세스로 호출
+ *
+ * Node.js fetch/https 모듈은 Yahoo Finance의 TLS 핑거프린팅 차단에 걸리지만,
+ * curl은 OpenSSL 기반 TLS 구현체를 사용하여 동일 URL에 정상 접근 가능.
+ * 네트워크 환경(China 등)에서 Node.js HTTP 클라이언트가 차단될 때 사용.
+ */
+async function fetchYahooHistoryViaCurl(
+  symbol: string,
+  period1Date: Date,
+  period2Date: Date
+): Promise<YahooHistoricalBar[]> {
+  // child_process는 Node.js 내장 모듈 — 서버 전용
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { execFile } = require("child_process") as typeof import("child_process");
+
+  const p1 = Math.floor(period1Date.getTime() / 1000);
+  const p2 = Math.floor(period2Date.getTime() / 1000);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${p1}&period2=${p2}&includePrePost=false`;
+
+  const stdout = await new Promise<string>((resolve, reject) => {
+    execFile(
+      "curl",
+      [
+        "-s",                             // 진행 상황 출력 억제
+        "--max-time", "15",               // 전체 요청 타임아웃 15초
+        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "-H", "Accept: application/json",
+        url,
+      ],
+      { maxBuffer: 10 * 1024 * 1024 },    // 최대 10MB 버퍼
+      (error, stdout, stderr) => {
+        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
+        resolve(stdout);
+      }
+    );
+  });
+
+  // 응답이 JSON인지 확인 (HTML 오류 페이지 걸러내기)
+  if (!stdout.trim().startsWith("{")) {
+    throw new Error(`curl 응답이 JSON이 아님: ${stdout.slice(0, 80)}`);
+  }
+
+  const data = JSON.parse(stdout);
+  const result = data?.chart?.result?.[0];
+  if (!result) throw new Error("curl Yahoo API: result 없음");
+
+  const timestamps: number[] = result.timestamp ?? [];
+  const quote = result.indicators?.quote?.[0] ?? {};
+  // adjclose 배열이 있으면 수정 종가 사용 (배당/분할 조정), 없으면 일반 종가
+  const adjCloses: (number | null)[] = result.indicators?.adjclose?.[0]?.adjclose ?? quote.close ?? [];
+
+  const bars: YahooHistoricalBar[] = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    const close = adjCloses[i] ?? quote.close?.[i];
+    if (close == null || close <= 0) continue;
+    const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+    bars.push({
+      date,
+      open:   quote.open?.[i]   ?? close,
+      high:   quote.high?.[i]   ?? close,
+      low:    quote.low?.[i]    ?? close,
+      close,
+      volume: quote.volume?.[i] ?? 0,
+    });
+  }
+
+  return bars.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
  * 단일 심볼의 OHLCV 시계열 조회
  * auto_adjust=True 동작: 반환값은 수정 종가 기준 (yahoo-finance2 기본값)
+ *
+ * 우선순위:
+ *   1. yahoo-finance2 라이브러리 (query2 서버) — 정상 환경에서 사용
+ *   2. curl 서브프로세스 (query1 서버) — Node.js HTTP가 TLS 핑거프린팅으로 차단될 때
+ *      curl은 OpenSSL TLS 구현체 사용 → Yahoo Finance 차단 우회 가능
  *
  * @param symbol  - 티커 심볼
  * @param period1 - 시작일 (Date 또는 "YYYY-MM-DD")
@@ -108,30 +183,52 @@ export async function fetchYahooHistory(
   period1: Date | string,
   period2?: Date | string
 ): Promise<YahooHistoricalBar[]> {
+  const period1Date = period1 instanceof Date ? period1 : new Date(period1);
+  const period2Date = period2
+    ? period2 instanceof Date ? period2 : new Date(period2)
+    : new Date();
+
+  // 1. yahoo-finance2 라이브러리 우선 시도
   // period2 미지정 시 오늘 날짜를 기본값으로 설정
   // yahoo-finance2 내부 스키마 검증이 period2를 필수로 요구하기 때문
-  const opts: { period1: Date; period2: Date; interval: string } = {
-    period1: period1 instanceof Date ? period1 : new Date(period1),
-    period2: period2
-      ? period2 instanceof Date ? period2 : new Date(period2)
-      : new Date(),
-    interval: "1d",
-  };
+  try {
+    const rows = await yahooFinance.historical(symbol, {
+      period1: period1Date,
+      period2: period2Date,
+      interval: "1d",
+    });
 
-  const rows = await yahooFinance.historical(symbol, opts);
+    const bars = rows
+      .filter((row) => row.close != null)
+      .map((row) => ({
+        date: row.date.toISOString().slice(0, 10),
+        open: row.open ?? row.close,
+        high: row.high ?? row.close,
+        low: row.low ?? row.close,
+        close: row.close,
+        volume: row.volume ?? 0,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-  return rows
-    .filter((row) => row.close != null)
-    .map((row) => ({
-      // toISOString()으로 "YYYY-MM-DDT..." 형태에서 날짜 부분만 추출
-      date: row.date.toISOString().slice(0, 10),
-      open: row.open ?? row.close,
-      high: row.high ?? row.close,
-      low: row.low ?? row.close,
-      close: row.close,
-      volume: row.volume ?? 0,
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    // 빈 응답이면 curl fallback으로 진행
+    if (bars.length > 0) return bars;
+  } catch {
+    // 라이브러리 실패 시 curl fallback으로 진행
+  }
+
+  // 2. curl 서브프로세스 fallback
+  // Node.js HTTP 클라이언트가 Yahoo Finance TLS 핑거프린팅 차단에 걸릴 때 사용
+  try {
+    const bars = await fetchYahooHistoryViaCurl(symbol, period1Date, period2Date);
+    if (bars.length > 0) {
+      console.log(`[yahoo] curl fallback 성공: ${symbol} (${bars.length}건)`);
+      return bars;
+    }
+  } catch (err) {
+    console.warn(`[yahoo] curl fallback 실패: ${symbol}`, err);
+  }
+
+  return [];
 }
 
 /**
