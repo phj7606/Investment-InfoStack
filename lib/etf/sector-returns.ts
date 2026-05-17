@@ -4,7 +4,8 @@
 //
 // 서버 전용 모듈 — Route Handler에서만 import
 
-import { fetchYahooHistory, toYahooKrSymbol } from "@/lib/fetchers/yahoo";
+import { fetchYahooHistory, toYahooKrSymbol, type YahooHistoricalBar } from "@/lib/fetchers/yahoo";
+import { fetchNaverStockHistory } from "@/lib/fetchers/krx";
 import { calcEtfRs } from "@/lib/etf/rs";
 import { readCache, writeCache } from "@/lib/cache";
 import krTickers from "@/config/tickers_kr_etf.json";
@@ -69,6 +70,42 @@ function calcReturn(closes: number[], lookbackDays: number): number | null {
  * - RS 지표는 calcEtfRs("kr") 결과에서 symbol 기준으로 조인
  * - TTL: 하루 1회 갱신 (historicalTTLSeconds)
  */
+/**
+ * ETF 가격 히스토리 수집 — Yahoo Finance 우선, 실패 시 Naver Finance fallback
+ * Yahoo Finance가 차단되거나 특정 ETF 심볼을 인식하지 못하는 경우를 대비
+ * NaverStockHistoryBar와 YahooHistoricalBar는 필드 구조가 동일하므로 호환 가능
+ */
+async function fetchEtfHistory(
+  symbol: string,      // KRX 6자리 종목코드
+  exchange: "KS" | "KQ",
+  startDate: Date
+): Promise<YahooHistoricalBar[]> {
+  const startIso = startDate.toISOString().slice(0, 10);
+  const endIso = new Date().toISOString().slice(0, 10);
+
+  // 1. Yahoo Finance 우선 시도
+  try {
+    const bars = await fetchYahooHistory(toYahooKrSymbol(symbol, exchange), startDate);
+    if (bars.length > 0) return bars;
+  } catch {
+    // Yahoo 실패 시 무시하고 Naver로 진행
+  }
+
+  // 2. Naver Finance fchart fallback — Yahoo 차단/무응답 시 대체
+  // fetchNaverStockHistory 내부에서 EUC-KR 디코딩 + Yahoo 이중 fallback 처리
+  try {
+    const result = await fetchNaverStockHistory(symbol, startIso, endIso);
+    if (result.bars.length > 0) {
+      console.log(`[sector-returns] Naver fallback 성공: ${symbol} (${result.bars.length}건)`);
+      return result.bars;
+    }
+  } catch (err) {
+    console.warn(`[sector-returns] Naver fallback 실패: ${symbol}`, err);
+  }
+
+  return [];
+}
+
 /** sector_rep 심볼 목록으로 간단한 djb2 해시를 생성한다 (캐시 자동 무효화용) */
 function sectorRepHash(symbols: string[]): string {
   const str = [...symbols].sort().join(",");
@@ -111,11 +148,13 @@ export async function calcKrSectorReturns(): Promise<KrSectorReturn[]> {
   startDate.setDate(startDate.getDate() - 430);
 
   // RS 랭킹 계산 (캐시 재사용) + 대표 ETF 가격 히스토리 병렬 수집
+  // fetchEtfHistory: Yahoo Finance 우선, 실패 시 Naver Finance fallback
   const [rsResponse, ...histResults] = await Promise.allSettled([
     calcEtfRs("kr"),
     ...repTickers.map((t) =>
-      fetchYahooHistory(
-        toYahooKrSymbol(t.symbol, (t.exchange ?? "KS") as "KS" | "KQ"),
+      fetchEtfHistory(
+        t.symbol,
+        (t.exchange ?? "KS") as "KS" | "KQ",
         startDate
       )
     ),

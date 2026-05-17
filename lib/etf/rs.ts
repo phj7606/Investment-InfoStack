@@ -9,6 +9,7 @@ import {
   toYahooKrSymbol,
   type YahooHistoricalBar,
 } from "@/lib/fetchers/yahoo";
+import { fetchNaverStockHistory, fetchKospiHistory } from "@/lib/fetchers/krx";
 import { mansfieldRS, rollingPercentileRank, adx } from "@/lib/indicators/utils";
 import { readCache, writeCache } from "@/lib/cache";
 import params from "@/config/params.json";
@@ -36,6 +37,69 @@ function tickerHash(tickers: { symbol: string }[]): string {
 const KR_BENCHMARK = "^KS11";
 // 미국 ETF 벤치마크: S&P 500 추종 SPY
 const US_BENCHMARK = "SPY";
+
+/**
+ * 벤치마크(KOSPI) 히스토리 수집 — Yahoo Finance 우선, 실패 시 Naver/KRX fallback
+ * fetchKospiHistory 내부에서 Naver fchart → KRX API → Yahoo 순서로 fallback 처리
+ */
+async function fetchBenchmarkHistory(startDate: Date): Promise<YahooHistoricalBar[]> {
+  const startIso = startDate.toISOString().slice(0, 10);
+  const endIso = new Date().toISOString().slice(0, 10);
+
+  // 1. Yahoo Finance 우선 시도
+  try {
+    const bars = await fetchYahooHistory(KR_BENCHMARK, startDate);
+    if (bars.length > 0) return bars;
+  } catch {
+    // 실패 시 무시하고 Naver/KRX로 진행
+  }
+
+  // 2. Naver fchart → KRX API fallback (fetchKospiHistory 내부에서 순서 처리)
+  const kospiHistory = await fetchKospiHistory(startIso, endIso);
+  // KospiHistoryBar → YahooHistoricalBar 형식으로 변환 (close만 필요, 나머지 동일값)
+  return kospiHistory.map((b) => ({
+    date: b.date,
+    open: b.closePrice,
+    high: b.closePrice,
+    low: b.closePrice,
+    close: b.closePrice,
+    volume: 0,
+  }));
+}
+
+/**
+ * 한국 ETF 히스토리 수집 — Yahoo Finance 우선, 실패 시 Naver Finance fallback
+ * Yahoo Finance가 차단되거나 특정 ETF 심볼을 인식하지 못하는 경우를 대비
+ */
+async function fetchKrEtfHistory(
+  symbol: string,
+  exchange: "KS" | "KQ",
+  startDate: Date
+): Promise<YahooHistoricalBar[]> {
+  const startIso = startDate.toISOString().slice(0, 10);
+  const endIso = new Date().toISOString().slice(0, 10);
+
+  // 1. Yahoo Finance 우선 시도
+  try {
+    const bars = await fetchYahooHistory(toYahooKrSymbol(symbol, exchange), startDate);
+    if (bars.length > 0) return bars;
+  } catch {
+    // 실패 시 무시하고 Naver로 진행
+  }
+
+  // 2. Naver Finance fchart fallback
+  try {
+    const result = await fetchNaverStockHistory(symbol, startIso, endIso);
+    if (result.bars.length > 0) {
+      console.log(`[rs] Naver fallback 성공: ${symbol} (${result.bars.length}건)`);
+      return result.bars;
+    }
+  } catch (err) {
+    console.warn(`[rs] Naver fallback 실패: ${symbol}`, err);
+  }
+
+  return [];
+}
 
 /** tickers JSON 배열의 공통 형식 */
 interface TickerEntry {
@@ -116,13 +180,17 @@ export async function calcEtfRs(market: "kr" | "us"): Promise<EtfRsResponse> {
   startDate.setDate(startDate.getDate() - 756);
 
   // 벤치마크 + 모든 ETF 히스토리를 병렬 수집
-  // Promise.allSettled: 개별 실패가 전체 계산을 막지 않도록
-  const benchResultPromise = fetchYahooHistory(benchmark, startDate);
+  // 한국 시장: Yahoo → Naver/KRX fallback 사용
+  // 미국 시장: Yahoo만 사용 (Naver/KRX 미지원)
+  const benchResultPromise = market === "kr"
+    ? fetchBenchmarkHistory(startDate)
+    : fetchYahooHistory(benchmark, startDate);
+
   const etfResultPromises = tickers.map((t) => {
-    const yahooSymbol = market === "kr"
-      ? toYahooKrSymbol(t.symbol, (t.exchange ?? "KS") as "KS" | "KQ")
-      : t.symbol;
-    return fetchYahooHistory(yahooSymbol, startDate);
+    if (market === "kr") {
+      return fetchKrEtfHistory(t.symbol, (t.exchange ?? "KS") as "KS" | "KQ", startDate);
+    }
+    return fetchYahooHistory(t.symbol, startDate);
   });
 
   const [benchResult, ...etfResults] = await Promise.allSettled([
