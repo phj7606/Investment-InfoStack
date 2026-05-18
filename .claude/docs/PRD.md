@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.4 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.16 | **상태**: Living Document
+> **버전**: v4.6 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.18 | **상태**: Living Document
 
 ---
 
@@ -74,6 +74,9 @@ Step 5: 매수 결정
 | `/dashboard/weekly-review` | A3 Step 2 | 주간 포트폴리오 리뷰 | ⬜ |
 | `/dashboard/monthly-report` | A3 Step 3 | 월간 성과 보고서 | ⬜ |
 | `/dashboard/automation` | A3 Step 4 | 자동화 설정 | ⬜ |
+| `/dashboard/portfolio` | A2 | 포트폴리오 허브 (계좌 선택) | ✅ |
+| `/dashboard/portfolio/trend` | A2 | 추세추종 계좌 대시보드 | ✅ |
+| `/dashboard/portfolio/longterm` | A2 | 장기투자 계좌 대시보드 | ✅ |
 | `/dashboard/settings` | 기타 | 앱 설정 | ✅ |
 
 ---
@@ -162,9 +165,37 @@ Step 5: 매수 결정
 
 ---
 
-### ACTION 2 · 추적 관찰
+### ACTION 2 · 포트폴리오 관리
 
-**공통 UI**: 모든 Step 페이지 상단에 `[1 Thesis관리]→[2 Catalyst캘린더]→[3 실적채점]` 진행 표시 (에메랄드 테마) ✅
+**공통 UI**: 사이드바 "포트폴리오 관리" 그룹 → 계좌별 페이지 진입 (에메랄드 테마) ✅
+
+#### 포트폴리오 허브 (`/dashboard/portfolio`)
+
+> 계좌 선택 허브 — 추세추종 계좌(Account 1470) + 장기투자 계좌 카드 그리드
+
+#### 추세추종 계좌 (`/dashboard/portfolio/trend`)
+
+> 키움 REST API 연동 기반 보유 포지션 + 리스크 관리 + 거래 이력 + 성과 분석 (P9-01~P9-12 완료)
+
+#### 장기투자 계좌 (`/dashboard/portfolio/longterm`)
+
+| ID | 기능 | 설명 | 상태 |
+|----|------|------|------|
+| D1-01 | Excel 계층구조 임포트 | FS 2026.xlsx Stock Trading(주식·ETF) + Fund Trading(펀드) 이중 파서. Stock Investment 시트 lookup으로 계좌번호·시장·자산유형 자동 매핑. 서버+클라이언트 이중 dedup | ✅ |
+| D1-02 | 거래 CRUD | 거래 추가(수동)/편집/조회. 계좌·시장·자산유형 필터. JSON 파일 기반 영구 저장 | ✅ |
+| D1-03 | 실현손익 계산 | FIFO 가중평균단가 추적. 순매도수익(수수료 차감) 기준 실현손익·손익률 계산. **avgCost는 수수료 제외 기준으로 종목별 탭과 동일하게 통일** | ✅ |
+| D1-04 | 종목별 이력 accordion | stockCode+stockName+accountNo 복합 키 그룹핑. 2컬럼 그리드 72px 고정 헤더. 소계(매수/매도/잔량 평균단가/실현손익/배당) | ✅ |
+| D1-05 | 펀드 계좌(8654) 지원 | Fund Trading 시트 파서(A=펀드명/B=날짜/C=Bid·Ask/D=좌수/E=NAV). 8654 계좌 자동 분류 | ✅ |
+| D1-06 | 현재가 실시간 자동 조회 | KR 종목: Naver Finance API(closePrice 필드, curl 기반). US 종목: Yahoo Finance v8 chart API(meta.regularMarketPrice, curl 기반, v7 quote는 401 차단). FUND 타입 제외(notFound 처리). KR 코드 보정 맵(오기 보정: 005939→005930). 5분 TTL 캐시. 새로고침 버튼 + 조회 시각 표시 + 로딩 스피너. 수동 오버라이드 연필 아이콘 유지. `/api/portfolio/longterm/prices` | ✅ |
+| D1-07 | 보유 포지션 합계 행 | 평가금액·평가손익·수익률(총평가손익/총매입원가)·누적실현손익·비중(100%) 합계 표시. 현재가 없는 종목 제외 후 계산 | ✅ |
+
+---
+
+### (구) ACTION 2 · 추적 관찰
+
+> 아래 기능은 Phase 9에서 "포트폴리오 관리"로 교체되었으나, 향후 재구현 예정으로 요구사항 보존.
+
+**공통 UI**: 모든 Step 페이지 상단에 `[1 Thesis관리]→[2 Catalyst캘린더]→[3 실적채점]` 진행 표시 (에메랄드 테마)
 
 #### Step 1 — Thesis 관리 (`/dashboard/thesis`)
 
@@ -403,7 +434,9 @@ Step 5: 매수 결정
 | v4.2 | 2026.05.13 | Step 3 체크포인트 전면 재구성 반영 — 재무제표 수집 인프라 완료, 4대 질문 탭 구조(1/4 구현 중). A3-01~A3-04(기존 실적 채점 기준 생성 방식) → A3-01~A3-06(재무제표 수집+테이블+4대 질문 탭)으로 기능 ID 전면 재작성. 페이지 맵 earnings-preview 상태 ✅→🔄 수정. 섹션 7 데이터 흐름도 earnings-preview 업데이트 |
 | v4.3 | 2026.05.14 | Step 3 체크포인트 4대 질문 탭 전체 완성 — A3-03(체크포인트 1) ✅, A3-04(체크포인트 2: 이익/YoY/QoQ/CCC) ✅, A3-05(체크포인트 3: ROA/ROE/ROIC/DuPont/비용구조) ✅, A3-06(체크포인트 4: CCR/CF트렌드/FCF) ✅. A3-01 ratioItems 수집 추가, 기업명 자동 추출 반영. 페이지 맵 earnings-preview 🔄→✅. 섹션 7 Checkpoint2~4Client 데이터 흐름도 추가 |
 | v4.4 | 2026.05.16 | `/dashboard/screen` 주가 성과 분석 탭(A2-00) 요구사항 추가 — 6개 차트/10개 성과 지표/종목 자동완성/sessionStorage 상태 유지. 페이지 맵 3탭 구조 반영. 섹션 7 데이터 흐름도 탭1 주가 성과 분석 추가 |
+| v4.5 | 2026.05.18 | ACTION 2 포트폴리오 관리 — 장기투자 계좌 대시보드 기능 추가(D1-01~D1-05). 페이지 맵 portfolio/longterm·trend 추가 |
+| v4.6 | 2026.05.18 | 장기투자 계좌 개선 — D1-03 avgCost 수수료 제외 기준 통일(calcPositions/enrichSellTransaction BUY 누적 기준 동일화). D1-06 현재가 실시간 자동 조회(Naver Finance KR / Yahoo v8 US, 5분 TTL 캐시, KR 코드 보정 맵). D1-07 보유 포지션 합계 행 확장(평가손익·수익률·누적실현·비중). 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) |
 
 ---
 
-*v4.4 | 2026.05.16 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v4.6 | 2026.05.18 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*

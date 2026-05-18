@@ -1,6 +1,6 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.5 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.16 | **상태**: Living Document
+> **버전**: v4.8 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.18 | **상태**: Living Document
 
 ---
 
@@ -11,7 +11,7 @@
 | Phase 0~6 | 기반 구축 (ETF RS/모멘텀, 시장 분석, 기업 분석) | ✅ 완료 |
 | Phase 7 | UI/UX Shell — 3개 Action 워크플로우 앱 재구성 | 🔄 95% 완료 |
 | **Phase 8** | **ACTION 1 · 종목 탐색 구현** | **🔄 진행 중** |
-| Phase 9 | ACTION 2 · 추적 관찰 구현 | ⬜ 예정 |
+| Phase 9 | ACTION 2 · 포트폴리오 관리 구현 | ⬜ 예정 |
 | Phase 10 | ACTION 3 · 자동화 루틴 구현 | ⬜ 예정 |
 | Phase 11 | MCP 연동 완성 | ⬜ 예정 |
 
@@ -136,40 +136,65 @@
 
 ---
 
-## [예정] Phase 9 — ACTION 2 · 추적 관찰
+## [진행 중] Phase 9 — ACTION 2 · 포트폴리오 관리
 
-> **목표**: 보유 종목 Thesis 관리 + Catalyst 캘린더 + 실적 채점 로직 구현
+> **목표**: 키움 REST API 연동 기반 계좌별 대시보드 구현.
+> 1차: 추세추종 계좌(Account 1470) — 보유 포지션 + 리스크 관리 + 거래 이력 + 성과 분석.
+> 이후 장기투자·단중기·연금 계좌 대시보드 동일 구조로 추가.
+>
+> **사이드바**: ACTION 2 "추적 관찰(Thesis/Catalyst/실적채점)" → "포트폴리오 관리"로 완전 교체.
+> 구 URL(/dashboard/thesis, /catalysts, /earnings) → `/dashboard/portfolio` redirect 처리.
 
-### Thesis 관리 (`/dashboard/thesis`)
-
-| ID | 태스크 | 우선순위 | 상태 |
-|----|--------|---------|------|
-| P9-01 | Thesis 목록 UI — 보유 종목별 카드 그리드 (Active/Review/Exit 상태, 수익률, 핵심 가정 진행률) | 🔴 | ⬜ |
-| P9-02 | Thesis 작성 폼 — 표준 템플릿 Sheet (종목명/티커, 매수가/목표가, 핵심 가정 4개, 베어 케이스, 손절 기준) | 🔴 | ⬜ |
-| P9-03 | 핵심 가정 채점 — Hit/Miss 토글 + 2개 이상 Miss 시 자동 경고 배지 | 🔴 | ⬜ |
-| P9-04 | localStorage CRUD — Thesis 데이터 브라우저 로컬 저장 | 🔴 | ⬜ |
-
-### Catalyst 캘린더 (`/dashboard/catalysts`)
+### 인프라 — 키움 REST API 연동
 
 | ID | 태스크 | 우선순위 | 상태 |
 |----|--------|---------|------|
-| P9-05 | 월별 캘린더 UI — 이벤트 도트 표시 | 🔴 | ⬜ |
-| P9-06 | 이벤트 등록 폼 (종목명, 유형, 예정일, 중요도) | 🔴 | ⬜ |
-| P9-07 | 타임라인 리스트 뷰 (7일/30일/90일 필터) | 🔴 | ⬜ |
-| P9-08 | 이벤트 결과 기록 + Thesis 영향도 평가 | 🟡 | ⬜ |
+| P9-01 | 키움 REST API 클라이언트 — 토큰 발급·갱신·캐시 (`lib/fetchers/kiwoom.ts`) | 🔴 | ✅ |
+| P9-02 | 보유 포지션 API 라우트 + 타입 정의 (`/api/portfolio/kiwoom/positions`, `types/portfolio.ts`) | 🔴 | ✅ |
+| P9-03 | 거래 이력 API 라우트 + 성과 연산 위임 (`/api/portfolio/kiwoom/trades`) | 🔴 | ✅ |
+| P9-04 | 성과 계산 모듈 + Vitest 34개 단위 테스트 전체 통과 (`lib/portfolio/performance.ts`) | 🔴 | ✅ |
 
-### 실적 채점 (`/dashboard/earnings`)
+### 추세추종 계좌 대시보드 (`/dashboard/portfolio/trend`)
 
 | ID | 태스크 | 우선순위 | 상태 |
 |----|--------|---------|------|
-| P9-09 | 실적 발표 당일 분석 — 실제값 입력 + Claude API Beat/Miss 즉시 분석 | 🔴 | ⬜ |
-| P9-10 | Thesis 채점 — 핵심 가정 4개 대비 자동 채점 + 상태 업데이트 | 🔴 | ⬜ |
+| P9-05 | 리스크 관리 패널 — 시장 단계 1~5 + 투자 가능금액·여유자금·2% 룰 (localStorage 설정) | 🔴 | ✅ |
+| P9-06 | 보유 포지션 테이블 — 평가손익·수익률 색상, 계좌 비중 | 🔴 | ✅ |
+| P9-07 | 거래 이력 테이블 — 종목별 성과·WIN/LOSS 배지·기간/결과 필터 | 🔴 | ✅ |
+| P9-08 | 성과 지표 카드 8개 — 승률·손익비·EV·평균수익·평균손실·거래수·연속손실·MDD | 🔴 | ✅ |
+| P9-09 | Equity Curve 차트 (recharts LineChart, 0 기준선 점선) | 🔴 | ✅ |
+| P9-10 | 월별 수익률 히트맵 (연·월 그리드, 초록/빨강 색상) | 🟡 | ✅ |
+| P9-11 | 사이드바 ACTION 2 재편 + next.config.ts redirect | 🔴 | ✅ |
+| P9-12 | 포트폴리오 허브 페이지 재작성 (`/dashboard/portfolio`) | 🟡 | ✅ |
+
+### 장기투자 계좌 대시보드 (`/dashboard/portfolio/longterm`)
+
+| ID | 태스크 | 우선순위 | 상태 |
+|----|--------|---------|------|
+| P9-13 | LongtermTransaction 타입 정의 (`types/portfolio.ts`) | 🔴 | ✅ |
+| P9-14 | 거래 CRUD API (`/api/portfolio/longterm/transactions` GET/POST/PUT) — 파일 기반 저장(`data/longterm-transactions.json`) + 서버사이드 dedup | 🔴 | ✅ |
+| P9-15 | Excel 계층구조 파서 (`lib/portfolio/excel.ts`) — Stock Trading(B=종목명/C=날짜/D=Bid·Ask) + Fund Trading(A=펀드명/B=날짜/C=Bid·Ask) 이중 파서. Stock Investment 시트 lookup으로 계좌번호·시장·자산유형 자동 매핑 | 🔴 | ✅ |
+| P9-16 | 실현손익 계산 모듈 (`lib/portfolio/longterm-calc.ts`) — FIFO 가중평균단가, 수수료 차감 순매도수익 기준 P&L | 🔴 | ✅ |
+| P9-17 | 거래 내역 탭 — 계좌·시장·자산유형 필터, 날짜 내림차순 정렬, 편집 다이얼로그(TransactionForm) | 🔴 | ✅ |
+| P9-18 | 종목별 탭 — stockCode+stockName+accountNo 복합 키 그룹핑, Collapsible accordion 2컬럼 그리드(72px 고정 헤더), 소계(매수/매도/잔량 평균단가/실현손익/배당) | 🔴 | ✅ |
+| P9-19 | Excel 가져오기 — `parseHierarchicalExcel` 클라이언트 호출, 전체 거래 기반 dedup, 임포트 결과 알림(KR매수/매도/US매수/매도/배당 건수) | 🔴 | ✅ |
+| P9-20 | 8654 펀드 계좌 지원 — Fund Trading 시트 파서(좌수·NAV 컬럼 구조), 8654 계좌 기본값 적용 | 🟡 | ✅ |
+| P9-21 | 포지션 탭 KR/US 분리 + avgCost 수수료 제외 통일 — 전체 탭 제거(통화 혼산 방지), 기본값 KR. `calcPositions()` BUY 누적 시 `tx.amount`만 사용(수수료 제외)으로 종목별 탭 기준과 통일. `enrichSellTransaction()` BUY 누적도 동일 기준 적용. tfoot 합계 행 단일 통화 표시 | 🔴 | ✅ |
+| P9-22 | 현재가 실시간 자동 조회 API (`/api/portfolio/longterm/prices`) — KR 종목: Naver Finance `m.stock.naver.com/api/stock/{code}/basic` closePrice 필드. US 종목: Yahoo Finance v8/finance/chart `meta.regularMarketPrice`(curl 기반, v7 quote는 401 차단). FUND 타입 제외(notFound). KR 코드 보정 맵(005939→005930). 5분 TTL 캐시(readCache/writeCache). `lib/fetchers/yahoo.ts` `fetchYahooCurrentPrices()` 추가. 대시보드 마운트 시 자동 실행, 새로고침 버튼 + 조회 시각 표시 + 로딩 스피너 | 🔴 | ✅ |
+| P9-23 | 보유 포지션 합계 행 확장 — tfoot에 평가손익 합계·수익률(총평가손익/총매입원가)·누적실현손익·비중(100%) 4개 컬럼 추가 | 🟡 | ✅ |
 
 ### Phase 9 완료 기준
-- [ ] Thesis CRUD 동작 (localStorage)
-- [ ] 핵심 가정 채점 + 경고 배지
-- [ ] Catalyst 캘린더 이벤트 등록/조회
-- [ ] 실적 채점 → Thesis 상태 반영
+- [x] 키움 REST API 토큰 발급·캐시
+- [x] 보유 포지션 조회 API
+- [x] 거래 이력 조회 + 성과 계산 API
+- [x] 성과 계산 Vitest 단위 테스트 34개 전체 통과
+- [x] 추세추종 계좌 대시보드 4탭 UI (개요/보유포지션/거래이력/성과분석)
+- [x] 사이드바 ACTION 2 → "포트폴리오 관리" 교체
+- [x] 구 URL redirect (thesis/catalysts/earnings → portfolio)
+- [x] 장기투자 계좌 대시보드 — Excel 임포트 + 거래 CRUD + 종목별 이력 accordion
+- [x] 펀드(8654 계좌) Fund Trading 시트 파서
+- [x] 장기투자 계좌 포지션 탭 현재가 실시간 조회 (KR/US 자동 조회, 5분 TTL 캐시)
+- [ ] 키움 API 실제 연동 검증 (HTS 데이터 대조)
 - [ ] `npm run build` 오류 없음
 
 ---
@@ -269,7 +294,10 @@
 | v4.3 | 2026.05.13 | Step 3 체크포인트 전면 재구성 — Claude 스트리밍 방식 폐기, 4대 질문별 시각화 탭 구조로 전환. P8-14(재무제표 수집 인프라) ✅, P8-15(재무제표 테이블) ✅, P8-16(체크포인트 1: 돈이 많은 기업인가) 🔄, P8-17~19(체크포인트 2~4) ⬜ 신규 세분화. Step 4 태스크 ID P8-17~24 → P8-20~27로 재정렬. Phase 8 완료 기준 Step 3 항목 2개로 분리 |
 | v4.4 | 2026.05.14 | P8-18(체크포인트 3: 극대화 가능한가) + P8-19(체크포인트 4: 현금을 버는가) 구현 완료. Step 3 4대 질문 탭 전체 완성(4/4). FnGuide 기업명 자동 추출(`<title>` 태그), BS 계정 exactOnly 로직 추가(자산/자본 총계 표기 차이 대응). `ratioItems`/`quarterlyRatioItems` 타입 필드 추가. P8-16 상태 🔄→✅, P8-17 상태 ⬜→✅. Phase 8 Step 3 완료 기준 반영 |
 | v4.5 | 2026.05.16 | P8-12 주가 성과 분석 탭 구현 완료(6개 차트+10개 성과 지표+종목 자동완성 검색+sessionStorage 상태 유지). Checkpoint2/4 차트 라인 monotone→linear 직선화. 펀더멘털 스크리닝 merge.ts 독립 모듈 분리. Step 2 설명 3탭 구조(주가 성과+개별주식 스크리너+실적 채점) 반영. Phase 8 완료 기준 Step 2 주가 성과 분석 탭 추가 |
+| v4.6 | 2026.05.17 | Phase 9 ACTION 2 "추적 관찰" → "포트폴리오 관리" 전면 교체. 키움 REST API 클라이언트(토큰·잔고·거래내역), 성과 계산 모듈(승률·손익비·EV·Equity Curve·MDD) + Vitest 34개 단위 테스트, 추세추종 계좌 대시보드 4탭 UI, 사이드바 재편, redirect 추가 |
+| v4.7 | 2026.05.18 | Phase 9 장기투자 계좌 대시보드 구현 완료(P9-13~P9-20) — Excel 계층구조 이중 파서(Stock/Fund Trading), 거래 CRUD API + 파일 기반 저장, FIFO 실현손익 계산, 종목별 accordion 2컬럼 그리드, 펀드(8654 계좌) 지원 |
+| v4.8 | 2026.05.18 | Phase 9 장기투자 계좌 추가 개선(P9-21~P9-23) — 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) + avgCost 수수료 제외 기준 통일. 현재가 실시간 자동 조회 API(Naver Finance KR / Yahoo v8 US, FUND 제외, KR 코드 보정 맵, 5분 TTL 캐시, 마운트 시 자동 실행). 보유 포지션 합계 행 확장(평가손익·수익률·누적실현손익·비중 4개 컬럼 추가) |
 
 ---
 
-*v4.5 | 2026.05.16 | Living Document*
+*v4.8 | 2026.05.18 | Living Document*

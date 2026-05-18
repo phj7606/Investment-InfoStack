@@ -2,3 +2,4 @@
 - [프로젝트 개요](project_overview.md) — 투자 분석 플랫폼 핵심 목적, 모듈(M1~M4), 커버리지, 분석 프레임워크 요약
 - [Step 3 체크포인트 구조 재설계](project_step3_checkpoint_redesign.md) — Claude 스트리밍 폐기 → 재무제표 수집+4대 질문 탭 구조 전환 (2026.05.13, PRD v4.2/ROADMAP v4.3)
 - [Step 2 주가 성과 분석 탭 추가](project_step2_stock_performance.md) — 2탭→3탭 확장, P8-12 구현 완료 (2026.05.16, PRD v4.4/ROADMAP v4.5)
+- [Phase 9 장기투자 계좌 대시보드](project_longterm_dashboard.md) — Excel 이중 파서+CRUD+FIFO 손익+현재가 실시간 조회+합계 행 확장, P9-13~P9-23 완료 (2026.05.18, PRD v4.6/ROADMAP v4.8)
