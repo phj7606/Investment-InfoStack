@@ -1,10 +1,12 @@
-// 포트폴리오 페이지 — 보유 종목 현황, 교체 신호, IRP 포트폴리오
-// RSC: 데이터 연동 전 플레이스홀더 구성
-// 실제 연동 시: PortfolioPosition 타입 배열을 로컬 스토리지 또는 API에서 로드
+// 포트폴리오 관리 허브 — ACTION 2 메인 페이지 (Phase 9)
+// 계좌별 대시보드 선택 허브:
+//   - 추세추종 계좌 (Phase 9 구현 완료)
+//   - 중장기 투자 계좌 4802·1635·1402 (Phase 9 구현 완료)
+//   - 연금 계좌 (추후 구현 예정)
 
-import { Briefcase } from "lucide-react";
+import Link from "next/link";
+import { TrendingUp, Briefcase, PiggyBank, ArrowRight } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
-import { EmptyState } from "@/components/common/empty-state";
 import {
   Card,
   CardContent,
@@ -12,76 +14,119 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
-export default function PortfolioPage() {
+// 계좌 목록 정의
+const ACCOUNTS = [
+  {
+    title: "추세추종 계좌",
+    description:
+      "키움증권 Account 1470 — 추세추종 전략 기반 매수·매도. 승률·손익비·Equity Curve 등 성과 지표 관리.",
+    href: "/dashboard/portfolio/trend",
+    icon: TrendingUp,
+    status: "active" as const,
+    badge: "운용 중",
+  },
+  {
+    title: "중장기 투자 계좌",
+    description:
+      "계좌 4802·1635·1402 — Excel 임포트로 거래 이력 관리. KR/US 분리 성과 분석, 리밸런싱 제안.",
+    href: "/dashboard/portfolio/longterm",
+    icon: Briefcase,
+    status: "active" as const,
+    badge: "운용 중",
+  },
+  {
+    title: "연금 계좌 (IRP)",
+    description:
+      "삼성증권 개인형 퇴직연금 계좌. ETF 포트폴리오 구성 및 리밸런싱 현황 관리.",
+    href: "#",
+    icon: PiggyBank,
+    status: "soon" as const,
+    badge: "준비 중",
+  },
+];
+
+export const metadata = {
+  title: "포트폴리오 관리 | Investment+",
+  description: "계좌별 포트폴리오 대시보드 — 추세추종·장기투자·연금 계좌 통합 관리",
+};
+
+export default function PortfolioHubPage() {
   return (
-    <div>
-      {/* 페이지 헤더 */}
+    <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="포트폴리오"
-        description="보유 종목 현황, 상대강도 기반 교체 신호, IRP 포트폴리오를 관리합니다."
+        title="포트폴리오 관리"
+        description="투자 계좌별 대시보드에서 보유 포지션, 리스크 관리, 성과를 관리합니다."
       />
 
-      {/* 포트폴리오 요약 스탯 자리 */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {["총 평가금액", "총 수익률", "교체 신호 종목"].map((label) => (
-          <Card key={label}>
-            <CardHeader className="pb-2">
-              <CardDescription>{label}</CardDescription>
-              <Skeleton className="h-8 w-28 mt-1" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-3 w-24" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {ACCOUNTS.map((account) => {
+          const Icon = account.icon;
+          const isActive = account.status === "active";
 
-      {/* 하단: 일반 포트폴리오 + IRP 포트폴리오 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 일반 포트폴리오 보유 종목 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>보유 종목</CardTitle>
-            <CardDescription>
-              상대강도 기반 교체 신호 포함 — 빨간 행은 교체 검토 대상
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EmptyState
-              title="포트폴리오 준비 중"
-              description="보유 종목을 등록하면 교체 신호와 수익률이 표시됩니다."
-              icon={<Briefcase className="h-8 w-8 text-muted-foreground" />}
-              action={{ label: "종목 등록", href: "/dashboard/settings" }}
-            />
-          </CardContent>
-        </Card>
-
-        {/* IRP 포트폴리오 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>IRP 포트폴리오</CardTitle>
-            <CardDescription>
-              개인형 퇴직연금 ETF 구성 및 리밸런싱 현황
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* IRP ETF 항목 자리 스켈레톤 */}
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between gap-3">
-                  <div className="flex-1 space-y-1">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-16" />
+          return isActive ? (
+            // 활성 계좌: 클릭 가능한 카드
+            <Link key={account.title} href={account.href} className="group block">
+              <Card className="h-full border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors hover:shadow-md">
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+                      <Icon className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] border-emerald-400 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
+                    >
+                      {account.badge}
+                    </Badge>
                   </div>
-                  {/* 비중 바 자리 */}
-                  <Skeleton className="h-4 w-12" />
+                  <CardTitle className="text-base mt-2 group-hover:text-emerald-600 transition-colors">
+                    {account.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-xs leading-relaxed">
+                    {account.description}
+                  </CardDescription>
+                  <div className="flex items-center gap-1 mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                    대시보드 열기
+                    <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ) : (
+            // 미구현 계좌: 클릭 불가 카드 (점선 테두리)
+            <Card
+              key={account.title}
+              className={cn("h-full border-dashed opacity-60 cursor-not-allowed")}
+            >
+              <CardHeader className="pb-2">
+                <div className="flex items-start justify-between">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {account.badge}
+                  </Badge>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                <CardTitle className="text-base mt-2 text-muted-foreground">
+                  {account.title}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription className="text-xs leading-relaxed">
+                  {account.description}
+                </CardDescription>
+                <p className="mt-3 text-[10px] text-muted-foreground/60 font-medium">
+                  추후 구현 예정
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

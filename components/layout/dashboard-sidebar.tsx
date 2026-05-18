@@ -9,15 +9,14 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Search,
-  BookOpen,
+  Briefcase,
+  TrendingUp,
   Zap,
   Settings,
   Map,
   ScanSearch,
   Radar,
   Star,
-  Calendar,
-  BarChart2,
   Newspaper,
   ClipboardList,
   FileBarChart,
@@ -76,23 +75,21 @@ const ACTION1_ITEMS = [
   },
 ];
 
-// ACTION 2 · 추적 관찰 — 보유 종목 Thesis 관리 + Catalyst 캘린더 + 실적 채점
+// ACTION 2 · 포트폴리오 관리 — 계좌별 대시보드
+// Phase 9: 추세추종 계좌 + 중장기 투자 계좌 구현
 const ACTION2_ITEMS = [
   {
-    title: "Thesis 관리",
-    href: "/dashboard/thesis",
-    icon: BookOpen,
+    title: "추세추종 계좌",
+    href: "/dashboard/portfolio/trend",
+    icon: TrendingUp,
   },
   {
-    title: "Catalyst 캘린더",
-    href: "/dashboard/catalysts",
-    icon: Calendar,
+    title: "중장기 투자 계좌",
+    href: "/dashboard/portfolio/longterm",
+    icon: Briefcase,
   },
-  {
-    title: "실적 채점",
-    href: "/dashboard/earnings",
-    icon: BarChart2,
-  },
+  // 추후 추가 예정
+  // { title: "연금 계좌", href: "/dashboard/portfolio/pension", icon: PiggyBank },
 ];
 
 // ACTION 3 · 자동화 루틴 — Morning Note + 주간/월간 리뷰 + 자동화 설정
@@ -231,15 +228,15 @@ export function DashboardSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
-        {/* ── ACTION 2 · 추적 관찰 그룹 — 에메랄드 테마 ── */}
+        {/* ── ACTION 2 · 포트폴리오 관리 그룹 — 에메랄드 테마 ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5 mb-1">
             {/* ACTION 번호를 컬러 배지로 강조 — 에메랄드 */}
             <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
-              <BookOpen className="h-2.5 w-2.5" />
+              <Briefcase className="h-2.5 w-2.5" />
               ACTION 2
             </span>
-            <span className="text-[10px] font-semibold text-muted-foreground tracking-wide">추적 관찰</span>
+            <span className="text-[10px] font-semibold text-muted-foreground tracking-wide">포트폴리오 관리</span>
           </SidebarGroupLabel>
           <SidebarMenu>
             {ACTION2_ITEMS.map((item) => {

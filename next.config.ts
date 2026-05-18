@@ -33,10 +33,20 @@ const nextConfig: NextConfig = {
         destination: "/dashboard/initiating-coverage",
         permanent: false,
       },
-      // 포트폴리오 → Thesis 관리 (ACTION 2)
+      // 구 ACTION 2 (추적 관찰) 페이지 → 포트폴리오 관리 허브로 redirect (Phase 9)
       {
-        source: "/dashboard/portfolio",
-        destination: "/dashboard/thesis",
+        source: "/dashboard/thesis",
+        destination: "/dashboard/portfolio",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/catalysts",
+        destination: "/dashboard/portfolio",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/earnings",
+        destination: "/dashboard/portfolio",
         permanent: false,
       },
     ];

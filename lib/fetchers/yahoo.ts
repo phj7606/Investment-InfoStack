@@ -73,15 +73,52 @@ export interface YahooHistoricalBar {
  * @param symbols - 티커 심볼 배열 (예: ["SPY", "QQQ", "XLK"])
  * @returns YahooQuote 배열 — 조회 실패한 심볼은 결과에서 제외
  */
-export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]> {
-  if (symbols.length === 0) return [];
+/**
+ * Yahoo Finance v7 quote API를 curl 서브프로세스로 호출 (TLS 차단 우회용)
+ * fetchYahooQuotes 의 fallback — Node.js HTTP 클라이언트가 차단될 때 사용
+ */
+async function fetchYahooQuotesViaCurl(symbols: string[]): Promise<YahooQuote[]> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { execFile } = require("child_process") as typeof import("child_process");
 
-  // returnArray: true 옵션으로 배열 반환 타입을 명시적으로 지정
-  const quotes = await yahooFinance.quote(symbols, { returnArray: true });
+  const symbolsParam = encodeURIComponent(symbols.join(","));
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsParam}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketVolume,shortName,currency`;
+
+  const stdout = await new Promise<string>((resolve, reject) => {
+    execFile(
+      "curl",
+      [
+        "-s",
+        "--max-time", "15",
+        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "-H", "Accept: application/json",
+        url,
+      ],
+      { maxBuffer: 5 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
+        resolve(stdout);
+      }
+    );
+  });
+
+  if (!stdout.trim().startsWith("{")) {
+    throw new Error(`curl quote 응답이 JSON이 아님: ${stdout.slice(0, 80)}`);
+  }
+
+  const data = JSON.parse(stdout);
+  const results: Array<{
+    symbol: string;
+    shortName?: string;
+    longName?: string;
+    regularMarketPrice?: number;
+    regularMarketChangePercent?: number;
+    regularMarketVolume?: number;
+    currency?: string;
+  }> = data?.quoteResponse?.result ?? [];
 
   const now = new Date().toISOString();
-
-  return quotes
+  return results
     .filter((q) => q.regularMarketPrice != null)
     .map((q) => ({
       symbol: q.symbol,
@@ -92,6 +129,43 @@ export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]>
       currency: q.currency ?? "USD",
       updatedAt: now,
     }));
+}
+
+/**
+ * 복수 심볼의 현재가를 일괄 조회 (단일 요청)
+ *
+ * 우선순위:
+ *   1. yahoo-finance2 라이브러리 — 정상 환경
+ *   2. curl 서브프로세스 — Node.js HTTP가 TLS 핑거프린팅으로 차단될 때
+ *
+ * @param symbols - 티커 심볼 배열 (예: ["SPY", "QQQ", "069500.KS"])
+ * @returns YahooQuote 배열 — 조회 실패한 심볼은 결과에서 제외
+ */
+export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]> {
+  if (symbols.length === 0) return [];
+
+  // 1. yahoo-finance2 라이브러리 우선 시도
+  try {
+    const quotes = await yahooFinance.quote(symbols, { returnArray: true });
+    const now = new Date().toISOString();
+    const result = quotes
+      .filter((q) => q.regularMarketPrice != null)
+      .map((q) => ({
+        symbol: q.symbol,
+        name: q.shortName ?? q.longName ?? q.symbol,
+        price: q.regularMarketPrice ?? 0,
+        changePercent: q.regularMarketChangePercent ?? 0,
+        volume: q.regularMarketVolume ?? 0,
+        currency: q.currency ?? "USD",
+        updatedAt: now,
+      }));
+    if (result.length > 0) return result;
+  } catch {
+    // 라이브러리 실패 시 curl fallback으로 진행
+  }
+
+  // 2. curl 서브프로세스 fallback (TLS 차단 우회)
+  return fetchYahooQuotesViaCurl(symbols);
 }
 
 /**
@@ -244,6 +318,79 @@ export function toYahooKrSymbol(
   exchange: "KS" | "KQ" = "KS"
 ): string {
   return `${krxSymbol}.${exchange}`;
+}
+
+/**
+ * Yahoo Finance v8/finance/chart API로 단일 심볼의 현재가 조회
+ *
+ * v7/finance/quote (401 차단) 대신 v8/chart 의 meta.regularMarketPrice 필드 사용.
+ * 이 엔드포인트는 인증 없이도 curl로 접근 가능하다.
+ *
+ * @param symbol - 티커 심볼 (예: "TSLA", "SOXX")
+ * @returns 현재가 (없으면 null)
+ */
+async function fetchYahooCurrentPriceViaCurl(symbol: string): Promise<number | null> {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { execFile } = require("child_process") as typeof import("child_process");
+
+  // range=5d로 최근 데이터 포함 요청, meta.regularMarketPrice로 실시간 가격 접근
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
+
+  const stdout = await new Promise<string>((resolve, reject) => {
+    execFile(
+      "curl",
+      [
+        "-s",
+        "--max-time", "12",
+        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "-H", "Accept: application/json",
+        url,
+      ],
+      { maxBuffer: 2 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
+        resolve(stdout);
+      }
+    );
+  });
+
+  if (!stdout.trim().startsWith("{")) return null;
+
+  const data = JSON.parse(stdout);
+  const result = data?.chart?.result?.[0];
+  if (!result) return null;
+
+  // meta.regularMarketPrice = 현재 시세 (장중이면 실시간, 장 마감 후엔 종가)
+  const price = result.meta?.regularMarketPrice ?? result.meta?.chartPreviousClose;
+  return price != null && price > 0 ? price : null;
+}
+
+/**
+ * 복수 US 심볼의 현재가를 Yahoo Finance v8 chart API로 병렬 조회
+ * v7/finance/quote 대체용 — v8/chart는 인증 불필요
+ *
+ * @param symbols - 티커 배열 (예: ["TSLA", "SOXX", "NVDA"])
+ * @returns { [symbol]: price } — 조회 실패 심볼은 포함 안 됨
+ */
+export async function fetchYahooCurrentPrices(
+  symbols: string[]
+): Promise<Record<string, number>> {
+  if (symbols.length === 0) return {};
+
+  const entries = await Promise.all(
+    symbols.map(async (symbol) => {
+      try {
+        const price = await fetchYahooCurrentPriceViaCurl(symbol);
+        return [symbol, price] as [string, number | null];
+      } catch {
+        return [symbol, null] as [string, number | null];
+      }
+    })
+  );
+
+  return Object.fromEntries(
+    entries.filter(([, price]) => price != null) as [string, number][]
+  );
 }
 
 /** Yahoo Finance HTTP 검색 결과 단일 항목 */
