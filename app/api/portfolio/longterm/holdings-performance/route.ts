@@ -64,8 +64,8 @@ export async function GET(req: NextRequest) {
 
     // ── 캐시 키: 계좌 + 종목 목록 기준 ─────────────
     const allCodes = positions.map((p) => p.stockCode).sort();
-    // v3: XIRR → Modified Dietz 교체로 캐시 무효화
-    const cacheKey = `holdings-perf-v3-${account ?? "all"}-${allCodes.join("-")}`;
+    // v4: FUND 포지션 제외로 캐시 무효화
+    const cacheKey = `holdings-perf-v4-${account ?? "all"}-${allCodes.join("-")}`;
     const cached = await readCache<{ holdings: ReturnType<typeof injectContributions>; fetchedAt: string }>(cacheKey);
     if (cached) {
       return NextResponse.json({ ...cached, source: "cache" });
@@ -173,11 +173,15 @@ export async function GET(req: NextRequest) {
     );
 
     // ── 종목별 성과 계산 ──────────────────────────
-    const rawHoldings = positionsWithPrices.map((position) => {
-      const benchBars = position.market === "KR" ? krBenchBars : usBenchBars;
-      const stockBars = stockBarsMap.get(`${position.stockCode}::${position.accountNo}`);
-      return calcHoldingPerformance(position, txs, benchBars, stockBars, today);
-    });
+    // FUND 포지션 제외: Yahoo Finance 미지원 → 현재가/시계열 없음 → 의미 있는 지표 산출 불가
+    // 전체 계좌 선택 시 8654 펀드 계좌의 펀드 포지션이 섞이면 빈 행이 다수 생겨 레이아웃이 어색해짐
+    const rawHoldings = positionsWithPrices
+      .filter((p) => p.assetType !== "FUND")
+      .map((position) => {
+        const benchBars = position.market === "KR" ? krBenchBars : usBenchBars;
+        const stockBars = stockBarsMap.get(`${position.stockCode}::${position.accountNo}`);
+        return calcHoldingPerformance(position, txs, benchBars, stockBars, today);
+      });
 
     // ── 기여도 주입 ───────────────────────────────
     const holdings = injectContributions(rawHoldings);

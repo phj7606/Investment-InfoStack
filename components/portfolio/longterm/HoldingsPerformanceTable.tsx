@@ -194,6 +194,14 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
     [holdings, currency]
   );
 
+  // 같은 종목코드가 여러 계좌에 걸쳐 중복 존재하는지 확인
+  // 중복이 있으면 계좌번호를 종목명 셀 서브텍스트로 표시해 구분
+  const dupCodes = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const h of filtered) counts.set(h.stockCode, (counts.get(h.stockCode) ?? 0) + 1);
+    return new Set(Array.from(counts.entries()).filter(([, n]) => n > 1).map(([code]) => code));
+  }, [filtered]);
+
   // 정렬 적용
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -426,6 +434,10 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
                 <span className="block truncate">{h.stockName}</span>
                 <span className="block text-[9px] text-muted-foreground/60 tabular-nums leading-none mt-0.5">
                   {h.stockCode}
+                  {/* 같은 종목코드가 여러 계좌에 분산 보유된 경우 계좌번호 표시 */}
+                  {dupCodes.has(h.stockCode) && (
+                    <span className="ml-1 text-amber-500/70">#{h.accountNo}</span>
+                  )}
                 </span>
               </TableCell>
 
