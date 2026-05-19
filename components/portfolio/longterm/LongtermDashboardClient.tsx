@@ -25,6 +25,8 @@ import {
 import { FileUp, FileDown, RefreshCw } from "lucide-react";
 
 import { AccountSummaryCards } from "./AccountSummaryCards";
+import { PortfolioAllocationChart } from "./PortfolioAllocationChart";
+import { HoldingsBarChart } from "./HoldingsBarChart";
 import { LongtermPositionsTable } from "./LongtermPositionsTable";
 import { TransactionTable } from "./TransactionTable";
 import { TransactionForm } from "./TransactionForm";
@@ -71,6 +73,10 @@ export function LongtermDashboardClient() {
   // ── 계좌 / 시장 필터 ─────────────────────────
   const [accountFilter, setAccountFilter] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
   const [activeTab, setActiveTab] = useState("overview");
+
+  // ── 대시보드 차트 탭 상태 ────────────────────
+  // Equity Curve KR/US 전환용 — 성과 분석 탭의 perfCurrency와 독립적으로 관리
+  const [equityCurveCurrency, setEquityCurveCurrency] = useState<"KRW" | "USD">("KRW");
 
   // ── 거래 내역 ──────────────────────────────────
   const [transactions, setTransactions] = useState<LongtermTransaction[]>([]);
@@ -717,15 +723,50 @@ export function LongtermDashboardClient() {
         </TabsList>
 
         {/* ────────────────────────────────────────────
-            탭 1: 대시보드 (KR/US KPI 카드 + TOP3)
+            탭 1: 대시보드 (KPI 카드 + TOP3 + 차트 3종)
         ──────────────────────────────────────────── */}
         <TabsContent value="overview" className="mt-4">
+          {/* KPI 카드 + TOP3 종목 (기존 컴포넌트 유지) */}
           <AccountSummaryCards
             krSummary={krSummary}
             usSummary={usSummary}
             positions={positions}
             isLoading={posLoading}
           />
+
+          {/* 차트 섹션 — 포지션 로드 완료 + 1종목 이상일 때만 표시 */}
+          {!posLoading && positions.length > 0 && (
+            <div className="mt-6 space-y-4">
+              {/* 행 1: 포트폴리오 구성 도넛(좌) + 종목별 평가금액 수평바(우) */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <PortfolioAllocationChart positions={positions} isLoading={posLoading} />
+                <HoldingsBarChart positions={positions} isLoading={posLoading} />
+              </div>
+
+              {/* 행 2: 누적 실현손익 추이 — buildMonthlyPL(SELL 거래) 기반 Equity Curve */}
+              {/* KR/US 탭 전환 버튼을 EquityCurveChart의 Card 위에 배치 */}
+              <div>
+                <div className="flex items-center justify-end mb-1 gap-1">
+                  {(["KRW", "USD"] as const).map((c) => (
+                    <Button
+                      key={c}
+                      size="sm"
+                      variant={equityCurveCurrency === c ? "default" : "outline"}
+                      className="h-6 px-2 text-[10px]"
+                      onClick={() => setEquityCurveCurrency(c)}
+                    >
+                      {c === "KRW" ? "국내(KRW)" : "해외(USD)"}
+                    </Button>
+                  ))}
+                </div>
+                {/* EquityCurveChart 자체에 Card 래퍼 포함 — 중복 래퍼 없이 직접 사용 */}
+                <EquityCurveChart
+                  data={equityCurveCurrency === "KRW" ? krEquityCurve : usEquityCurve}
+                  isLoading={perfLoading}
+                />
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* ────────────────────────────────────────────
