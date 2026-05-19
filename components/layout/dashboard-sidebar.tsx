@@ -91,7 +91,7 @@ const ACTION2_ITEMS = [
     icon: Briefcase,
   },
   {
-    title: "성과 분석",
+    title: "Performance Analysis",
     href: "/dashboard/portfolio/performance",
     icon: BarChart3,
   },

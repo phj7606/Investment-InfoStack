@@ -2,6 +2,7 @@
 // RSC: 데이터 수집은 LongtermDashboardClient에서 API 호출로 처리
 // 계좌: 4802 / 1635 / 1402 — KR(원화) / US(달러) 완전 분리
 
+import { Suspense } from "react";
 import { PageHeader } from "@/components/common/page-header";
 import { LongtermDashboardClient } from "@/components/portfolio/longterm/LongtermDashboardClient";
 
@@ -19,7 +20,10 @@ export default function LongtermAccountPage() {
           description="4802 Stock · 1635 ETF · 1402 Mixed — 포지션 현황, 거래 내역, 성과 분석 및 리밸런싱"
         />
       </div>
-      <LongtermDashboardClient />
+      {/* useSearchParams 사용을 위해 Suspense 필수 (Next.js App Router 요구사항) */}
+      <Suspense>
+        <LongtermDashboardClient />
+      </Suspense>
     </div>
   );
 }

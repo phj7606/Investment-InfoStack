@@ -12,6 +12,7 @@
 // 계좌 필터: 전체 | 4802 (주식) | 1635 (ETF) | 1402 (중장기+) | 8654 (펀드)
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,23 +32,21 @@ import { LongtermPositionsTable } from "./LongtermPositionsTable";
 import { TransactionTable } from "./TransactionTable";
 import { TransactionForm } from "./TransactionForm";
 import { StockHistoryTable } from "./StockHistoryTable";
-import { BenchmarkChart } from "./BenchmarkChart";
 import { RebalancingPanel } from "./RebalancingPanel";
-import { PerformanceMetrics } from "@/components/portfolio/PerformanceMetrics";
-import { EquityCurveChart } from "@/components/portfolio/EquityCurveChart";
-import { MonthlyReturnsHeatmap } from "@/components/portfolio/MonthlyReturnsHeatmap";
+import { HoldingsPerformanceTable } from "./HoldingsPerformanceTable";
+import { HoldingsAlphaBarChart } from "./HoldingsAlphaBarChart";
 
 import {
   exportLongtermExcel,
   parseHierarchicalExcel,
 } from "@/lib/portfolio/excel";
-import { buildEquityCurve, buildMonthlyReturns } from "@/lib/portfolio/performance";
 import type {
   LongtermTransaction,
   LongtermPosition,
 } from "@/types/portfolio";
 import type { LongtermSummary } from "@/lib/portfolio/longterm-calc";
 import type { PerformanceSummary } from "@/types/portfolio";
+import type { HoldingPerformance } from "@/lib/portfolio/holdings-performance";
 
 // ─────────────────────────────────────────
 // 로컬스토리지 현재가 저장 키
@@ -70,13 +69,26 @@ function makeEmptySummary(currency: "KRW" | "USD"): LongtermSummary {
 }
 
 export function LongtermDashboardClient() {
-  // ── 계좌 / 시장 필터 ─────────────────────────
-  const [accountFilter, setAccountFilter] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
-  const [activeTab, setActiveTab] = useState("overview");
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // ── 대시보드 차트 탭 상태 ────────────────────
-  // Equity Curve KR/US 전환용 — 성과 분석 탭의 perfCurrency와 독립적으로 관리
-  const [equityCurveCurrency, setEquityCurveCurrency] = useState<"KRW" | "USD">("KRW");
+  // ── URL 파라미터 업데이트 헬퍼 ───────────────
+  // 기존 파라미터를 유지하면서 단일 키만 변경 → 페이지 이동 후 복귀 시 상태 복원 가능
+  const updateUrlParam = useCallback((key: string, value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set(key, value);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  // ── 계좌 / 시장 필터 ─────────────────────────
+  // URL ?account= 파라미터에서 초기값 복원
+  const [accountFilter, setAccountFilter] = useState<"all" | "4802" | "1635" | "1402" | "8654">(
+    () => (searchParams.get("account") as "all" | "4802" | "1635" | "1402" | "8654") ?? "all"
+  );
+  // URL ?tab= 파라미터에서 초기값 복원
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get("tab") ?? "overview"
+  );
 
   // ── 거래 내역 ──────────────────────────────────
   const [transactions, setTransactions] = useState<LongtermTransaction[]>([]);
@@ -88,6 +100,10 @@ export function LongtermDashboardClient() {
   const [krSummary, setKrSummary] = useState<LongtermSummary>(makeEmptySummary("KRW"));
   const [usSummary, setUsSummary] = useState<LongtermSummary>(makeEmptySummary("USD"));
   const [posLoading, setPosLoading] = useState(false);
+
+  // ── 보유 종목별 성과 (TWR / Alpha) ───────────────
+  const [holdingsPerf, setHoldingsPerf] = useState<HoldingPerformance[]>([]);
+  const [holdingsPerfLoading, setHoldingsPerfLoading] = useState(false);
 
   // ── 성과 분석 ──────────────────────────────────
   const [krPerfSummary, setKrPerfSummary] = useState<PerformanceSummary | null>(null);
@@ -119,7 +135,16 @@ export function LongtermDashboardClient() {
   const [jsonLoading, setJsonLoading] = useState(false);
 
   // ── 성과 분석 탭 KR/US 선택 ─────────────────────
-  const [perfCurrency, setPerfCurrency] = useState<"KRW" | "USD">("KRW");
+  // URL ?perf= 파라미터에서 초기값 복원
+  const [perfCurrency, setPerfCurrency] = useState<"KRW" | "USD">(
+    () => (searchParams.get("perf") as "KRW" | "USD") ?? "KRW"
+  );
+
+  // ── HoldingsBarChart KR/US 탭 (URL 동기화를 위해 부모에서 관리) ──
+  // URL ?market= 파라미터에서 초기값 복원
+  const [holdingsMarket, setHoldingsMarket] = useState<"KR" | "US">(
+    () => (searchParams.get("market") as "KR" | "US") ?? "KR"
+  );
 
   // currentPricesRef를 state와 항상 동기화 (fetchPositions에서 deps 없이 최신값 읽기 위해)
   useEffect(() => {
@@ -254,6 +279,26 @@ export function LongtermDashboardClient() {
   }, [accountFilter]);
 
   // ────────────────────────────────────────────────
+  // 보유 종목별 성과 조회 (TWR / Alpha / Hit Rate 등)
+  // Yahoo Finance 히스토리 데이터를 종목마다 조회하므로 별도 로딩 상태 관리
+  // ────────────────────────────────────────────────
+  const fetchHoldingsPerf = useCallback(async () => {
+    setHoldingsPerfLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (accountFilter !== "all") qs.set("account", accountFilter);
+      const res = await fetch(`/api/portfolio/longterm/holdings-performance?${qs}`);
+      if (!res.ok) return;
+      const d = await res.json() as { holdings?: HoldingPerformance[] };
+      setHoldingsPerf(d.holdings ?? []);
+    } catch (err) {
+      console.error("[fetchHoldingsPerf] 실패:", err);
+    } finally {
+      setHoldingsPerfLoading(false);
+    }
+  }, [accountFilter]);
+
+  // ────────────────────────────────────────────────
   // 현재가 실시간 조회 (Yahoo Finance)
   // ────────────────────────────────────────────────
   const fetchLivePrices = useCallback(async () => {
@@ -297,12 +342,15 @@ export function LongtermDashboardClient() {
   // ── 마운트 + 필터 변경 시 데이터 로드 ──────────
   // fetchPositions 완료 후 fetchLivePrices 실행:
   //   positions가 세팅된 상태에서 가격을 덮어써야 evalPL이 올바르게 반영됨.
-  //   fetchTransactions / fetchPerformance는 독립적이라 병렬 실행.
+  //   fetchTransactions / fetchPerformance / fetchHoldingsPerf는 독립적이라 병렬 실행.
+  // fetchHoldingsPerf는 Yahoo 히스토리를 종목마다 조회하므로 느릴 수 있음.
+  // 캐시(5분 TTL)를 통해 반복 방문 시 빠르게 응답.
   useEffect(() => {
     void fetchTransactions();
     void fetchPerformance();
+    void fetchHoldingsPerf();
     void fetchPositions().then(() => fetchLivePrices());
-  }, [fetchTransactions, fetchPositions, fetchPerformance, fetchLivePrices]);
+  }, [fetchTransactions, fetchPositions, fetchPerformance, fetchLivePrices, fetchHoldingsPerf]);
 
   // ────────────────────────────────────────────────
   // 현재가 업데이트 핸들러 (LongtermPositionsTable → 여기서 관리)
@@ -548,35 +596,6 @@ export function LongtermDashboardClient() {
 
   // StockPerformance[] 어댑터: monthlyPL → EquityCurvePoint[]
   // toStockPerformances는 서버 사이드이므로, 클라이언트에서는
-  // monthlyPL을 누적 합산해서 EquityCurvePoint 형태로 직접 변환
-  function buildEquityFromMonthly(
-    monthlyPL: { year: number; month: number; pl: number }[]
-  ) {
-    const sorted = [...monthlyPL].sort(
-      (a, b) => a.year * 100 + a.month - (b.year * 100 + b.month)
-    );
-    let cumulative = 0;
-    return sorted.map((m) => ({
-      date: `${m.year}-${String(m.month).padStart(2, "0")}-01`,
-      value: (cumulative += m.pl),
-    }));
-  }
-
-  const krEquityCurve = buildEquityFromMonthly(krMonthlyPL);
-  const usEquityCurve = buildEquityFromMonthly(usMonthlyPL);
-
-  // monthlyPL → MonthlyReturn[] 변환 (히트맵 재사용)
-  function toMonthlyReturns(monthlyPL: { year: number; month: number; pl: number }[]) {
-    return monthlyPL.map((m) => ({
-      year: m.year,
-      month: m.month,
-      returnPct: 0,   // 원금 미제공 시 히트맵은 부호만으로 색상 결정
-      profitLoss: m.pl,
-    }));
-  }
-
-  const krMonthlyReturns = toMonthlyReturns(krMonthlyPL);
-  const usMonthlyReturns = toMonthlyReturns(usMonthlyPL);
 
   // ────────────────────────────────────────────────
   // 렌더
@@ -589,7 +608,10 @@ export function LongtermDashboardClient() {
         {/* 계좌 필터 */}
         <Select
           value={accountFilter}
-          onValueChange={(v) => setAccountFilter(v as typeof accountFilter)}
+          onValueChange={(v) => {
+            setAccountFilter(v as typeof accountFilter);
+            updateUrlParam("account", v);
+          }}
         >
           <SelectTrigger className="h-8 w-32 text-xs">
             <SelectValue placeholder="계좌 선택" />
@@ -697,14 +719,14 @@ export function LongtermDashboardClient() {
       )}
 
       {/* ══ 6개 탭 ═════════════════════════════════ */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); updateUrlParam("tab", v); }}>
         <TabsList className="grid w-full grid-cols-6 bg-blue-500/5 border">
           {[
             { value: "overview",     label: "대시보드" },
             { value: "positions",    label: "포지션",    count: positions.length },
             { value: "transactions", label: "거래 내역", count: transactions.length },
             { value: "stocks",       label: "종목별" },
-            { value: "performance",  label: "성과 분석" },
+            { value: "performance",  label: "Performance Analysis" },
             { value: "rebalancing",  label: "리밸런싱" },
           ].map(({ value, label, count }) => (
             <TabsTrigger
@@ -740,31 +762,15 @@ export function LongtermDashboardClient() {
               {/* 행 1: 포트폴리오 구성 도넛(좌) + 종목별 평가금액 수평바(우) */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <PortfolioAllocationChart positions={positions} isLoading={posLoading} />
-                <HoldingsBarChart positions={positions} isLoading={posLoading} />
-              </div>
-
-              {/* 행 2: 누적 실현손익 추이 — buildMonthlyPL(SELL 거래) 기반 Equity Curve */}
-              {/* KR/US 탭 전환 버튼을 EquityCurveChart의 Card 위에 배치 */}
-              <div>
-                <div className="flex items-center justify-end mb-1 gap-1">
-                  {(["KRW", "USD"] as const).map((c) => (
-                    <Button
-                      key={c}
-                      size="sm"
-                      variant={equityCurveCurrency === c ? "default" : "outline"}
-                      className="h-6 px-2 text-[10px]"
-                      onClick={() => setEquityCurveCurrency(c)}
-                    >
-                      {c === "KRW" ? "국내(KRW)" : "해외(USD)"}
-                    </Button>
-                  ))}
-                </div>
-                {/* EquityCurveChart 자체에 Card 래퍼 포함 — 중복 래퍼 없이 직접 사용 */}
-                <EquityCurveChart
-                  data={equityCurveCurrency === "KRW" ? krEquityCurve : usEquityCurve}
-                  isLoading={perfLoading}
+                <HoldingsBarChart
+                  positions={positions}
+                  isLoading={posLoading}
+                  marketTab={holdingsMarket}
+                  onMarketTabChange={(m) => { setHoldingsMarket(m); updateUrlParam("market", m); }}
                 />
               </div>
+
+
             </div>
           )}
         </TabsContent>
@@ -825,7 +831,7 @@ export function LongtermDashboardClient() {
         </TabsContent>
 
         {/* ────────────────────────────────────────────
-            탭 5: 성과 분석 (KR / US 탭 분리)
+            탭 5: Performance Analysis (KR / US 탭 분리)
         ──────────────────────────────────────────── */}
         <TabsContent value="performance" className="mt-4 space-y-4">
           {/* KR / US 서브 탭 */}
@@ -834,7 +840,7 @@ export function LongtermDashboardClient() {
               size="sm"
               variant={perfCurrency === "KRW" ? "default" : "outline"}
               className="h-7 text-xs px-3"
-              onClick={() => setPerfCurrency("KRW")}
+              onClick={() => { setPerfCurrency("KRW"); updateUrlParam("perf", "KRW"); }}
             >
               국내 (KRW)
             </Button>
@@ -842,77 +848,40 @@ export function LongtermDashboardClient() {
               size="sm"
               variant={perfCurrency === "USD" ? "default" : "outline"}
               className="h-7 text-xs px-3"
-              onClick={() => setPerfCurrency("USD")}
+              onClick={() => { setPerfCurrency("USD"); updateUrlParam("perf", "USD"); }}
             >
               해외 (USD)
             </Button>
           </div>
 
-          {/* KRW 성과 */}
-          {perfCurrency === "KRW" && (
-            <div className="space-y-4">
-              {krPerfSummary && krPerfSummary.totalTrades > 0 ? (
-                <>
-                  <PerformanceMetrics
-                    summary={krPerfSummary}
-                    isLoading={perfLoading}
-                  />
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <EquityCurveChart
-                      data={krEquityCurve}
-                      isLoading={perfLoading}
-                    />
-                    <BenchmarkChart
-                      monthlyPL={krMonthlyPL}
-                      currency="KRW"
-                      benchmarkLabel="KOSPI"
-                    />
-                  </div>
-                  <MonthlyReturnsHeatmap
-                    data={krMonthlyReturns}
-                    isLoading={perfLoading}
-                  />
-                </>
-              ) : (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  {perfLoading ? "로딩 중..." : "국내 매도 거래 데이터가 없습니다."}
-                </div>
-              )}
+          {/* ── 보유 종목별 성과 (TWR / Alpha) ──────────────────── */}
+          {/* 섹션 헤더: 제목 + 로딩 상태 표시 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h3 className="text-sm font-semibold">보유 종목 성과</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  TWR · Alpha · 연환산 Alpha · Hit Rate · MDD
+                  {holdingsPerfLoading && (
+                    <span className="ml-2 text-blue-500 animate-pulse">
+                      Yahoo 히스토리 조회 중...
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
-          )}
+            <HoldingsPerformanceTable
+              holdings={holdingsPerf}
+              isLoading={holdingsPerfLoading}
+              currency={perfCurrency}
+            />
+          </div>
 
-          {/* USD 성과 */}
-          {perfCurrency === "USD" && (
-            <div className="space-y-4">
-              {usPerfSummary && usPerfSummary.totalTrades > 0 ? (
-                <>
-                  <PerformanceMetrics
-                    summary={usPerfSummary}
-                    isLoading={perfLoading}
-                  />
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <EquityCurveChart
-                      data={usEquityCurve}
-                      isLoading={perfLoading}
-                    />
-                    <BenchmarkChart
-                      monthlyPL={usMonthlyPL}
-                      currency="USD"
-                      benchmarkLabel="S&P500"
-                    />
-                  </div>
-                  <MonthlyReturnsHeatmap
-                    data={usMonthlyReturns}
-                    isLoading={perfLoading}
-                  />
-                </>
-              ) : (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  {perfLoading ? "로딩 중..." : "해외 매도 거래 데이터가 없습니다."}
-                </div>
-              )}
-            </div>
-          )}
+          {/* ── Alpha 바 차트 — 종목별 Alpha 그래픽 시각화 ── */}
+          <HoldingsAlphaBarChart
+            holdings={holdingsPerf}
+            currency={perfCurrency}
+          />
         </TabsContent>
 
         {/* ────────────────────────────────────────────
