@@ -1,6 +1,6 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.9 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
+> **버전**: v5.0 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
 
 ---
 
@@ -184,6 +184,7 @@
 | P9-23 | 보유 포지션 합계 행 확장 — tfoot에 평가손익 합계·수익률(총평가손익/총매입원가)·누적실현손익·비중(100%) 4개 컬럼 추가 | 🟡 | ✅ |
 | P9-24 | JSON 백업 시스템 — 자동 일별 서버 백업(writeTransactions 직전 data/backups/YYYY-MM-DD.json, 30일 보관) + GET /api/portfolio/longterm/backup 다운로드 + POST /api/portfolio/longterm/backup 복원(overwrite/merge, dedup 키: date::stockCode::tradeType::quantity::price) + LongtermDashboardClient.tsx "JSON 백업"/"JSON 복원" 버튼 추가 | 🔴 | ✅ |
 | P9-25 | 포트폴리오 성과 분석 전용 페이지 (`/dashboard/portfolio/performance`) — Jan~Apr 2026 Bootstrap JSON + May 2026+ 거래내역 동적 계산(Modified Dietz MoM%, TWR rechainCumPct() 누적수익률). KR/US 분리. KOSPI/S&P500/NASDAQ 벤치마크 비교. 완료 월 24h / 현재 월 5min TTL 캐시. 엑셀 런타임 의존성 제거(Option B 전환). `PerformanceDashboardClient.tsx`, `performance-benchmark.ts`, `performance-excel.ts`, `data/performance-bootstrap.json` | 🔴 | ✅ |
+| P9-26 | 보유 종목별 성과 분석 — TWR/Alpha/연환산α/MDR(Modified Dietz)/Hit Rate/MDD/Up·Down Capture 7대 지표. KRW/USD 탭 분리. Alpha vs 벤치마크 수평 바 차트(HoldingsAlphaBarChart). 벤치마크: ^KS11(KR)/^GSPC(US). Performance Analysis 탭 "실현손익 성과 분석" 섹션 제거 → 보유 종목별 성과로 대체. `lib/portfolio/holdings-performance.ts`, `HoldingsPerformanceTable.tsx`, `HoldingsAlphaBarChart.tsx`, `/api/portfolio/longterm/holdings-performance` | 🔴 | ✅ |
 
 ### Phase 9 완료 기준
 - [x] 키움 REST API 토큰 발급·캐시
@@ -198,6 +199,7 @@
 - [x] 장기투자 계좌 포지션 탭 현재가 실시간 조회 (KR/US 자동 조회, 5분 TTL 캐시)
 - [x] JSON 백업 시스템 (자동 서버 백업 + UI 다운로드/복원)
 - [x] 포트폴리오 성과 분석 전용 페이지 (KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크)
+- [x] 보유 종목별 성과 분석 (TWR/Alpha/MDR/Hit Rate/MDD/Up·Down Capture + Alpha 바 차트)
 - [ ] 키움 API 실제 연동 검증 (HTS 데이터 대조)
 - [ ] `npm run build` 오류 없음
 
@@ -302,7 +304,8 @@
 | v4.7 | 2026.05.18 | Phase 9 장기투자 계좌 대시보드 구현 완료(P9-13~P9-20) — Excel 계층구조 이중 파서(Stock/Fund Trading), 거래 CRUD API + 파일 기반 저장, FIFO 실현손익 계산, 종목별 accordion 2컬럼 그리드, 펀드(8654 계좌) 지원 |
 | v4.8 | 2026.05.18 | Phase 9 장기투자 계좌 추가 개선(P9-21~P9-23) — 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) + avgCost 수수료 제외 기준 통일. 현재가 실시간 자동 조회 API(Naver Finance KR / Yahoo v8 US, FUND 제외, KR 코드 보정 맵, 5분 TTL 캐시, 마운트 시 자동 실행). 보유 포지션 합계 행 확장(평가손익·수익률·누적실현손익·비중 4개 컬럼 추가) |
 | v4.9 | 2026.05.19 | Phase 9 장기투자 계좌 추가 구현(P9-24~P9-25) — JSON 백업 시스템(자동 일별 서버 백업+UI 다운로드/복원, overwrite/merge 모드). 포트폴리오 성과 분석 전용 페이지(Jan~Apr Bootstrap JSON + May+ 동적 계산, Modified Dietz MoM%, TWR 누적수익률, KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크, 엑셀 런타임 의존성 제거) |
+| v5.0 | 2026.05.19 | Phase 9 P9-26 완료 — 장기투자 계좌 보유 종목별 성과 분석(TWR/Alpha/연환산α/MDR/Hit Rate/MDD/Up·Down Capture + HoldingsAlphaBarChart). MDR(Modified Dietz Return) 도입(XIRR 대체). Performance Analysis 탭 개선: 실현손익 섹션 제거, 보유 종목 성과 뷰 추가. 탭명 "Portfolio Analysis" → "Performance Analysis" |
 
 ---
 
-*v4.9 | 2026.05.19 | Living Document*
+*v5.0 | 2026.05.19 | Living Document*
