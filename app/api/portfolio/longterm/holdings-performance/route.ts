@@ -23,6 +23,7 @@
  *   5. calcHoldingPerformance() → injectContributions() → 캐시 저장
  */
 
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
 import { calcPositions } from "@/lib/portfolio/longterm-calc";
@@ -63,9 +64,12 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 캐시 키: 계좌 + 종목 목록 기준 ─────────────
+    // 전체 계좌 선택 시 allCodes가 매우 길어져 파일명 255바이트 제한 초과 → ENAMETOOLONG
+    // 종목 목록을 MD5 16자리 해시로 압축하여 파일명 안전하게 단축
     const allCodes = positions.map((p) => p.stockCode).sort();
+    const codesHash = createHash("md5").update(allCodes.join("-")).digest("hex").slice(0, 16);
     // v4: FUND 포지션 제외로 캐시 무효화
-    const cacheKey = `holdings-perf-v4-${account ?? "all"}-${allCodes.join("-")}`;
+    const cacheKey = `holdings-perf-v4-${account ?? "all"}-${codesHash}`;
     const cached = await readCache<{ holdings: ReturnType<typeof injectContributions>; fetchedAt: string }>(cacheKey);
     if (cached) {
       return NextResponse.json({ ...cached, source: "cache" });
