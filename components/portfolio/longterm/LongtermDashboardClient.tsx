@@ -108,6 +108,10 @@ export function LongtermDashboardClient() {
   const importFileRef = useRef<HTMLInputElement>(null);
   const [importLoading, setImportLoading] = useState(false);
 
+  // ── JSON 백업/복원 파일 ref ───────────────────────
+  const jsonFileRef = useRef<HTMLInputElement>(null);
+  const [jsonLoading, setJsonLoading] = useState(false);
+
   // ── 성과 분석 탭 KR/US 선택 ─────────────────────
   const [perfCurrency, setPerfCurrency] = useState<"KRW" | "USD">("KRW");
 
@@ -455,6 +459,84 @@ export function LongtermDashboardClient() {
   }
 
   // ────────────────────────────────────────────────
+  // JSON 백업 다운로드
+  // GET /api/portfolio/longterm/backup → attachment 파일로 저장
+  // ────────────────────────────────────────────────
+  async function handleJsonBackup() {
+    setJsonLoading(true);
+    try {
+      const res = await fetch("/api/portfolio/longterm/backup");
+      if (!res.ok) throw new Error("백업 API 오류");
+      const blob = await res.blob();
+      // Content-Disposition 헤더의 파일명을 그대로 사용해 다운로드
+      const today = new Date().toISOString().slice(0, 10);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `longterm-backup-${today}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      console.error("JSON 백업 실패:", err);
+      alert("JSON 백업 다운로드에 실패했습니다.");
+    } finally {
+      setJsonLoading(false);
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // JSON 복원
+  // 파일 선택 → mode 선택(merge/overwrite) → POST
+  // ────────────────────────────────────────────────
+  async function handleJsonRestore(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setJsonLoading(true);
+    try {
+      // 파일을 텍스트로 읽어 파싱
+      const text = await file.text();
+      const parsed = JSON.parse(text) as { transactions?: unknown[] };
+      if (!Array.isArray(parsed.transactions) || parsed.transactions.length === 0) {
+        alert("유효한 백업 파일이 아닙니다. (transactions 배열 없음)");
+        return;
+      }
+
+      // overwrite는 전체 데이터를 교체하므로 명시적 확인 필요
+      const useOverwrite = window.confirm(
+        `백업 파일: ${parsed.transactions.length}건\n\n` +
+        `[확인] 전체 덮어쓰기 (overwrite) — 현재 데이터가 모두 교체됩니다.\n` +
+        `[취소] 병합 추가 (merge) — 중복 제외한 신규 건만 추가됩니다.`
+      );
+
+      const res = await fetch("/api/portfolio/longterm/backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactions: parsed.transactions,
+          mode: useOverwrite ? "overwrite" : "merge",
+        }),
+      });
+
+      if (!res.ok) throw new Error("복원 API 오류");
+      const result = await res.json() as { ok: boolean; restored: number; skipped: number };
+
+      alert(
+        `복원 완료\n` +
+        `저장: ${result.restored}건 | 건너뜀(중복): ${result.skipped}건`
+      );
+
+      // 복원 후 전체 데이터 새로고침
+      await Promise.all([fetchTransactions(), fetchPositions(), fetchPerformance()]);
+    } catch (err) {
+      console.error("JSON 복원 실패:", err);
+      alert("JSON 복원에 실패했습니다. 파일 형식을 확인해 주세요.");
+    } finally {
+      setJsonLoading(false);
+      if (jsonFileRef.current) jsonFileRef.current.value = "";
+    }
+  }
+
+  // ────────────────────────────────────────────────
   // 성과 분석 탭에서 사용할 Equity Curve + 월별 수익률 데이터 변환
   // ────────────────────────────────────────────────
 
@@ -531,9 +613,9 @@ export function LongtermDashboardClient() {
           새로고침
         </Button>
 
-        {/* Excel 도구 (오른쪽 정렬) */}
+        {/* Excel·JSON 도구 (오른쪽 정렬) */}
         <div className="ml-auto flex items-center gap-2">
-          {/* 숨겨진 파일 인풋 */}
+          {/* 숨겨진 Excel import 파일 인풋 */}
           <input
             ref={importFileRef}
             type="file"
@@ -541,6 +623,41 @@ export function LongtermDashboardClient() {
             className="hidden"
             onChange={handleImport}
           />
+          {/* 숨겨진 JSON 복원 파일 인풋 */}
+          <input
+            ref={jsonFileRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleJsonRestore}
+          />
+
+          {/* JSON 복원: 로컬 백업 파일 → 서버 데이터 복구 */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={() => jsonFileRef.current?.click()}
+            disabled={jsonLoading}
+          >
+            <FileUp className="h-3.5 w-3.5" />
+            {jsonLoading ? "처리 중..." : "JSON 복원"}
+          </Button>
+          {/* JSON 백업: 서버 데이터 → 로컬 PC 저장 (오프사이트 안전망) */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={handleJsonBackup}
+            disabled={jsonLoading || transactions.length === 0}
+          >
+            <FileDown className="h-3.5 w-3.5" />
+            JSON 백업
+          </Button>
+
+          {/* 구분선 */}
+          <div className="w-px h-5 bg-border" />
+
           {/* 가져오기: PC → 앱 방향 = FileUp (파일을 올려서 읽는 개념) */}
           <Button
             variant="outline"

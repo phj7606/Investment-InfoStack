@@ -43,6 +43,9 @@ next-env.d.ts
 # 데이터 캐시 — 런타임에 생성되는 파일, 버전 관리 불필요
 /data/cache/*.json
 
+# 자동 백업 — 로컬 안전망용, git 추적 불필요 (복원은 UI 또는 git history 활용)
+/data/backups/
+
 # SSH 키 — 절대 커밋 금지
 *.key
 *.key.pub
