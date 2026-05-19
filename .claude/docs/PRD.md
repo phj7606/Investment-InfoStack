@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.6 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.18 | **상태**: Living Document
+> **버전**: v4.7 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
 
 ---
 
@@ -77,6 +77,7 @@ Step 5: 매수 결정
 | `/dashboard/portfolio` | A2 | 포트폴리오 허브 (계좌 선택) | ✅ |
 | `/dashboard/portfolio/trend` | A2 | 추세추종 계좌 대시보드 | ✅ |
 | `/dashboard/portfolio/longterm` | A2 | 장기투자 계좌 대시보드 | ✅ |
+| `/dashboard/portfolio/performance` | A2 | 포트폴리오 성과 분석 (KR/US 월별 수익률·누적수익률·벤치마크 비교) | ✅ |
 | `/dashboard/settings` | 기타 | 앱 설정 | ✅ |
 
 ---
@@ -188,6 +189,8 @@ Step 5: 매수 결정
 | D1-05 | 펀드 계좌(8654) 지원 | Fund Trading 시트 파서(A=펀드명/B=날짜/C=Bid·Ask/D=좌수/E=NAV). 8654 계좌 자동 분류 | ✅ |
 | D1-06 | 현재가 실시간 자동 조회 | KR 종목: Naver Finance API(closePrice 필드, curl 기반). US 종목: Yahoo Finance v8 chart API(meta.regularMarketPrice, curl 기반, v7 quote는 401 차단). FUND 타입 제외(notFound 처리). KR 코드 보정 맵(오기 보정: 005939→005930). 5분 TTL 캐시. 새로고침 버튼 + 조회 시각 표시 + 로딩 스피너. 수동 오버라이드 연필 아이콘 유지. `/api/portfolio/longterm/prices` | ✅ |
 | D1-07 | 보유 포지션 합계 행 | 평가금액·평가손익·수익률(총평가손익/총매입원가)·누적실현손익·비중(100%) 합계 표시. 현재가 없는 종목 제외 후 계산 | ✅ |
+| D1-08 | JSON 백업/복원 | 자동 일별 서버 백업(data/backups/YYYY-MM-DD.json, 30일 보관) + UI에서 JSON 다운로드(오프사이트 보관용) + JSON 복원(overwrite: 전체 교체 / merge: dedup 키 기준 신규 건만 추가). `/api/portfolio/longterm/backup` | ✅ |
+| D1-09 | 포트폴리오 성과 분석 | Jan~Apr 2026 Bootstrap JSON + May 2026+ 거래내역 동적 계산. Modified Dietz MoM%. TWR 누적수익률. KR/US 분리. KOSPI/S&P500/NASDAQ 벤치마크 비교. 완료 월 24h / 현재 월 5min TTL 캐시. `/dashboard/portfolio/performance`, `/api/portfolio/performance` | ✅ |
 
 ---
 
@@ -436,7 +439,8 @@ Step 5: 매수 결정
 | v4.4 | 2026.05.16 | `/dashboard/screen` 주가 성과 분석 탭(A2-00) 요구사항 추가 — 6개 차트/10개 성과 지표/종목 자동완성/sessionStorage 상태 유지. 페이지 맵 3탭 구조 반영. 섹션 7 데이터 흐름도 탭1 주가 성과 분석 추가 |
 | v4.5 | 2026.05.18 | ACTION 2 포트폴리오 관리 — 장기투자 계좌 대시보드 기능 추가(D1-01~D1-05). 페이지 맵 portfolio/longterm·trend 추가 |
 | v4.6 | 2026.05.18 | 장기투자 계좌 개선 — D1-03 avgCost 수수료 제외 기준 통일(calcPositions/enrichSellTransaction BUY 누적 기준 동일화). D1-06 현재가 실시간 자동 조회(Naver Finance KR / Yahoo v8 US, 5분 TTL 캐시, KR 코드 보정 맵). D1-07 보유 포지션 합계 행 확장(평가손익·수익률·누적실현·비중). 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) |
+| v4.7 | 2026.05.19 | 장기투자 계좌 추가 구현(D1-08~D1-09) — JSON 백업 시스템(자동 일별 서버 백업+UI 다운로드/복원, overwrite/merge 모드). 포트폴리오 성과 분석 전용 페이지(Jan~Apr Bootstrap JSON + May+ 동적 계산, Modified Dietz MoM%, TWR 누적수익률, KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크, 엑셀 런타임 의존성 제거). 페이지 맵 `/dashboard/portfolio/performance` 추가 |
 
 ---
 
-*v4.6 | 2026.05.18 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v4.7 | 2026.05.19 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*

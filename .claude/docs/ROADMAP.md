@@ -1,6 +1,6 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.8 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.18 | **상태**: Living Document
+> **버전**: v4.9 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
 
 ---
 
@@ -182,6 +182,8 @@
 | P9-21 | 포지션 탭 KR/US 분리 + avgCost 수수료 제외 통일 — 전체 탭 제거(통화 혼산 방지), 기본값 KR. `calcPositions()` BUY 누적 시 `tx.amount`만 사용(수수료 제외)으로 종목별 탭 기준과 통일. `enrichSellTransaction()` BUY 누적도 동일 기준 적용. tfoot 합계 행 단일 통화 표시 | 🔴 | ✅ |
 | P9-22 | 현재가 실시간 자동 조회 API (`/api/portfolio/longterm/prices`) — KR 종목: Naver Finance `m.stock.naver.com/api/stock/{code}/basic` closePrice 필드. US 종목: Yahoo Finance v8/finance/chart `meta.regularMarketPrice`(curl 기반, v7 quote는 401 차단). FUND 타입 제외(notFound). KR 코드 보정 맵(005939→005930). 5분 TTL 캐시(readCache/writeCache). `lib/fetchers/yahoo.ts` `fetchYahooCurrentPrices()` 추가. 대시보드 마운트 시 자동 실행, 새로고침 버튼 + 조회 시각 표시 + 로딩 스피너 | 🔴 | ✅ |
 | P9-23 | 보유 포지션 합계 행 확장 — tfoot에 평가손익 합계·수익률(총평가손익/총매입원가)·누적실현손익·비중(100%) 4개 컬럼 추가 | 🟡 | ✅ |
+| P9-24 | JSON 백업 시스템 — 자동 일별 서버 백업(writeTransactions 직전 data/backups/YYYY-MM-DD.json, 30일 보관) + GET /api/portfolio/longterm/backup 다운로드 + POST /api/portfolio/longterm/backup 복원(overwrite/merge, dedup 키: date::stockCode::tradeType::quantity::price) + LongtermDashboardClient.tsx "JSON 백업"/"JSON 복원" 버튼 추가 | 🔴 | ✅ |
+| P9-25 | 포트폴리오 성과 분석 전용 페이지 (`/dashboard/portfolio/performance`) — Jan~Apr 2026 Bootstrap JSON + May 2026+ 거래내역 동적 계산(Modified Dietz MoM%, TWR rechainCumPct() 누적수익률). KR/US 분리. KOSPI/S&P500/NASDAQ 벤치마크 비교. 완료 월 24h / 현재 월 5min TTL 캐시. 엑셀 런타임 의존성 제거(Option B 전환). `PerformanceDashboardClient.tsx`, `performance-benchmark.ts`, `performance-excel.ts`, `data/performance-bootstrap.json` | 🔴 | ✅ |
 
 ### Phase 9 완료 기준
 - [x] 키움 REST API 토큰 발급·캐시
@@ -194,6 +196,8 @@
 - [x] 장기투자 계좌 대시보드 — Excel 임포트 + 거래 CRUD + 종목별 이력 accordion
 - [x] 펀드(8654 계좌) Fund Trading 시트 파서
 - [x] 장기투자 계좌 포지션 탭 현재가 실시간 조회 (KR/US 자동 조회, 5분 TTL 캐시)
+- [x] JSON 백업 시스템 (자동 서버 백업 + UI 다운로드/복원)
+- [x] 포트폴리오 성과 분석 전용 페이지 (KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크)
 - [ ] 키움 API 실제 연동 검증 (HTS 데이터 대조)
 - [ ] `npm run build` 오류 없음
 
@@ -297,7 +301,8 @@
 | v4.6 | 2026.05.17 | Phase 9 ACTION 2 "추적 관찰" → "포트폴리오 관리" 전면 교체. 키움 REST API 클라이언트(토큰·잔고·거래내역), 성과 계산 모듈(승률·손익비·EV·Equity Curve·MDD) + Vitest 34개 단위 테스트, 추세추종 계좌 대시보드 4탭 UI, 사이드바 재편, redirect 추가 |
 | v4.7 | 2026.05.18 | Phase 9 장기투자 계좌 대시보드 구현 완료(P9-13~P9-20) — Excel 계층구조 이중 파서(Stock/Fund Trading), 거래 CRUD API + 파일 기반 저장, FIFO 실현손익 계산, 종목별 accordion 2컬럼 그리드, 펀드(8654 계좌) 지원 |
 | v4.8 | 2026.05.18 | Phase 9 장기투자 계좌 추가 개선(P9-21~P9-23) — 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) + avgCost 수수료 제외 기준 통일. 현재가 실시간 자동 조회 API(Naver Finance KR / Yahoo v8 US, FUND 제외, KR 코드 보정 맵, 5분 TTL 캐시, 마운트 시 자동 실행). 보유 포지션 합계 행 확장(평가손익·수익률·누적실현손익·비중 4개 컬럼 추가) |
+| v4.9 | 2026.05.19 | Phase 9 장기투자 계좌 추가 구현(P9-24~P9-25) — JSON 백업 시스템(자동 일별 서버 백업+UI 다운로드/복원, overwrite/merge 모드). 포트폴리오 성과 분석 전용 페이지(Jan~Apr Bootstrap JSON + May+ 동적 계산, Modified Dietz MoM%, TWR 누적수익률, KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크, 엑셀 런타임 의존성 제거) |
 
 ---
 
-*v4.8 | 2026.05.18 | Living Document*
+*v4.9 | 2026.05.19 | Living Document*
