@@ -274,3 +274,76 @@ export interface TradesApiResponse {
   summary: PerformanceSummary;
   fetchedAt: string; // ISO 8601
 }
+
+// ─────────────────────────────────────────
+// 포트폴리오 성과 분석 타입 (Phase 10)
+// ─────────────────────────────────────────
+
+/** 단일 월 성과 포인트 — 엑셀(Jan~Apr) 또는 API(May+) 기반 */
+export interface PerformanceMonthPoint {
+  /** "YYYY-MM" 형식 */
+  period: string;
+  /** 월말 평가잔고 (KRW 또는 USD) */
+  balance: number;
+  /** 전월 대비 수익률 % (Modified Dietz 기반) */
+  momPct: number;
+  /** 누적 손익 (KRW 또는 USD) */
+  cumPL: number;
+  /** 누적 수익률 % */
+  cumPct: number;
+  /** 데이터 소스: "excel" = Jan~Apr 엑셀, "api" = May+ 동적 계산 */
+  source: "excel" | "api";
+}
+
+/** 벤치마크 월별 성과 포인트 (Dec 2025 종가 기준 누적) */
+export interface BenchmarkMonthPoint {
+  /** "YYYY-MM" 형식 */
+  period: string;
+  /** 전월말 대비 수익률 % */
+  momReturnPct: number;
+  /** 누적 수익률 % (Dec 2025 종가 = 기준점 0%) */
+  cumReturnPct: number;
+}
+
+/** 종목별 성과 포인트 — 엑셀에서 파싱하여 테이블 표시용 */
+export interface StockMonthPerformance {
+  /** 종목명 */
+  stockName: string;
+  /** KR: 6자리 종목코드, US: 심볼 */
+  ticker: string;
+  /** "KR" | "US" */
+  market: "KR" | "US";
+  /** 계좌번호 (엑셀 col 3 기준) */
+  accountNo: string;
+  /** 월별 성과: period → PerformanceMonthPoint */
+  months: PerformanceMonthPoint[];
+  /** 현재 전량 매도 완료 여부 */
+  fullyExited: boolean;
+}
+
+/** /api/portfolio/performance GET 응답 루트 타입 */
+export interface PortfolioPerformanceResponse {
+  kr: {
+    /** KR 포트폴리오 월별 합산 성과 (전체) */
+    months: PerformanceMonthPoint[];
+    /** KR 계좌별 월별 성과 { "4802": [...], "1635": [...], "1402": [...] } */
+    byAccount: Record<string, PerformanceMonthPoint[]>;
+    /** KOSPI 벤치마크 */
+    benchmark: BenchmarkMonthPoint[];
+    /** KR 종목별 상세 성과 (엑셀 기반 Jan~Apr, accountNo 포함) */
+    stocks: StockMonthPerformance[];
+  };
+  us: {
+    /** US 포트폴리오 월별 합산 성과 (전체) */
+    months: PerformanceMonthPoint[];
+    /** US 계좌별 월별 성과 { "4802": [...], "1635": [...] } */
+    byAccount: Record<string, PerformanceMonthPoint[]>;
+    benchmarks: {
+      sp500: BenchmarkMonthPoint[];
+      nasdaq: BenchmarkMonthPoint[];
+    };
+    /** US 종목별 상세 성과 (엑셀 기반 Jan~Apr, accountNo 포함) */
+    stocks: StockMonthPerformance[];
+  };
+  fetchedAt: string;
+}

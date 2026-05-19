@@ -22,6 +22,7 @@ import {
   FileBarChart,
   Bot,
   Globe,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -75,8 +76,9 @@ const ACTION1_ITEMS = [
   },
 ];
 
-// ACTION 2 · 포트폴리오 관리 — 계좌별 대시보드
+// ACTION 2 · 포트폴리오 관리 — 계좌별 대시보드 + 성과 분석
 // Phase 9: 추세추종 계좌 + 중장기 투자 계좌 구현
+// Phase 10: 성과 분석 페이지 추가
 const ACTION2_ITEMS = [
   {
     title: "추세추종 계좌",
@@ -87,6 +89,11 @@ const ACTION2_ITEMS = [
     title: "중장기 투자 계좌",
     href: "/dashboard/portfolio/longterm",
     icon: Briefcase,
+  },
+  {
+    title: "성과 분석",
+    href: "/dashboard/portfolio/performance",
+    icon: BarChart3,
   },
   // 추후 추가 예정
   // { title: "연금 계좌", href: "/dashboard/portfolio/pension", icon: PiggyBank },

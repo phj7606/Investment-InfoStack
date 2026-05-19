@@ -24,94 +24,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
 import { calcPositions } from "@/lib/portfolio/longterm-calc";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
+import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
 import { readCache, writeCache } from "@/lib/cache";
 import params from "@/config/params.json";
 import type { LongtermTransaction } from "@/types/portfolio";
-import { execFile } from "child_process";
-
-// ─────────────────────────────────────────
-// KR 종목 코드 보정 맵
-// 거래 데이터에 잘못 입력된 코드 → 실제 Naver Finance 코드로 매핑
-// 결과는 원래 코드로 반환하여 UI와의 정합성 유지
-// ─────────────────────────────────────────
-const KR_CODE_ALIASES: Record<string, string> = {
-  "005939": "005930", // 삼성전자 (005939 → 005930 오기 보정)
-};
-
-// ─────────────────────────────────────────
-// Naver Finance 현재가 조회 (KR 종목)
-// ─────────────────────────────────────────
-
-/**
- * Naver Finance 모바일 API에서 KR 종목 현재가 병렬 조회
- * 엔드포인트: https://m.stock.naver.com/api/stock/{code}/basic
- * closePrice 필드는 쉼표 포함 문자열 (예: "281,000")
- */
-async function fetchNaverCurrentPrices(
-  stockCodes: string[]
-): Promise<Record<string, number>> {
-  if (stockCodes.length === 0) return {};
-
-  const entries = await Promise.all(
-    stockCodes.map(async (code) => {
-      try {
-        // 보정 맵이 있으면 실제 코드로 조회하고, 결과는 원래 코드로 반환
-        const queryCode = KR_CODE_ALIASES[code] ?? code;
-        const price = await fetchNaverPriceViaCurl(queryCode);
-        if (price != null && queryCode !== code) {
-          console.log(`[naver] 코드 보정 적용: ${code} → ${queryCode} (${price})`);
-        }
-        return [code, price] as [string, number | null];
-      } catch {
-        return [code, null] as [string, number | null];
-      }
-    })
-  );
-
-  return Object.fromEntries(
-    entries.filter(([, price]) => price != null) as [string, number][]
-  );
-}
-
-/**
- * curl 서브프로세스로 Naver Finance 현재가 조회
- * Node.js fetch 대신 curl 사용 — 일부 환경에서 Naver API 접근 안정성 향상
- */
-function fetchNaverPriceViaCurl(stockCode: string): Promise<number | null> {
-  return new Promise((resolve) => {
-    const url = `https://m.stock.naver.com/api/stock/${stockCode}/basic`;
-
-    execFile(
-      "curl",
-      [
-        "-s",
-        "--max-time", "10",
-        "-H", "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
-        "-H", "Accept: application/json",
-        "-H", "Referer: https://m.stock.naver.com/",
-        url,
-      ],
-      { maxBuffer: 512 * 1024 },
-      (error, stdout) => {
-        if (error || !stdout.trim().startsWith("{")) {
-          resolve(null);
-          return;
-        }
-
-        try {
-          const data = JSON.parse(stdout);
-          // closePrice: "281,000" 형태 → 쉼표 제거 후 정수 파싱
-          const raw = data?.closePrice ?? data?.stockPrice;
-          if (!raw) { resolve(null); return; }
-          const price = parseInt(String(raw).replace(/,/g, ""), 10);
-          resolve(!isNaN(price) && price > 0 ? price : null);
-        } catch {
-          resolve(null);
-        }
-      }
-    );
-  });
-}
 
 // ─────────────────────────────────────────
 // Route Handler
@@ -134,7 +50,8 @@ export async function GET(req: NextRequest) {
     const fundPositions = positions.filter((p) => p.assetType === "FUND");
 
     const usSymbols = usPositions.map((p) => p.stockCode);
-    const krCodes   = krPositions.map((p) => p.stockCode);
+    const krStocks  = krPositions.map((p) => ({ code: p.stockCode, name: p.stockName }));
+    const krCodes   = krStocks.map((s) => s.code);
 
     // 캐시 키 — 계좌+심볼 목록 기준
     const allSymbols = [...usSymbols.sort(), ...krCodes.sort()];
@@ -145,9 +62,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...cached, source: "cache" });
     }
 
-    // 병렬로 KR(Naver) + US(Yahoo v8 chart) 조회
+    // 병렬로 KR(Naver, 코드 불일치 시 종목명으로 자동 검색) + US(Yahoo v8 chart) 조회
     const [krPrices, usPrices] = await Promise.all([
-      fetchNaverCurrentPrices(krCodes),
+      fetchNaverCurrentPrices(krStocks),
       fetchYahooCurrentPrices(usSymbols),
     ]);
 

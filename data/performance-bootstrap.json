@@ -1,0 +1,1852 @@
+{
+  "krMonths": [
+    {
+      "period": "2026-01",
+      "balance": 576669440,
+      "momPct": 20.87,
+      "cumPL": 207824611,
+      "cumPct": 54.42,
+      "source": "excel"
+    },
+    {
+      "period": "2026-02",
+      "balance": 703174055,
+      "momPct": 17.85,
+      "cumPL": 312731111,
+      "cumPct": 80.1,
+      "source": "excel"
+    },
+    {
+      "period": "2026-03",
+      "balance": 611997905,
+      "momPct": -17.92,
+      "cumPL": 171825159,
+      "cumPct": 36.29,
+      "source": "excel"
+    },
+    {
+      "period": "2026-04",
+      "balance": 844548505,
+      "momPct": 34.58,
+      "cumPL": 393822073,
+      "cumPct": 79.21,
+      "source": "excel"
+    }
+  ],
+  "krByAccount": {
+    "1402": [
+      {
+        "period": "2026-01",
+        "balance": 146568620,
+        "momPct": 10.67,
+        "cumPL": 14132837,
+        "cumPct": 10.67,
+        "source": "excel"
+      },
+      {
+        "period": "2026-02",
+        "balance": 198444790,
+        "momPct": 19.14,
+        "cumPL": 46013207,
+        "cumPct": 30.19,
+        "source": "excel"
+      },
+      {
+        "period": "2026-03",
+        "balance": 177487740,
+        "momPct": -15.11,
+        "cumPL": 8503335,
+        "cumPct": 4.2,
+        "source": "excel"
+      },
+      {
+        "period": "2026-04",
+        "balance": 224615840,
+        "momPct": 26.55,
+        "cumPL": 55631435,
+        "cumPct": 27.5,
+        "source": "excel"
+      }
+    ],
+    "1635": [
+      {
+        "period": "2026-01",
+        "balance": 180508120,
+        "momPct": 17.83,
+        "cumPL": 63537946,
+        "cumPct": 52.27,
+        "source": "excel"
+      },
+      {
+        "period": "2026-02",
+        "balance": 200105465,
+        "momPct": 10.86,
+        "cumPL": 83135291,
+        "cumPct": 68.39,
+        "source": "excel"
+      },
+      {
+        "period": "2026-03",
+        "balance": 194526465,
+        "momPct": -15.79,
+        "cumPL": 46659311,
+        "cumPct": 30.6,
+        "source": "excel"
+      },
+      {
+        "period": "2026-04",
+        "balance": 316384765,
+        "momPct": 29.33,
+        "cumPL": 118407651,
+        "cumPct": 58.45,
+        "source": "excel"
+      }
+    ],
+    "4802": [
+      {
+        "period": "2026-01",
+        "balance": 249592700,
+        "momPct": 30.42,
+        "cumPL": 130153828,
+        "cumPct": 108.97,
+        "source": "excel"
+      },
+      {
+        "period": "2026-02",
+        "balance": 304623800,
+        "momPct": 22.05,
+        "cumPL": 185184928,
+        "cumPct": 155.05,
+        "source": "excel"
+      },
+      {
+        "period": "2026-03",
+        "balance": 239983700,
+        "momPct": -21.8,
+        "cumPL": 118264828,
+        "cumPct": 97.16,
+        "source": "excel"
+      },
+      {
+        "period": "2026-04",
+        "balance": 303547900,
+        "momPct": 45.85,
+        "cumPL": 229579200,
+        "cumPct": 190.63,
+        "source": "excel"
+      }
+    ]
+  },
+  "usMonths": [
+    {
+      "period": "2026-01",
+      "balance": 135896,
+      "momPct": 1.97,
+      "cumPL": 59169,
+      "cumPct": 77.12,
+      "source": "excel"
+    },
+    {
+      "period": "2026-02",
+      "balance": 133936,
+      "momPct": -1.72,
+      "cumPL": 57331,
+      "cumPct": 72.66,
+      "source": "excel"
+    },
+    {
+      "period": "2026-03",
+      "balance": 126472,
+      "momPct": -5.95,
+      "cumPL": 49807,
+      "cumPct": 64.97,
+      "source": "excel"
+    },
+    {
+      "period": "2026-04",
+      "balance": 151105,
+      "momPct": 19.48,
+      "cumPL": 73871,
+      "cumPct": 96.36,
+      "source": "excel"
+    }
+  ],
+  "usByAccount": {
+    "1635": [
+      {
+        "period": "2026-01",
+        "balance": 44883,
+        "momPct": 13.78,
+        "cumPL": 23660,
+        "cumPct": 112.36,
+        "source": "excel"
+      },
+      {
+        "period": "2026-02",
+        "balance": 47060,
+        "momPct": 4.47,
+        "cumPL": 25666,
+        "cumPct": 121.88,
+        "source": "excel"
+      },
+      {
+        "period": "2026-03",
+        "balance": 42648,
+        "momPct": -9.71,
+        "cumPL": 21096,
+        "cumPct": 100.18,
+        "source": "excel"
+      },
+      {
+        "period": "2026-04",
+        "balance": 55189,
+        "momPct": 28.96,
+        "cumPL": 33446,
+        "cumPct": 158.83,
+        "source": "excel"
+      }
+    ],
+    "4802": [
+      {
+        "period": "2026-01",
+        "balance": 91013,
+        "momPct": -3,
+        "cumPL": 34978,
+        "cumPct": 62.83,
+        "source": "excel"
+      },
+      {
+        "period": "2026-02",
+        "balance": 86876,
+        "momPct": -4.7,
+        "cumPL": 30596,
+        "cumPct": 52.89,
+        "source": "excel"
+      },
+      {
+        "period": "2026-03",
+        "balance": 83824,
+        "momPct": -3.91,
+        "cumPL": 27195,
+        "cumPct": 47.01,
+        "source": "excel"
+      },
+      {
+        "period": "2026-04",
+        "balance": 95916,
+        "momPct": 13.97,
+        "cumPL": 38909,
+        "cumPct": 67.26,
+        "source": "excel"
+      }
+    ]
+  },
+  "krStocks": [
+    {
+      "stockName": "삼성전자",
+      "ticker": "005930",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 80560800,
+          "momPct": 33.55,
+          "cumPL": 52337032,
+          "cumPct": 185.44,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 108967500,
+          "momPct": 35.26,
+          "cumPL": 80743732,
+          "cumPct": 286.08,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 83516700,
+          "momPct": -23.36,
+          "cumPL": 55292932,
+          "cumPct": 195.91,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 111472500,
+          "momPct": 33.47,
+          "cumPL": 83248732,
+          "cumPct": 294.96,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "삼성전자우",
+      "ticker": "005935",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 40268200,
+          "momPct": 31.61,
+          "cumPL": 18476107,
+          "cumPct": 84.78,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 49323400,
+          "momPct": 22.49,
+          "cumPL": 27531307,
+          "cumPct": 126.34,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 39102000,
+          "momPct": -20.72,
+          "cumPL": 17309907,
+          "cumPct": 79.43,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 54296900,
+          "momPct": 38.86,
+          "cumPL": 32504807,
+          "cumPct": 149.16,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SK하이닉스",
+      "ticker": "000660",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 41584000,
+          "momPct": 38.65,
+          "cumPL": 15917000,
+          "cumPct": 62.01,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 48898000,
+          "momPct": 17.59,
+          "cumPL": 23231000,
+          "cumPct": 90.51,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 37076000,
+          "momPct": -24.18,
+          "cumPL": 11409000,
+          "cumPct": 44.45,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 59524000,
+          "momPct": 60.55,
+          "cumPL": 33857000,
+          "cumPct": 131.91,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "삼성전기",
+      "ticker": "009150",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 11849000,
+          "momPct": 13.11,
+          "cumPL": 6606822,
+          "cumPct": 126.03,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 18593500,
+          "momPct": 56.92,
+          "cumPL": 13351322,
+          "cumPct": 254.69,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 16461500,
+          "momPct": -11.47,
+          "cumPL": 11219322,
+          "cumPct": 214.02,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 17493000,
+          "momPct": 148.61,
+          "cumPL": 35655414,
+          "cumPct": 680.16,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "한화에어로스페이스",
+      "ticker": "012450",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 2598000,
+          "momPct": 36.45,
+          "cumPL": 1740000,
+          "cumPct": 202.8,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 2410000,
+          "momPct": -7.24,
+          "cumPL": 1552000,
+          "cumPct": 180.89,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 2456000,
+          "momPct": 1.91,
+          "cumPL": 1598000,
+          "cumPct": 186.25,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 0,
+          "momPct": 7.65,
+          "cumPL": 1785880,
+          "cumPct": 208.14,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "삼성에피스홀딩스",
+      "ticker": "0126Z0",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 1824000,
+          "momPct": -18.17,
+          "cumPL": 537000,
+          "cumPct": 41.72,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 2010000,
+          "momPct": 10.2,
+          "cumPL": 723000,
+          "cumPct": 56.18,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 1468500,
+          "momPct": -26.94,
+          "cumPL": 181500,
+          "cumPct": 14.1,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 0,
+          "momPct": 5.82,
+          "cumPL": 1554000,
+          "cumPct": 0,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "한미반도체",
+      "ticker": "042700",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 9635000,
+          "momPct": 60.91,
+          "cumPL": 4478442,
+          "cumPct": 86.85,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 14852000,
+          "momPct": 54.15,
+          "cumPL": 9695442,
+          "cumPct": 188.02,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 11515000,
+          "momPct": -22.47,
+          "cumPL": 6358442,
+          "cumPct": 123.31,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 17390000,
+          "momPct": 51.02,
+          "cumPL": 12233442,
+          "cumPct": 237.24,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "현대로템",
+      "ticker": "064350",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 16753500,
+          "momPct": 21.56,
+          "cumPL": 13285025,
+          "cumPct": 383.02,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 16972500,
+          "momPct": 1.31,
+          "cumPL": 13504025,
+          "cumPct": 389.34,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 12351600,
+          "momPct": -27.23,
+          "cumPL": 8883125,
+          "cumPct": 256.11,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 19673500,
+          "momPct": 59.28,
+          "cumPL": 16205025,
+          "cumPct": 467.21,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "HD현대마린엔진",
+      "ticker": "071970",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 13702000,
+          "momPct": 58.2,
+          "cumPL": 5983000,
+          "cumPct": 77.51,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 13562500,
+          "momPct": -1.02,
+          "cumPL": 5843500,
+          "cumPct": 75.7,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 10602000,
+          "momPct": -21.83,
+          "cumPL": 2883000,
+          "cumPct": 37.35,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 16430000,
+          "momPct": 54.97,
+          "cumPL": 8711000,
+          "cumPct": 112.85,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "한화엔진",
+      "ticker": "082740",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 6059200,
+          "momPct": 25.96,
+          "cumPL": 3634400,
+          "cumPct": 149.88,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 6070400,
+          "momPct": 0.18,
+          "cumPL": 3645600,
+          "cumPct": 150.35,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 4838400,
+          "momPct": -20.3,
+          "cumPL": 2413600,
+          "cumPct": 99.54,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 0,
+          "momPct": 3.46,
+          "cumPL": 2581240,
+          "cumPct": 106.45,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "파마리서치",
+      "ticker": "214450",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 8487000,
+          "momPct": 16.28,
+          "cumPL": 3040000,
+          "cumPct": 55.81,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 6318000,
+          "momPct": -25.56,
+          "cumPL": 871000,
+          "cumPct": 15.99,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 6854000,
+          "momPct": -20.28,
+          "cumPL": -873000,
+          "cumPct": -11.3,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 7268000,
+          "momPct": 6.04,
+          "cumPL": -459000,
+          "cumPct": -5.94,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "HD현대중공업",
+      "ticker": "329180",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 5760000,
+          "momPct": 12.06,
+          "cumPL": 3857000,
+          "cumPct": 202.68,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 6020000,
+          "momPct": 4.51,
+          "cumPL": 4117000,
+          "cumPct": 216.34,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 4640000,
+          "momPct": -22.92,
+          "cumPL": 2737000,
+          "cumPct": 143.83,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 0,
+          "momPct": -2.81,
+          "cumPL": 2606720,
+          "cumPct": 136.98,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "삼성바이오로직스",
+      "ticker": "207940",
+      "market": "KR",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 10512000,
+          "momPct": 3.24,
+          "cumPL": 262000,
+          "cumPct": 2.56,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 10626000,
+          "momPct": 1.08,
+          "cumPL": 376000,
+          "cumPct": 3.67,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 9102000,
+          "momPct": -14.34,
+          "cumPL": -1148000,
+          "cumPct": -11.2,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 0,
+          "momPct": 2.67,
+          "cumPL": -905060,
+          "cumPct": -8.83,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "KODEX200",
+      "ticker": "069500",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 34168810,
+          "momPct": 55.64,
+          "cumPL": 17648530,
+          "cumPct": 106.83,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 41601040,
+          "momPct": 21.75,
+          "cumPL": 25080760,
+          "cumPct": 151.82,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 33340060,
+          "momPct": -19.86,
+          "cumPL": 16819780,
+          "cumPct": 101.81,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 44158010,
+          "momPct": 32.45,
+          "cumPL": 27637730,
+          "cumPct": 167.3,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX반도체",
+      "ticker": "091160",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 8555400,
+          "momPct": 43.88,
+          "cumPL": 3604520,
+          "cumPct": 72.81,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 10223800,
+          "momPct": 19.5,
+          "cumPL": 5272920,
+          "cumPct": 106.5,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 23463000,
+          "momPct": -10.31,
+          "cumPL": 2574650,
+          "cumPct": 12.33,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 47310700,
+          "momPct": 41,
+          "cumPL": 16330590,
+          "cumPct": 52.71,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX 미국빅테크10",
+      "ticker": "314250",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 15379140,
+          "momPct": -4.63,
+          "cumPL": 11231976,
+          "cumPct": 270.84,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 14520660,
+          "momPct": -5.58,
+          "cumPL": 10373496,
+          "cumPct": 250.13,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 13329960,
+          "momPct": -8.2,
+          "cumPL": 9182796,
+          "cumPct": 221.42,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 16093560,
+          "momPct": 20.73,
+          "cumPL": 11946396,
+          "cumPct": 288.06,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SOL 조선TOP3플러스",
+      "ticker": "466920",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 27162540,
+          "momPct": 11.4,
+          "cumPL": 11126820,
+          "cumPct": 69.39,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 27949215,
+          "momPct": 2.9,
+          "cumPL": 11913495,
+          "cumPct": 74.29,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 27392950,
+          "momPct": -16.83,
+          "cumPL": 6371610,
+          "cumPct": 30.31,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 36198760,
+          "momPct": 32.15,
+          "cumPL": 15177420,
+          "cumPct": 72.2,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SOL 반도체후공정",
+      "ticker": "475310",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 10015670,
+          "momPct": 40.08,
+          "cumPL": 5121940,
+          "cumPct": 104.66,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 11979800,
+          "momPct": 19.61,
+          "cumPL": 7086070,
+          "cumPct": 144.8,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 15155315,
+          "momPct": -10.71,
+          "cumPL": 5268385,
+          "cumPct": 53.29,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 20145445,
+          "momPct": 32.93,
+          "cumPL": 10258515,
+          "cumPct": 103.76,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX200TR",
+      "ticker": "278530",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 12202005,
+          "momPct": 26.98,
+          "cumPL": 7115530,
+          "cumPct": 139.89,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 14886490,
+          "momPct": 22,
+          "cumPL": 9800015,
+          "cumPct": 192.67,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 11892510,
+          "momPct": -20.11,
+          "cumPL": 6806035,
+          "cumPct": 133.81,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 15876435,
+          "momPct": 33.5,
+          "cumPL": 10789960,
+          "cumPct": 212.13,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX 미국서학개미",
+      "ticker": "473460",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 0,
+          "momPct": -0.46,
+          "cumPL": 1602315,
+          "cumPct": 53.62,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "KoAct 바이오헬스케어",
+      "ticker": "462900",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 17122695,
+          "momPct": 11.29,
+          "cumPL": 1911770,
+          "cumPct": 12.57,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 17539800,
+          "momPct": 2.44,
+          "cumPL": 2328875,
+          "cumPct": 15.31,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 15878510,
+          "momPct": -9.47,
+          "cumPL": 667585,
+          "cumPct": 4.39,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 14773360,
+          "momPct": -6.96,
+          "cumPL": -437565,
+          "cumPct": -2.88,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEXAI전력핵심",
+      "ticker": "487240",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 18545200,
+          "momPct": 15.27,
+          "cumPL": 2653449,
+          "cumPct": 16.7,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 22737460,
+          "momPct": 22.61,
+          "cumPL": 6845709,
+          "cumPct": 43.08,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 23961000,
+          "momPct": -13.55,
+          "cumPL": 3088559,
+          "cumPct": 14.8,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 43048300,
+          "momPct": 79.66,
+          "cumPL": 22175859,
+          "cumPct": 106.24,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SOL 전고체배터리&실리콘음극재",
+      "ticker": "0005D0",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 15286260,
+          "momPct": -0.85,
+          "cumPL": -131280,
+          "cumPct": -0.85,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 17163080,
+          "momPct": 12.28,
+          "cumPL": 1745540,
+          "cumPct": 11.32,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 15135780,
+          "momPct": -11.81,
+          "cumPL": -281760,
+          "cumPct": -1.83,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 20699360,
+          "momPct": 36.76,
+          "cumPL": 5281820,
+          "cumPct": 34.26,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "TIGER 코리아휴머노이드로봇산업",
+      "ticker": "0148J0",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 22070400,
+          "momPct": 8.09,
+          "cumPL": 1652376,
+          "cumPct": 8.09,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 21504120,
+          "momPct": -2.57,
+          "cumPL": 1086096,
+          "cumPct": 5.32,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 14977380,
+          "momPct": -30.35,
+          "cumPL": -5440644,
+          "cumPct": -26.65,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 18520260,
+          "momPct": 23.65,
+          "cumPL": -1897764,
+          "cumPct": -9.29,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX 미국AI광통신네트워크",
+      "ticker": "0173Y0",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-04",
+          "balance": 19936000,
+          "momPct": -0.4,
+          "cumPL": -80000,
+          "cumPct": -0.4,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "KODEX 미국AI전력핵심인프라",
+      "ticker": "487230",
+      "market": "KR",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-04",
+          "balance": 19624575,
+          "momPct": -1.89,
+          "cumPL": -377625,
+          "cumPct": -1.89,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "삼성전자 1402",
+      "ticker": "005930",
+      "market": "KR",
+      "accountNo": "1402",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 57727200,
+          "momPct": 15.7,
+          "cumPL": 7834000,
+          "cumPct": 15.7,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 104617500,
+          "momPct": 34.6,
+          "cumPL": 34728500,
+          "cumPct": 49.69,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 80182700,
+          "momPct": -17.76,
+          "cumPL": 12608790,
+          "cumPct": 14.04,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 107022500,
+          "momPct": 33.47,
+          "cumPL": 33809979,
+          "cumPct": 46.18,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SK하이닉스 1402",
+      "ticker": "000660",
+      "market": "KR",
+      "accountNo": "1402",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 36160000,
+          "momPct": 22.98,
+          "cumPL": 6756500,
+          "cumPct": 22.98,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 42520000,
+          "momPct": 17.59,
+          "cumPL": 13116500,
+          "cumPct": 44.61,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 32240000,
+          "momPct": -17.45,
+          "cumPL": 3961893,
+          "cumPct": 10.07,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 51760000,
+          "momPct": 60.55,
+          "cumPL": 20899216,
+          "cumPct": 67.72,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "ACE KRX금현물",
+      "ticker": "411060",
+      "market": "KR",
+      "accountNo": "1402",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 22787920,
+          "momPct": 14.02,
+          "cumPL": 2802837,
+          "cumPct": 14.02,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 21559790,
+          "momPct": -5.39,
+          "cumPL": 1574707,
+          "cumPct": 7.88,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 40245040,
+          "momPct": -3.15,
+          "cumPL": 266652,
+          "cumPct": 0.67,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 38713840,
+          "momPct": -3.8,
+          "cumPL": -1264548,
+          "cumPct": -3.16,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "알테오젠 1402",
+      "ticker": "196170",
+      "market": "KR",
+      "accountNo": "1402",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 29893500,
+          "momPct": -9.83,
+          "cumPL": -3260500,
+          "cumPct": -9.83,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 29747500,
+          "momPct": -0.49,
+          "cumPL": -3406500,
+          "cumPct": -10.27,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 24820000,
+          "momPct": -16.56,
+          "cumPL": -8334000,
+          "cumPct": -25.14,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 27119500,
+          "momPct": 9.26,
+          "cumPL": -6034500,
+          "cumPct": -18.2,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    }
+  ],
+  "usStocks": [
+    {
+      "stockName": "AAPL",
+      "ticker": "AAPL",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 16866.2,
+          "momPct": -4.96,
+          "cumPL": 5194,
+          "cumPct": 44.77,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 17171.7,
+          "momPct": 1.38,
+          "cumPL": 5498,
+          "cumPct": 47.39,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 16502.85,
+          "momPct": -4.3,
+          "cumPL": 4831,
+          "cumPct": 41.64,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 17637.75,
+          "momPct": 6.88,
+          "cumPL": 5963,
+          "cumPct": 51.4,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "AVGO",
+      "ticker": "AVGO",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 9939,
+          "momPct": -4.63,
+          "cumPL": 5022,
+          "cumPct": 102.9,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 9586.5,
+          "momPct": -3.91,
+          "cumPL": 4670,
+          "cumPct": 95.7,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 9305.4,
+          "momPct": -3.3,
+          "cumPL": 4390,
+          "cumPct": 89.95,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 12522.99,
+          "momPct": 34.58,
+          "cumPL": 7599,
+          "cumPct": 155.72,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "CRCL",
+      "ticker": "CRCL",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 1342.53,
+          "momPct": -20.26,
+          "cumPL": -3174,
+          "cumPct": -70.5,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 1752.24,
+          "momPct": 29.35,
+          "cumPL": -2765,
+          "cumPct": -61.42,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 2024.4,
+          "momPct": 14.6,
+          "cumPL": -2494,
+          "cumPct": -55.39,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 1908.48,
+          "momPct": -5.73,
+          "cumPL": -2609,
+          "cumPct": -57.96,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "GOOGL",
+      "ticker": "GOOGL",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 23998,
+          "momPct": 7.6,
+          "cumPL": 13716,
+          "cumPct": 134.52,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 22134.96,
+          "momPct": -8.1,
+          "cumPL": 11858,
+          "cumPct": 116.29,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 20483.5,
+          "momPct": -7.81,
+          "cumPL": 10210,
+          "cumPct": 100.14,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 27320.8,
+          "momPct": 33.38,
+          "cumPL": 17031,
+          "cumPct": 167.03,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "NVDA",
+      "ticker": "NVDA",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 9174.24,
+          "momPct": 2.09,
+          "cumPL": 4237,
+          "cumPct": 86.44,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 8505.12,
+          "momPct": -7.66,
+          "cumPL": 3570,
+          "cumPct": 72.83,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 8370.24,
+          "momPct": -1.98,
+          "cumPL": 3435,
+          "cumPct": 70.08,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 9579.36,
+          "momPct": 14.45,
+          "cumPL": 4641,
+          "cumPct": 94.69,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "TSLA",
+      "ticker": "TSLA",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 18938.04,
+          "momPct": -4.57,
+          "cumPL": 11142,
+          "cumPct": 144.17,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 17710.44,
+          "momPct": -6.82,
+          "cumPL": 9918,
+          "cumPct": 128.32,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 16426.08,
+          "momPct": -7.59,
+          "cumPL": 8637,
+          "cumPct": 111.75,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 16791.72,
+          "momPct": 2.23,
+          "cumPL": 9002,
+          "cumPct": 116.47,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "V",
+      "ticker": "V",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 2252.81,
+          "momPct": -8.69,
+          "cumPL": 3,
+          "cumPct": 0.15,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 0,
+          "momPct": 1.53,
+          "cumPL": 49,
+          "cumPct": 2.2,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": true
+    },
+    {
+      "stockName": "PLTR",
+      "ticker": "PLTR",
+      "market": "US",
+      "accountNo": "4802",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 8502.22,
+          "momPct": -18.1,
+          "cumPL": -1163,
+          "cumPct": -12.09,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 10014.87,
+          "momPct": -6.72,
+          "cumPL": -1836,
+          "cumPct": -15.56,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 10711.29,
+          "momPct": 6.39,
+          "cumPL": -1141,
+          "cumPct": -9.67,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 10155.03,
+          "momPct": -5.19,
+          "cumPL": -1696,
+          "cumPct": -14.38,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "COPX",
+      "ticker": "COPX",
+      "market": "US",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 8226.57,
+          "momPct": 17.69,
+          "cumPL": 3863,
+          "cumPct": 89.18,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 9282.9,
+          "momPct": 12.43,
+          "cumPL": 4917,
+          "cumPct": 113.5,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 7407.17,
+          "momPct": -20.52,
+          "cumPL": 3046,
+          "cumPct": 70.31,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 7722.17,
+          "momPct": 4.25,
+          "cumPL": 3360,
+          "cumPct": 77.56,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "GRID",
+      "ticker": "GRID",
+      "market": "US",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 7913.76,
+          "momPct": 7.28,
+          "cumPL": 2182,
+          "cumPct": 38.29,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 8536.8,
+          "momPct": 7.42,
+          "cumPL": 2803,
+          "cumPct": 49.19,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 7872,
+          "momPct": -8.18,
+          "cumPL": 2140,
+          "cumPct": 37.56,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 9167.52,
+          "momPct": 16.46,
+          "cumPL": 3432,
+          "cumPct": 60.24,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    },
+    {
+      "stockName": "SOXX",
+      "ticker": "SOXX",
+      "market": "US",
+      "accountNo": "1635",
+      "months": [
+        {
+          "period": "2026-01",
+          "balance": 28742.9,
+          "momPct": 14.59,
+          "cumPL": 17615,
+          "cumPct": 159.73,
+          "source": "excel"
+        },
+        {
+          "period": "2026-02",
+          "balance": 29240.07,
+          "momPct": 1.38,
+          "cumPL": 18111,
+          "cumPct": 164.23,
+          "source": "excel"
+        },
+        {
+          "period": "2026-03",
+          "balance": 27369.25,
+          "momPct": -6.73,
+          "cumPL": 16245,
+          "cumPct": 147.31,
+          "source": "excel"
+        },
+        {
+          "period": "2026-04",
+          "balance": 38299.52,
+          "momPct": 39.94,
+          "cumPL": 27148,
+          "cumPct": 246.17,
+          "source": "excel"
+        }
+      ],
+      "fullyExited": false
+    }
+  ],
+  "krDecBalance": 289672530,
+  "usDecBalance": 131945.17,
+  "krDecByAccount": {
+    "1402": 0,
+    "1635": 98293030,
+    "4802": 191379500
+  },
+  "usDecByAccount": {
+    "1635": 39304.04,
+    "4802": 92641.13
+  }
+}
