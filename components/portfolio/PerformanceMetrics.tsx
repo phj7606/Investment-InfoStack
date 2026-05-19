@@ -44,12 +44,16 @@ export function PerformanceMetrics({ summary, isLoading }: PerformanceMetricsPro
       value:
         summary.totalTrades === 0
           ? "-"
+          : summary.profitFactor == null
+          ? "-"
           : summary.profitFactor === Infinity
           ? "∞"
           : summary.profitFactor.toFixed(2),
       description: `총수익 / |총손실|. 1.0 이상이면 양의 기대값.`,
       emphasis:
         summary.totalTrades === 0
+          ? "neutral"
+          : summary.profitFactor == null
           ? "neutral"
           : summary.profitFactor >= 1
           ? "positive"
@@ -58,7 +62,7 @@ export function PerformanceMetrics({ summary, isLoading }: PerformanceMetricsPro
     {
       label: "기대값 (EV)",
       value:
-        summary.totalTrades === 0
+        summary.totalTrades === 0 || summary.expectedValue == null
           ? "-"
           : `${summary.expectedValue >= 0 ? "+" : ""}${summary.expectedValue.toFixed(2)}%`,
       description: `승률×평균수익 - 패율×평균손실. 양수이면 시스템 유효.`,
@@ -68,7 +72,7 @@ export function PerformanceMetrics({ summary, isLoading }: PerformanceMetricsPro
     {
       label: "평균 수익 (Avg Win)",
       value:
-        summary.winCount === 0
+        summary.winCount === 0 || summary.avgWinPct == null
           ? "-"
           : `+${summary.avgWinPct.toFixed(2)}%`,
       description: `WIN 거래 ${summary.winCount}건의 평균 수익률.`,
@@ -77,7 +81,7 @@ export function PerformanceMetrics({ summary, isLoading }: PerformanceMetricsPro
     {
       label: "평균 손실 (Avg Loss)",
       value:
-        summary.lossCount === 0
+        summary.lossCount === 0 || summary.avgLossPct == null
           ? "-"
           : `-${summary.avgLossPct.toFixed(2)}%`,
       description: `LOSS 거래 ${summary.lossCount}건의 평균 손실률.`,
@@ -106,12 +110,12 @@ export function PerformanceMetrics({ summary, isLoading }: PerformanceMetricsPro
     {
       label: "MDD",
       value:
-        summary.mdd === 0
+        summary.mdd == null || summary.mdd === 0
           ? "-"
           : `${summary.mdd.toFixed(1)}%`,
       description: `Equity Curve 기준 최대 낙폭 (Maximum Drawdown). 음수.`,
       emphasis:
-        summary.mdd === 0
+        summary.mdd == null || summary.mdd === 0
           ? "neutral"
           : summary.mdd > -15
           ? "neutral"

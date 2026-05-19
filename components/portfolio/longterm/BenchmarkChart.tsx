@@ -125,6 +125,13 @@ export function BenchmarkChart({
   const myLineColor = finalValue >= 0 ? "#10b981" : "#ef4444"; // 에메랄드/레드
   const bmLineColor = "#6366f1"; // 인디고 (벤치마크)
 
+  // 데이터 기간 범위 ("어느 기간의 누적인지" 명시)
+  const firstPeriod = myEquityCurve[0]?.period ?? "";
+  const lastPeriod = myEquityCurve[myEquityCurve.length - 1]?.period ?? "";
+  const periodLabel = firstPeriod && lastPeriod
+    ? firstPeriod === lastPeriod ? firstPeriod : `${firstPeriod} ~ ${lastPeriod}`
+    : "";
+
   if (monthlyPL.length === 0) {
     return (
       <Card>
@@ -151,6 +158,9 @@ export function BenchmarkChart({
             <CardTitle className="text-sm">누적손익 vs 벤치마크</CardTitle>
             <CardDescription className="text-xs mt-0.5">
               {currency === "KRW" ? `KOSPI 비교 (원화)` : `S&P 500 비교 (USD)`}
+              {periodLabel && (
+                <span className="ml-1.5 font-medium text-foreground/60">{periodLabel}</span>
+              )}
               {!benchmarkData && (
                 <span className="ml-2 text-muted-foreground/60">
                   (벤치마크 데이터 없음)
@@ -160,7 +170,9 @@ export function BenchmarkChart({
           </div>
           {/* 최종 누적손익 표시 */}
           <div className="text-right">
-            <p className="text-[10px] text-muted-foreground">누적 손익</p>
+            <p className="text-[10px] text-muted-foreground">
+              누적 손익 {periodLabel && <span className="text-[9px]">({periodLabel})</span>}
+            </p>
             <p
               className="text-sm font-bold tabular-nums"
               style={{ color: myLineColor }}

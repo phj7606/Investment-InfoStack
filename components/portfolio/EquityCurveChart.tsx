@@ -89,16 +89,28 @@ export function EquityCurveChart({ data, isLoading }: EquityCurveChartProps) {
   const finalValue = data[data.length - 1]?.value ?? 0;
   const lineColor = finalValue >= 0 ? "#10b981" : "#ef4444"; // 에메랄드/레드
 
+  // 데이터 기간 범위 (YYYY-MM 형식으로 표시 — "어느 기간의 누적인지" 명시)
+  const startPeriod = data[0]?.date?.slice(0, 7) ?? "";
+  const endPeriod = data[data.length - 1]?.date?.slice(0, 7) ?? "";
+  const periodLabel = startPeriod && endPeriod
+    ? startPeriod === endPeriod ? startPeriod : `${startPeriod} ~ ${endPeriod}`
+    : "";
+
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-sm">Equity Curve</CardTitle>
-            <CardDescription className="text-xs mt-0.5">누적 손익 (원화)</CardDescription>
+            <CardDescription className="text-xs mt-0.5">
+              누적 손익 (원화)
+              {periodLabel && (
+                <span className="ml-1.5 font-medium text-foreground/60">{periodLabel}</span>
+              )}
+            </CardDescription>
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-muted-foreground">누적 손익</p>
+            <p className="text-[10px] text-muted-foreground">누적 손익 {periodLabel && <span className="text-[9px]">({periodLabel})</span>}</p>
             <p className={`text-sm font-bold ${finalValue >= 0 ? "text-emerald-600" : "text-red-500"}`}>
               {finalValue >= 0 ? "+" : ""}
               {finalValue.toLocaleString()}원

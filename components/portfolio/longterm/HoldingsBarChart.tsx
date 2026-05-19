@@ -5,7 +5,7 @@
 // - KR/US 탭 버튼으로 시장 전환
 // - recharts BarChart (layout="vertical") 사용 → "use client" 격리 필수
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -23,6 +23,9 @@ import type { LongtermPosition } from "@/types/portfolio";
 interface HoldingsBarChartProps {
   positions: LongtermPosition[];
   isLoading: boolean;
+  // 부모(LongtermDashboardClient)에서 URL 동기화를 위해 제어 (controlled)
+  marketTab: MarketTab;
+  onMarketTabChange: (tab: MarketTab) => void;
 }
 
 type MarketTab = "KR" | "US";
@@ -35,14 +38,15 @@ function truncateName(name: string, max = 8): string {
 // X축 금액 포맷
 function formatAmount(v: number, market: MarketTab): string {
   if (market === "KR") {
-    if (v >= 1_0000_0000) return `${(v / 1_0000_0000).toFixed(0)}억`;
+    // 1억 이상: 소수점 2자리까지 표시 (예: 1.23억)
+    if (v >= 1_0000_0000) return `${(v / 1_0000_0000).toFixed(2)}억`;
     if (v >= 10_000) return `${Math.round(v / 10_000)}만`;
     return v.toLocaleString();
   }
-  // USD
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
-  if (v >= 1_000) return `$${Math.round(v / 1_000)}k`;
-  return `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  // USD — 소수점 2자리까지 표시
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+  if (v >= 1_000) return `$${(v / 1_000).toFixed(2)}k`;
+  return `$${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // 커스텀 툴팁
@@ -77,8 +81,7 @@ function CustomTooltip({ active, payload, market }: {
   );
 }
 
-export function HoldingsBarChart({ positions, isLoading }: HoldingsBarChartProps) {
-  const [marketTab, setMarketTab] = useState<MarketTab>("KR");
+export function HoldingsBarChart({ positions, isLoading, marketTab, onMarketTabChange }: HoldingsBarChartProps) {
 
   // 탭 기준 필터 + TOP 10 정렬
   const chartData = useMemo(() => {
@@ -134,7 +137,7 @@ export function HoldingsBarChart({ positions, isLoading }: HoldingsBarChartProps
               size="sm"
               variant={marketTab === m ? "default" : "outline"}
               className="h-6 px-2 text-[10px]"
-              onClick={() => setMarketTab(m)}
+              onClick={() => onMarketTabChange(m)}
             >
               {m}
             </Button>

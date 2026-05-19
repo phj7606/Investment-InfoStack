@@ -117,6 +117,11 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
     ])
   ).sort();
 
+  // 데이터 전체 기간 범위 (누적 수익률 컬럼 헤더에 표시)
+  // 각 종목의 cumPct는 종목 첫 매수월부터 계산되므로 "보유기간별" 기준임을 명시
+  const dataStartPeriod = allPeriods[0] ?? "";
+  const dataEndPeriod = allPeriods[allPeriods.length - 1] ?? "";
+
   // 벤치마크 월별 MoM% 맵 (period → momReturnPct) — 월별 셀 하이라이트용
   const benchMoMMap = new Map(
     benchmarkData?.map((b) => [b.period, b.momReturnPct]) ?? []
@@ -129,24 +134,25 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <Table>
+      {/* text-xs 통일 + 컬럼 폭 고정 → 데이터 양·종목명 길이에 무관하게 일정한 레이아웃 */}
+      <Table className="text-xs">
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            {/* 기본 정보 컬럼 */}
-            <TableHead className="font-semibold text-foreground w-36 sticky left-0 bg-muted/30">
+            {/* 종목명: 최대 폭 고정 + 넘치면 말줄임 → 긴 이름이 레이아웃 변형하는 원인 차단 */}
+            <TableHead className="py-2 text-xs font-semibold text-foreground w-[140px] min-w-[140px] max-w-[140px] sticky left-0 bg-muted/30">
               종목명
             </TableHead>
-            <TableHead className="font-semibold text-foreground w-24">
+            <TableHead className="py-2 text-xs font-semibold text-foreground w-[76px] min-w-[76px]">
               {currency === "KRW" ? "종목코드" : "심볼"}
             </TableHead>
-            <TableHead className="font-semibold text-foreground w-20 text-center">
+            <TableHead className="py-2 text-xs font-semibold text-foreground w-[64px] min-w-[64px] text-center">
               상태
             </TableHead>
-            {/* 월별 MoM% 컬럼 — 현재 진행 중인 월은 "(진행)" 표시 */}
+            {/* 월별 MoM% — 모든 열 동일 폭으로 고정 */}
             {allPeriods.map((period) => (
               <TableHead
                 key={period}
-                className={`font-semibold text-right w-20 ${
+                className={`py-2 text-xs font-semibold text-right w-[76px] min-w-[76px] ${
                   period === CURRENT_PERIOD
                     ? "text-blue-600 dark:text-blue-400"
                     : "text-foreground"
@@ -160,9 +166,14 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                 )}
               </TableHead>
             ))}
-            {/* 누적 수익률 — 마지막 데이터 월 기준 */}
-            <TableHead className="font-semibold text-foreground text-right w-24">
+            {/* 누적 수익률 — 보유기간별 기준 */}
+            <TableHead className="py-2 text-xs font-semibold text-foreground text-right w-[96px] min-w-[96px]">
               누적 수익률
+              {dataStartPeriod && dataEndPeriod && (
+                <span className="block text-[9px] font-normal text-muted-foreground leading-tight mt-0.5">
+                  {dataStartPeriod} ~ {dataEndPeriod}
+                </span>
+              )}
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -173,14 +184,11 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
             const lastP = portfolioMonths[portfolioMonths.length - 1];
             return (
               <TableRow className="bg-blue-50/60 dark:bg-blue-950/25 border-b-2 border-border font-medium">
-                {/* 행 레이블 */}
-                <TableCell className="font-semibold sticky left-0 bg-blue-50/60 dark:bg-blue-950/25 text-blue-700 dark:text-blue-300">
+                <TableCell className="py-2 text-xs font-semibold sticky left-0 bg-blue-50/60 dark:bg-blue-950/25 text-blue-700 dark:text-blue-300 max-w-[140px] truncate">
                   포트폴리오 합계
                 </TableCell>
-                {/* 코드 없음 */}
-                <TableCell className="text-muted-foreground text-xs tabular-nums">—</TableCell>
-                {/* 상태 뱃지 */}
-                <TableCell className="text-center">
+                <TableCell className="py-2 text-xs text-muted-foreground tabular-nums">—</TableCell>
+                <TableCell className="py-2 text-center">
                   <Badge
                     variant="outline"
                     className="text-[10px] py-0 text-blue-600 dark:text-blue-400 border-blue-400/40"
@@ -188,7 +196,6 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                     합계
                   </Badge>
                 </TableCell>
-                {/* 월별 MoM% — 벤치마크 초과 시 셀 하이라이트 */}
                 {allPeriods.map((period) => {
                   const p = portfolioMap.get(period);
                   const benchMoM = benchMoMMap.get(period);
@@ -199,7 +206,7 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                   return (
                     <TableCell
                       key={period}
-                      className={`text-right text-sm ${
+                      className={`py-2 text-xs text-right tabular-nums ${
                         beatsMonth ? "bg-amber-50 dark:bg-amber-950/30" : ""
                       }`}
                     >
@@ -207,8 +214,7 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                     </TableCell>
                   );
                 })}
-                {/* 누적 수익률 — 포트폴리오 합계는 Dec 2025 기준 벤치마크와 비교 */}
-                <TableCell className="text-right text-sm font-semibold">
+                <TableCell className="py-2 text-xs text-right font-semibold tabular-nums">
                   <PctCell pct={lastP?.cumPct} />
                 </TableCell>
               </TableRow>
@@ -217,15 +223,10 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
 
           {/* ── 개별 종목 행 ── */}
           {stocks.map((stock) => {
-            // 월별 성과를 period 맵으로 변환
             const monthMap = new Map(stock.months.map((m) => [m.period, m]));
-            // 마지막 데이터 월의 누적 수익률
             const lastMonth = stock.months[stock.months.length - 1];
-            // 종목 첫 거래월 (기간 매칭 벤치마크 기준점)
             const startPeriod = stock.months[0]?.period;
 
-            // 기간 매칭 벤치마크 누적 수익률
-            // — 종목 시작월부터 마지막 월까지 벤치마크 누적 수익률 (Dec 2025 기준이 아닌 종목 시작 기준)
             const matchedBenchCum =
               benchmarkData && startPeriod && lastMonth
                 ? getPeriodMatchedBenchmarkCum(
@@ -235,7 +236,6 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                   )
                 : undefined;
 
-            // 누적 수익률 셀 하이라이트: 기간 매칭 벤치마크 초과 여부
             const beatsCumBenchmark =
               !stock.fullyExited &&
               lastMonth !== undefined &&
@@ -247,18 +247,19 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                 key={`${stock.market}-${stock.ticker}-${stock.stockName}`}
                 className={stock.fullyExited ? "opacity-50" : ""}
               >
-                {/* 종목명 */}
-                <TableCell className="font-medium sticky left-0 bg-background">
-                  {stock.stockName}
+                {/* 종목명 — 고정 폭, 넘치면 말줄임 + 호버로 전체 이름 확인 */}
+                <TableCell
+                  className="py-2 text-xs font-medium sticky left-0 bg-background w-[140px] max-w-[140px]"
+                  title={stock.stockName}
+                >
+                  <span className="block truncate">{stock.stockName}</span>
                 </TableCell>
 
-                {/* 티커 — 다른 수치 폰트와 동일하게 tabular-nums 적용 */}
-                <TableCell className="text-muted-foreground text-xs tabular-nums">
+                <TableCell className="py-2 text-xs text-muted-foreground tabular-nums">
                   {stock.ticker}
                 </TableCell>
 
-                {/* 상태 뱃지 */}
-                <TableCell className="text-center">
+                <TableCell className="py-2 text-center">
                   {stock.fullyExited ? (
                     <Badge variant="secondary" className="text-[10px] py-0">
                       매도완료
@@ -273,11 +274,10 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                   )}
                 </TableCell>
 
-                {/* 월별 MoM% — 해당 월 벤치마크 MoM% 초과 시 셀 하이라이트 */}
+                {/* 월별 MoM% — tabular-nums로 숫자 정렬 통일 */}
                 {allPeriods.map((period) => {
                   const monthData = monthMap.get(period);
                   const benchMoM  = benchMoMMap.get(period);
-                  // 데이터가 있는 월에만 하이라이트 적용 (전량 매도 이후 공란 셀 제외)
                   const beatsMonth =
                     monthData?.momPct !== undefined &&
                     benchMoM !== undefined &&
@@ -285,7 +285,7 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                   return (
                     <TableCell
                       key={period}
-                      className={`text-right text-sm ${
+                      className={`py-2 text-xs text-right tabular-nums ${
                         beatsMonth ? "bg-amber-50 dark:bg-amber-950/30" : ""
                       }`}
                     >
@@ -294,17 +294,16 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                   );
                 })}
 
-                {/* 누적 수익률 — 기간 매칭 벤치마크 초과 시 셀 하이라이트 */}
+                {/* 누적 수익률 + 벤치마크 비교 — flex-col로 2줄이지만 leading-none으로 높이 최소화 */}
                 <TableCell
-                  className={`text-right text-sm font-semibold ${
+                  className={`py-2 text-xs text-right font-semibold tabular-nums ${
                     beatsCumBenchmark ? "bg-amber-50 dark:bg-amber-950/30" : ""
                   }`}
                 >
-                  <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex flex-col items-end leading-tight">
                     <PctCell pct={lastMonth?.cumPct} />
-                    {/* 기간 매칭 벤치마크 (동일 보유기간 기준) */}
                     {matchedBenchCum !== undefined && (
-                      <span className="text-[10px] text-muted-foreground/70 tabular-nums">
+                      <span className="text-[10px] text-muted-foreground/70 tabular-nums leading-none mt-0.5">
                         벤치 {matchedBenchCum >= 0 ? "+" : ""}
                         {matchedBenchCum.toFixed(1)}%
                       </span>

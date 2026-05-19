@@ -23,8 +23,9 @@ export function UserMenu({ compact = false }: UserMenuProps) {
   return (
     <DropdownMenu>
       {/* 아바타 클릭으로 드롭다운 열기 */}
+      {/* suppressHydrationWarning: Radix UI가 SSR/CSR에서 서로 다른 랜덤 id를 생성하여 발생하는 hydration 불일치 경고 억제 */}
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 rounded-md p-1 hover:bg-accent transition-colors">
+        <button className="flex items-center gap-2 rounded-md p-1 hover:bg-accent transition-colors" suppressHydrationWarning>
           <Avatar className="h-8 w-8">
             {/* src 미지정: 실제 API 연동 전까지 빈 문자열로 불필요한 404 요청 방지 */}
             <AvatarImage alt="사용자 프로필" />

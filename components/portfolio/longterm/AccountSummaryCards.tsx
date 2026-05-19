@@ -1,12 +1,11 @@
 "use client";
 
 // 중장기 계좌 KPI 요약 카드
-// - KR 섹션: 총 평가금액(KRW) / 누적 실현손익 / 현재 평가손익 / 배당금 4개 카드
-// - US 섹션: 총 평가금액(USD) / 누적 실현손익 / 현재 평가손익 3개 카드
+// - KR Account: 총 평가금액(KRW) / 누적 실현손익 / 현재 평가손익 / 배당금 4개 카드
+// - US Account: 총 평가금액(USD) / 누적 실현손익 / 현재 평가손익 / 배당금 4개 카드
 // - KR/US 완전 분리 — 절대 혼산하지 않음
-// - 상위/하위 TOP 3 종목 (수익률 기준, KR/US 각각)
 
-import { TrendingUp, TrendingDown, DollarSign, Wallet, Award, BarChart2 } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Wallet, BarChart2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { LongtermPosition } from "@/types/portfolio";
@@ -67,59 +66,6 @@ function KpiCard({
   );
 }
 
-// TOP 3 종목 목록 (수익률 기준)
-function Top3List({
-  positions,
-  title,
-  order,
-}: {
-  positions: LongtermPosition[];
-  title: string;
-  order: "top" | "bottom";
-}) {
-  // 현재가 있는 종목만 수익률 순위 산정
-  const withPrice = positions.filter((p) => p.currentPrice !== undefined);
-
-  if (withPrice.length === 0) {
-    return (
-      <div>
-        <p className="text-[11px] font-medium text-muted-foreground mb-1">{title}</p>
-        <p className="text-[10px] text-muted-foreground">현재가 입력 후 표시</p>
-      </div>
-    );
-  }
-
-  const sorted = [...withPrice].sort((a, b) =>
-    order === "top"
-      ? b.evalPLPct - a.evalPLPct
-      : a.evalPLPct - b.evalPLPct
-  );
-  const top3 = sorted.slice(0, 3);
-
-  return (
-    <div>
-      <p className="text-[11px] font-medium text-muted-foreground mb-1.5">{title}</p>
-      <div className="space-y-1">
-        {top3.map((p, i) => (
-          <div key={p.stockCode} className="flex items-center justify-between gap-2">
-            {/* 순위 + 종목명 */}
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-[10px] font-bold text-muted-foreground w-3 shrink-0">
-                {i + 1}
-              </span>
-              <span className="text-[11px] font-medium truncate">{p.stockName}</span>
-            </div>
-            {/* 수익률 */}
-            <span className={cn("text-[11px] font-semibold tabular-nums shrink-0", plColor(p.evalPLPct))}>
-              {p.evalPLPct >= 0 ? "+" : ""}{p.evalPLPct.toFixed(2)}%
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // 섹션 구분선 헬퍼
 function SectionTitle({ label, badge }: { label: string; badge?: string }) {
   return (
@@ -166,7 +112,7 @@ export function AccountSummaryCards({
           KR 섹션 (원화, KRW)
       ════════════════════════════════ */}
       <div>
-        <SectionTitle label="국내 계좌 (KR)" badge={`${krSummary.positionCount}종목`} />
+        <SectionTitle label="KR Account" badge={`${krSummary.positionCount}종목`} />
 
         {/* KPI 카드 4개 */}
         <div className="flex flex-wrap gap-3">
@@ -207,30 +153,15 @@ export function AccountSummaryCards({
           />
         </div>
 
-        {/* TOP 3 종목 */}
-        {krPositions.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-6">
-            <Top3List
-              positions={krPositions}
-              title="상위 종목 TOP 3 (수익률)"
-              order="top"
-            />
-            <Top3List
-              positions={krPositions}
-              title="하위 종목 TOP 3 (수익률)"
-              order="bottom"
-            />
-          </div>
-        )}
       </div>
 
       {/* ════════════════════════════════
           US 섹션 (달러, USD)
       ════════════════════════════════ */}
       <div>
-        <SectionTitle label="해외 계좌 (US)" badge={`${usSummary.positionCount}종목`} />
+        <SectionTitle label="US Account" badge={`${usSummary.positionCount}종목`} />
 
-        {/* KPI 카드 3개 */}
+        {/* KPI 카드 4개 (KR Account와 동일한 포맷) */}
         <div className="flex flex-wrap gap-3">
           {/* 총 평가금액 */}
           <KpiCard
@@ -271,23 +202,18 @@ export function AccountSummaryCards({
             icon={usSummary.totalEvalPL >= 0 ? TrendingUp : TrendingDown}
             valueClass={plColor(usSummary.totalEvalPL)}
           />
-        </div>
 
-        {/* TOP 3 종목 */}
-        {usPositions.length > 0 && (
-          <div className="mt-4 grid grid-cols-2 gap-6">
-            <Top3List
-              positions={usPositions}
-              title="상위 종목 TOP 3 (수익률)"
-              order="top"
-            />
-            <Top3List
-              positions={usPositions}
-              title="하위 종목 TOP 3 (수익률)"
-              order="bottom"
-            />
-          </div>
-        )}
+          {/* 배당금 합계 */}
+          <KpiCard
+            label="배당금 합계"
+            value={`$${usSummary.dividendTotal.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`}
+            icon={DollarSign}
+            valueClass={usSummary.dividendTotal > 0 ? "text-emerald-600" : undefined}
+          />
+        </div>
 
         {/* 포지션 없을 때 안내 */}
         {usPositions.length === 0 && (
