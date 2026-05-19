@@ -590,9 +590,9 @@ export function LongtermDashboardClient() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">전체 계좌</SelectItem>
-            <SelectItem value="4802">4802 (주식)</SelectItem>
-            <SelectItem value="1635">1635 (ETF)</SelectItem>
-            <SelectItem value="1402">1402 (중장기+)</SelectItem>
+            <SelectItem value="4802">4802 Stock</SelectItem>
+            <SelectItem value="1635">1635 ETF</SelectItem>
+            <SelectItem value="1402">1402 Mixed</SelectItem>
             <SelectItem value="8654">8654 (펀드)</SelectItem>
           </SelectContent>
         </Select>

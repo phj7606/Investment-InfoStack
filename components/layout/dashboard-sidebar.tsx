@@ -86,7 +86,7 @@ const ACTION2_ITEMS = [
     icon: TrendingUp,
   },
   {
-    title: "중장기 투자 계좌",
+    title: "Value Investment Account",
     href: "/dashboard/portfolio/longterm",
     icon: Briefcase,
   },

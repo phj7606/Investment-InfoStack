@@ -197,9 +197,9 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit }: Tra
                 }
                 className={selectClass}
               >
-                <option value="4802">4802 (주식)</option>
-                <option value="1635">1635 (ETF)</option>
-                <option value="1402">1402 (중장기+)</option>
+                <option value="4802">4802 Stock</option>
+                <option value="1635">1635 ETF</option>
+                <option value="1402">1402 Mixed</option>
                 <option value="8654">8654 (펀드)</option>
               </select>
             </div>

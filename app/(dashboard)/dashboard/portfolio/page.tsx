@@ -29,9 +29,9 @@ const ACCOUNTS = [
     badge: "운용 중",
   },
   {
-    title: "중장기 투자 계좌",
+    title: "Value Investment Account",
     description:
-      "계좌 4802·1635·1402 — Excel 임포트로 거래 이력 관리. KR/US 분리 성과 분석, 리밸런싱 제안.",
+      "4802 Stock · 1635 ETF · 1402 Mixed — Excel 임포트로 거래 이력 관리. KR/US 분리 성과 분석, 리밸런싱 제안.",
     href: "/dashboard/portfolio/longterm",
     icon: Briefcase,
     status: "active" as const,
