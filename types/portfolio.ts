@@ -155,6 +155,13 @@ export interface RiskManagementConfig {
   totalCapital: number;
 
   /**
+   * Win Rate — 직접 입력 승률 (0~1).
+   * 예) 0.30 = 30%
+   * 0이면 거래 이력 기반 자동 계산값 사용
+   */
+  winRate: number;
+
+  /**
    * Multiple R — 종목당 손실 허용 비율 (0~1).
    * 예) 0.02 = 2% (계좌 대비 종목당 최대 손실)
    */
@@ -166,11 +173,11 @@ export interface RiskManagementConfig {
    */
   cutoff: number;
 
-  /** 시장 상태 — 거시 환경 판단 (1~5) */
-  marketStatus: 1 | 2 | 3 | 4 | 5;
+  /** 시장 상태 — 거시 환경 판단 (1~3) */
+  marketStatus: 1 | 2 | 3;
 
-  /** 현재 시장 — 현재 세션 판단 (1~5) */
-  currentMarket: 1 | 2 | 3 | 4 | 5;
+  /** 현재 시장 — 현재 세션 판단 (1~3) */
+  currentMarket: 1 | 2 | 3;
 
   /**
    * Unit — 승률 기반 투자 단위 수.
@@ -188,6 +195,7 @@ export const RISK_MANAGEMENT_STORAGE_KEY = "portfolio-risk-management-config-v2"
 /** 리스크 관리 설정 기본값 */
 export const DEFAULT_RISK_CONFIG: RiskManagementConfig = {
   totalCapital: 0,
+  winRate: 0,
   multipleR: 0.02,
   cutoff: 0.08,
   marketStatus: 3,
@@ -258,6 +266,148 @@ export interface RebalancingTarget {
 /** localStorage 키 상수 */
 export const LONGTERM_REBALANCING_KEY = "portfolio-longterm-rebalancing-v1";
 export const LONGTERM_CURRENT_PRICES_KEY = "portfolio-longterm-prices-v1";
+
+// ─────────────────────────────────────────
+// Education 계좌 타입 (파일 기반 수동 관리)
+// ─────────────────────────────────────────
+
+/** Education 계좌 보유 포지션 */
+export interface EducationPosition {
+  id: string;           // 고유 식별자 (UUID)
+  stockCode: string;
+  stockName: string;
+  quantity: number;
+  avgPrice: number;     // 평균 매수단가 (원)
+  currentPrice: number; // 현재가 (수동 입력 또는 API 조회, 0이면 미조회)
+  evalAmount: number;   // currentPrice × quantity (0이면 미계산)
+  profitLoss: number;   // (currentPrice - avgPrice) × quantity
+  profitLossPct: number;
+  buyDate: string;      // YYYY-MM-DD
+  commission?: number;  // 매수 수수료 (원) — 매도 시 순손익 계산에 포함
+  tax?: number;         // 매수 관련 세금 (원)
+  sector: string;
+  unit: string;         // 엑셀 Unit(Market/Win) 값 예) "2/3"
+}
+
+/** Education 계좌 완료 거래 */
+export interface EducationTrade {
+  id: string;
+  stockCode: string;
+  stockName: string;
+  buyDate: string;      // YYYY-MM-DD
+  buyPrice: number;
+  quantity: number;
+  buyAmount: number;
+  sellDate: string;     // YYYY-MM-DD
+  sellPrice: number;
+  sellAmount: number;
+  commission?: number;  // 수수료 합계 (매수+매도, 원)
+  tax?: number;         // 세금 — 증권거래세 등 (원)
+  profitLoss: number;   // 순손익 = sellAmount - buyAmount - commission - tax
+  profitLossPct: number;
+  holdingDays: number;
+  sector: string;
+  unit: string;
+  result: "Win" | "Lose" | "";
+}
+
+/** education-account.json 파일 구조 */
+export interface EducationAccountData {
+  positions: EducationPosition[];
+  trades: EducationTrade[];
+}
+
+/** /api/portfolio/education GET 응답 */
+export interface EducationAccountResponse {
+  positions: EducationPosition[];
+  trades: EducationTrade[];
+  summary: PerformanceSummary;
+  fetchedAt: string;
+}
+
+// ─────────────────────────────────────────
+// 연금 계좌 타입 (거래내역 기반 — Value Investment Account 패턴)
+// ─────────────────────────────────────────
+
+/** 연금 계좌 구분 — 퇴직연금 / 연금저축 / IRP */
+export type PensionAccountType = "RETIREMENT" | "SAVINGS" | "IRP";
+
+/** 연금 자산 유형 — 채권형 / 주식형 (RETIREMENT · SAVINGS 사용) */
+export type PensionCategory = "BOND" | "EQUITY";
+
+/**
+ * 연금 계좌 거래 내역 — 주 데이터 (pension-transactions.json에 저장)
+ * 포지션은 이 거래 이력으로부터 계산하며 직접 저장하지 않음
+ */
+export interface PensionTransaction {
+  id: string;                          // UUID (서버 자동 생성)
+  date: string;                        // YYYY-MM-DD
+  accountType: PensionAccountType;
+  category?: PensionCategory;          // RETIREMENT·SAVINGS: BOND | EQUITY
+  tradeType: "BUY" | "SELL" | "DIVIDEND";
+  stockCode: string;
+  stockName: string;
+  quantity: number;                    // DIVIDEND = 0
+  price: number;                       // 단가 (DIVIDEND = 0)
+  amount: number;                      // price × quantity (DIVIDEND = 배당금액)
+  fee?: number;
+  assetType: "STOCK" | "BOND" | "FUND";
+  // SELL 저장 시 서버가 자동 계산하여 저장
+  realizedPL?: number;
+  realizedPLPct?: number;
+  avgCostAtSell?: number;
+  memo?: string;
+}
+
+/**
+ * 연금 포지션 — 거래 이력으로부터 계산되는 결과값 (직접 저장 X)
+ * calcPensionPositions() 함수가 PensionTransaction[] → PensionPosition[] 변환
+ */
+export interface PensionPosition {
+  stockCode: string;
+  stockName: string;
+  accountType: PensionAccountType;
+  category?: PensionCategory;
+  assetType: "STOCK" | "BOND" | "FUND";
+  quantity: number;               // 잔여 수량 (BUY - SELL 누적)
+  avgCost: number;                // 가중평균단가
+  currentPrice: number;           // 현재가 (0 = 미조회)
+  evalAmount: number;             // currentPrice > 0 ? currentPrice × quantity : avgCost × quantity
+  evalPL: number;                 // evalAmount - avgCost × quantity
+  evalPLPct: number;
+  totalRealizedPL: number;        // 이 종목 누적 실현손익
+  weight: number;                 // 계좌 내 매입금액 기준 비중 (0~1)
+  firstBuyDate?: string;          // 최초 매수일 (YYYY-MM-DD)
+  holdingMonths?: number;         // 보유기간 (개월, 소수 포함)
+  cagr?: number | null;           // 연환산 수익률 / CAGR (소수, 현재가 없으면 null)
+  monthlyGeoReturn?: number | null; // 월평균 기하수익률: (1+r)^(1/months)-1 (소수, 현재가 없으면 null)
+}
+
+/** 계좌별 요약 — 대시보드 카드에 표시 */
+export interface PensionAccountSummary {
+  accountType: PensionAccountType;
+  totalInvested: number;          // 순 투자금 (BUY 합계 - SELL 합계)
+  totalEvalAmount: number;        // 현재 평가금액 합계
+  totalRealizedPL: number;        // 누적 실현손익 (SELL 기반)
+  totalEvalPL: number;            // 현재 평가손익
+  dividendTotal: number;          // 배당금 합계
+  positionCount: number;
+}
+
+/** 연금 계좌별 리밸런싱 목표 비중 */
+export interface PensionRebalancingTarget {
+  bondRatio: number;    // 채권형 목표 비중 (0~100 %)
+  equityRatio: number;  // 주식형 목표 비중 (0~100 %)
+}
+
+/**
+ * 계좌 유형별 리밸런싱 목표 비중 집합 (pension-rebalancing.json 저장 포맷)
+ * RETIREMENT / SAVINGS 각각 독립적인 채권/주식 비중 설정
+ */
+export interface PensionRebalancingConfig {
+  RETIREMENT: PensionRebalancingTarget;
+  SAVINGS:    PensionRebalancingTarget;
+}
 
 // ─────────────────────────────────────────
 // API 응답 타입

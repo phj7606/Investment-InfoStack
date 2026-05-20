@@ -17,12 +17,12 @@ const POSITIONS_TTL_SEC = 5 * 60;
 
 export async function GET(req: NextRequest) {
   try {
-    // 계좌 유형 파라미터 (기본값: TREND)
+    // 계좌 유형 파라미터 (기본값: SHORTTERM)
     const accountType = (
-      req.nextUrl.searchParams.get("account") ?? "TREND"
+      req.nextUrl.searchParams.get("account") ?? "SHORTTERM"
     ).toUpperCase() as KiwoomAccountType;
 
-    const validTypes: KiwoomAccountType[] = ["TREND", "LONGTERM", "MIDTERM"];
+    const validTypes: KiwoomAccountType[] = ["SHORTTERM", "EDUCATION", "LONGTERM"];
     if (!validTypes.includes(accountType)) {
       return NextResponse.json(
         { error: `지원하지 않는 계좌 유형: ${accountType}` },

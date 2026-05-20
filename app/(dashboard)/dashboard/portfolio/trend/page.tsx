@@ -1,25 +1,25 @@
-// 추세추종 계좌 대시보드 페이지 — ACTION 2 · 포트폴리오 관리 (Phase 9)
-// RSC: 클라이언트 컴포넌트에 데이터 수집 위임
-// 실제 데이터는 TrendAccountDashboardClient에서 키움 REST API를 통해 수집
+// Short-term 계좌 대시보드 페이지 — ACTION 2 · 포트폴리오 관리
+// 파일 기반 수동 관리 (data/shortterm-account.json)
+// 계좌: Short-term Account (Account 2805)
 
 import { PageHeader } from "@/components/common/page-header";
-import { TrendAccountDashboardClient } from "@/components/portfolio/TrendAccountDashboardClient";
+import { ShorttermAccountDashboardClient } from "@/components/portfolio/shortterm/ShorttermAccountDashboardClient";
 
 export const metadata = {
-  title: "추세추종 계좌 | Investment+",
-  description: "키움증권 추세추종 계좌 보유 포지션, 리스크 관리, 성과 분석 대시보드",
+  title: "Short-term Account | Investment+",
+  description: "단기투자 계좌(2805) 보유 포지션, 거래 내역 및 Risk Management",
 };
 
-export default function TrendAccountPage() {
+export default function ShorttermAccountPage() {
   return (
     <div>
       <div className="px-6 pt-6 pb-0 max-w-7xl mx-auto">
         <PageHeader
-          title="추세추종 계좌"
-          description="키움증권 Account 1470 — 보유 포지션, 리스크 관리, 거래 이력 및 누적 성과"
+          title="Short-term Account"
+          description="단기투자 계좌 (Account 2805) — 보유 포지션, 거래 내역 및 Risk Management"
         />
       </div>
-      <TrendAccountDashboardClient />
+      <ShorttermAccountDashboardClient />
     </div>
   );
 }

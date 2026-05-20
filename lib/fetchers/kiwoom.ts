@@ -16,9 +16,10 @@
  *   KIWOOM_IS_REAL             — "true" 이면 실전, 그 외 모의투자 (전 계좌 공통)
  *
  * 현재 지원 TYPE:
- *   TREND    — 추세추종 계좌 (Account 1470)
- *   LONGTERM — 장기투자 계좌 (추후)
- *   MIDTERM  — 단/중기 투자 계좌 (추후)
+ *   TREND     — 추세추종 계좌 (Account 1470)
+ *   SHORTTERM — 단중기·교육 계좌 (키움 REST API 직접 연동)
+ *   LONGTERM  — 장기투자 계좌 (추후)
+ *   MIDTERM   — 단/중기 투자 계좌 (추후)
  */
 
 import { readCache, writeCache } from "@/lib/cache";
@@ -33,13 +34,13 @@ import type {
 // ─────────────────────────────────────────
 
 /** 지원하는 키움 계좌 유형 */
-export type KiwoomAccountType = "TREND" | "LONGTERM" | "MIDTERM";
+export type KiwoomAccountType = "SHORTTERM" | "EDUCATION" | "LONGTERM";
 
 /** 계좌 유형별 환경 변수 접두사 맵 */
 const ACCOUNT_ENV_PREFIX: Record<KiwoomAccountType, string> = {
-  TREND: "KIWOOM_TREND",
-  LONGTERM: "KIWOOM_LONGTERM",
-  MIDTERM: "KIWOOM_MIDTERM",
+  SHORTTERM: "KIWOOM_SHORTTERM",   // 단기투자 계좌 (Account 2805)
+  EDUCATION: "KIWOOM_EDUCATION",   // 교육 계좌 (Account 1470)
+  LONGTERM:  "KIWOOM_LONGTERM",    // 장기투자 계좌 (추후 사용)
 };
 
 // ─────────────────────────────────────────

@@ -36,6 +36,13 @@ interface RiskManagementPanelProps {
   positions: KiwoomPosition[];
   /** 거래 이력 기반 실제 승률 (0~1). 데이터 없으면 0 */
   winRate?: number;
+  /**
+   * localStorage 저장 키 — 계좌별로 독립 보관.
+   * 미지정 시 기본값(RISK_MANAGEMENT_STORAGE_KEY) 사용.
+   */
+  storageKey?: string;
+  /** 설정 변경 시 부모에 최신 config 전달 (포지션 리스크 테이블 연동용) */
+  onConfigChange?: (config: RiskManagementConfig) => void;
 }
 
 // ────────────────────────────────────────
@@ -100,17 +107,17 @@ function MetricRow({ label, value, note, dimmed, bold, settable, extra }: Metric
   );
 }
 
-// 1~5 단계 선택 버튼 그룹
-function PhaseButtons({
+// 1~3 단계 선택 버튼 그룹 (Market Status / Current Market / Unit / Unit Investment 공용)
+function UnitButtons({
   value,
   onChange,
 }: {
   value: number;
-  onChange: (v: 1 | 2 | 3 | 4 | 5) => void;
+  onChange: (v: 1 | 2 | 3) => void;
 }) {
   return (
     <div className="flex gap-0.5">
-      {([1, 2, 3, 4, 5] as const).map((n) => (
+      {([1, 2, 3] as const).map((n) => (
         <button
           key={n}
           onClick={() => onChange(n)}
@@ -128,84 +135,173 @@ function PhaseButtons({
   );
 }
 
+// Win Rate 프리셋 버튼 그룹 (30, 35, 40, 45, 50%)
+// 같은 버튼 재클릭 시 선택 해제(→ 자동 계산 모드로 전환)
+const WIN_RATE_PRESETS = [0.3, 0.35, 0.4, 0.45, 0.5] as const;
+
+function WinRateButtons({
+  value,
+  onChange,
+}: {
+  value: number; // 0~1 (0 = 자동)
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex gap-0.5">
+      {WIN_RATE_PRESETS.map((preset) => {
+        const label = String(Math.round(preset * 100));
+        const isActive = Math.abs(value - preset) < 0.001;
+        return (
+          <button
+            key={preset}
+            // 이미 선택된 버튼 클릭 → 0으로 리셋(자동 모드)
+            onClick={() => onChange(isActive ? 0 : preset)}
+            className={cn(
+              "w-7 h-6 rounded text-[10px] font-semibold transition-colors",
+              isActive
+                ? "bg-emerald-500 text-white"
+                : "bg-muted text-muted-foreground hover:bg-emerald-500/15 hover:text-emerald-600"
+            )}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ────────────────────────────────────────
 // 메인 컴포넌트
 // ────────────────────────────────────────
 
+// localStorage에서 설정을 읽어 반환하는 헬퍼 (서버에서는 기본값 반환)
+function loadConfig(key: string): RiskManagementConfig {
+  if (typeof window === "undefined") return DEFAULT_RISK_CONFIG;
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) return JSON.parse(saved) as RiskManagementConfig;
+  } catch { /* ignore */ }
+  return DEFAULT_RISK_CONFIG;
+}
+
+// 다이얼로그 입력 초기값을 config에서 파생하는 헬퍼
+function deriveInputs(c: RiskManagementConfig) {
+  return {
+    capital: c.totalCapital > 0 ? String(c.totalCapital) : "",
+    winRate: c.winRate > 0 ? String(Math.round(c.winRate * 100)) : "",
+    multipleR: String(Math.round(c.multipleR * 100)),
+    cutoff: String(Math.round(c.cutoff * 100)),
+    unit: String(c.unit),
+    unitInvestment: String(c.unitInvestment),
+  };
+}
+
 export function RiskManagementPanel({
   positions,
   winRate = 0,
+  storageKey = RISK_MANAGEMENT_STORAGE_KEY,
+  onConfigChange,
 }: RiskManagementPanelProps) {
-  const [config, setConfig] = useState<RiskManagementConfig>(DEFAULT_RISK_CONFIG);
+  // lazy initializer — 마운트 시점에 바로 localStorage에서 복원
+  const [config, setConfig] = useState<RiskManagementConfig>(
+    () => loadConfig(storageKey)
+  );
 
-  // 설정 다이얼로그 로컬 상태
+  // 다이얼로그 입력 상태도 저장된 config에서 바로 초기화
+  const initial = deriveInputs(loadConfig(storageKey));
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [inputCapital, setInputCapital] = useState("");
-  const [inputMultipleR, setInputMultipleR] = useState(
-    String(Math.round(DEFAULT_RISK_CONFIG.multipleR * 100))
-  );
-  const [inputCutoff, setInputCutoff] = useState(
-    String(Math.round(DEFAULT_RISK_CONFIG.cutoff * 100))
-  );
-  const [inputUnit, setInputUnit] = useState(String(DEFAULT_RISK_CONFIG.unit));
-  const [inputUnitInvestment, setInputUnitInvestment] = useState(
-    String(DEFAULT_RISK_CONFIG.unitInvestment)
-  );
+  const [inputCapital, setInputCapital] = useState(initial.capital);
+  const [inputWinRate, setInputWinRate] = useState(initial.winRate);
+  const [inputMultipleR, setInputMultipleR] = useState(initial.multipleR);
+  const [inputCutoff, setInputCutoff] = useState(initial.cutoff);
+  const [inputUnit, setInputUnit] = useState(initial.unit);
+  const [inputUnitInvestment, setInputUnitInvestment] = useState(initial.unitInvestment);
 
-  // localStorage에서 설정 복원
+  // storageKey가 변경된 경우 해당 키의 데이터로 전체 재로드
+  // (계좌별 독립 저장 구조에서 계좌 전환 시 사용)
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(RISK_MANAGEMENT_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as RiskManagementConfig;
-        setConfig(parsed);
-        setInputCapital(String(parsed.totalCapital || ""));
-        setInputMultipleR(String(Math.round(parsed.multipleR * 100)));
-        setInputCutoff(String(Math.round(parsed.cutoff * 100)));
-        setInputUnit(String(parsed.unit));
-        setInputUnitInvestment(String(parsed.unitInvestment));
-      }
-    } catch {
-      // localStorage 접근 불가 환경에서는 기본값 유지
-    }
-  }, []);
+    const loaded = loadConfig(storageKey);
+    const inputs = deriveInputs(loaded);
+    setConfig(loaded);
+    setInputCapital(inputs.capital);
+    setInputWinRate(inputs.winRate);
+    setInputMultipleR(inputs.multipleR);
+    setInputCutoff(inputs.cutoff);
+    setInputUnit(inputs.unit);
+    setInputUnitInvestment(inputs.unitInvestment);
+    // 부모에도 즉시 전달하여 PositionRiskTable이 올바른 config를 받도록 함
+    onConfigChange?.(loaded);
+  // storageKey가 바뀔 때만 실행 (마운트 시 한 번 포함)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
-  // 설정 저장 헬퍼
+  // 설정 저장 헬퍼 (storageKey prop 기반으로 계좌별 독립 저장)
   function persist(next: RiskManagementConfig) {
     setConfig(next);
     try {
-      localStorage.setItem(RISK_MANAGEMENT_STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
       // ignore
     }
+    // 부모 컴포넌트에도 최신 config 전달 (PositionRiskTable 연동)
+    onConfigChange?.(next);
   }
 
-  // 다이얼로그 저장
+  // 다이얼로그 저장 (Account Total, Multiple R, Cutoff만 처리 — Unit/WinRate는 패널에서 직접)
   function saveDialog() {
     const capital = parseFloat(inputCapital.replace(/,/g, "")) || 0;
+    // Win Rate: 빈 문자열이면 0(자동), 아니면 0~1 범위로 변환
+    const wr = inputWinRate.trim() !== ""
+      ? Math.min(1, Math.max(0, (parseFloat(inputWinRate) || 0) / 100))
+      : 0;
     const multipleR = Math.min(1, Math.max(0, (parseFloat(inputMultipleR) || 2) / 100));
     const cutoff = Math.min(1, Math.max(0, (parseFloat(inputCutoff) || 8) / 100));
-    const unit = Math.max(1, parseInt(inputUnit, 10) || 3);
-    const unitInvestment = Math.max(1, Math.min(unit, parseInt(inputUnitInvestment, 10) || 3));
 
-    persist({ ...config, totalCapital: capital, multipleR, cutoff, unit, unitInvestment });
+    persist({ ...config, totalCapital: capital, winRate: wr, multipleR, cutoff });
     setDialogOpen(false);
   }
 
+  // Unit 직접 변경 (패널 버튼에서 호출)
+  // Unit Investment는 Unit보다 클 수 없으므로 초과 시 Unit 값으로 클램프
+  function setUnit(v: 1 | 2 | 3) {
+    persist({
+      ...config,
+      unit: v,
+      unitInvestment: Math.min(config.unitInvestment, v) as 1 | 2 | 3,
+    });
+  }
+
+  // Unit Investment 직접 변경 (Unit 범위 내로 제한)
+  function setUnitInvestment(v: 1 | 2 | 3) {
+    const clamped = Math.min(v, config.unit) as 1 | 2 | 3;
+    persist({ ...config, unitInvestment: clamped });
+  }
+
+  // Win Rate 직접 변경 (패널 버튼에서 호출)
+  function setWinRatePreset(v: number) {
+    persist({ ...config, winRate: v });
+    // 다이얼로그 입력 상태도 동기화
+    setInputWinRate(v > 0 ? String(Math.round(v * 100)) : "");
+  }
+
   // 시장 상태 직접 변경
-  function setMarketStatus(v: 1 | 2 | 3 | 4 | 5) {
+  function setMarketStatus(v: 1 | 2 | 3) {
     persist({ ...config, marketStatus: v });
   }
-  function setCurrentMarket(v: 1 | 2 | 3 | 4 | 5) {
+  function setCurrentMarket(v: 1 | 2 | 3) {
     persist({ ...config, currentMarket: v });
   }
 
   // ── 계산값 ────────────────────────────────
   const riskAmount = Math.round(config.totalCapital * config.multipleR);
 
+  // 유효 승률: config에 직접 입력값이 있으면 우선 사용, 없으면 거래이력 기반 prop 사용
+  const effectiveWinRate = config.winRate > 0 ? config.winRate : winRate;
+
   // 10연속 손실 확률: (1 - winRate)^10
   const tenLosingStreak =
-    winRate > 0 ? Math.pow(1 - winRate, 10) * 100 : 0;
+    effectiveWinRate > 0 ? Math.pow(1 - effectiveWinRate, 10) * 100 : 0;
 
   // 1회 투자금액: totalCapital / (unit + 1)
   const oneTimeInvestment =
@@ -250,6 +346,26 @@ export function RiskManagementPanel({
                   />
                 </div>
 
+                {/* Win Rate */}
+                <div className="space-y-0.5">
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Win Rate (%) — 직접 입력 (비우면 거래이력 자동)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={inputWinRate}
+                      min="0"
+                      max="100"
+                      step="1"
+                      onChange={(e) => setInputWinRate(e.target.value)}
+                      placeholder="자동 (거래이력 기반)"
+                      className="w-full rounded border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                    <span className="text-[11px] text-muted-foreground shrink-0">%</span>
+                  </div>
+                </div>
+
                 {/* Multiple R */}
                 <div className="space-y-0.5">
                   <label className="text-[11px] font-medium text-muted-foreground">
@@ -288,34 +404,6 @@ export function RiskManagementPanel({
                   </div>
                 </div>
 
-                {/* Unit */}
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-0.5">
-                    <label className="text-[11px] font-medium text-muted-foreground">Unit</label>
-                    <input
-                      type="number"
-                      value={inputUnit}
-                      min="1"
-                      max="10"
-                      step="1"
-                      onChange={(e) => setInputUnit(e.target.value)}
-                      className="w-full rounded border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div className="space-y-0.5">
-                    <label className="text-[11px] font-medium text-muted-foreground">Unit Investment</label>
-                    <input
-                      type="number"
-                      value={inputUnitInvestment}
-                      min="1"
-                      max={inputUnit || "10"}
-                      step="1"
-                      onChange={(e) => setInputUnitInvestment(e.target.value)}
-                      className="w-full rounded border border-input bg-background px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
-                  </div>
-                </div>
-
                 <Button
                   onClick={saveDialog}
                   className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
@@ -341,11 +429,14 @@ export function RiskManagementPanel({
               bold
             />
 
-            {/* Win Rate — 거래 이력 기반 자동 계산 */}
+            {/* Win Rate — 직접 입력값 우선, 없으면 거래이력 기반 자동 계산 */}
             <MetricRow
               label="Win Rate"
-              value={winRate > 0 ? fmtPct(winRate * 100, 0) : "-"}
-              dimmed
+              value={effectiveWinRate > 0 ? fmtPct(effectiveWinRate * 100, 0) : "-"}
+              note={effectiveWinRate > 0
+                ? config.winRate > 0 ? "(직접입력)" : "(자동)"
+                : undefined}
+              settable
             />
 
             {/* 10 Losing Streak — 자동 계산 */}
@@ -418,7 +509,7 @@ export function RiskManagementPanel({
                   <span className="text-red-500 text-[8px]">▶</span>
                   Market Status
                 </span>
-                <PhaseButtons
+                <UnitButtons
                   value={config.marketStatus}
                   onChange={setMarketStatus}
                 />
@@ -430,7 +521,7 @@ export function RiskManagementPanel({
                   <span className="text-red-500 text-[8px]">▶</span>
                   Current Market
                 </span>
-                <PhaseButtons
+                <UnitButtons
                   value={config.currentMarket}
                   onChange={setCurrentMarket}
                 />
@@ -448,26 +539,25 @@ export function RiskManagementPanel({
                 <span className="text-[11px] font-semibold text-foreground/70">Unit</span>
               </div>
 
-              {/* Unit */}
+              {/* Unit — 1~3 버튼 */}
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <span className="text-red-500 text-[8px]">▶</span>
                   Unit
                 </span>
-                <span className="text-xs font-semibold tabular-nums">
-                  {config.unit} Units
-                </span>
+                <UnitButtons value={config.unit} onChange={setUnit} />
               </div>
 
-              {/* Unit Investment */}
+              {/* Unit Investment — 1~3 버튼 (Unit 초과 불가) */}
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                   <span className="text-red-500 text-[8px]">▶</span>
                   Unit Investment
                 </span>
-                <span className="text-xs font-semibold tabular-nums">
-                  {config.unitInvestment} Units
-                </span>
+                <UnitButtons
+                  value={config.unitInvestment}
+                  onChange={setUnitInvestment}
+                />
               </div>
             </div>
           </div>

@@ -23,6 +23,7 @@ import {
   Bot,
   Globe,
   BarChart3,
+  PiggyBank,
 } from "lucide-react";
 import {
   Sidebar,
@@ -77,13 +78,23 @@ const ACTION1_ITEMS = [
 ];
 
 // ACTION 2 · 포트폴리오 관리 — 계좌별 대시보드 + 성과 분석
-// Phase 9: 추세추종 계좌 + 중장기 투자 계좌 구현
+// Phase 9: Short-term / Education / Value Investment 계좌 구현
 // Phase 10: 성과 분석 페이지 추가
 const ACTION2_ITEMS = [
   {
-    title: "추세추종 계좌",
+    title: "Short-term Account",
     href: "/dashboard/portfolio/trend",
     icon: TrendingUp,
+  },
+  {
+    title: "Education Account",
+    href: "/dashboard/portfolio/education",
+    icon: Zap,
+  },
+  {
+    title: "Pension Account",
+    href: "/dashboard/portfolio/pension",
+    icon: PiggyBank,
   },
   {
     title: "Value Investment Account",
@@ -95,8 +106,6 @@ const ACTION2_ITEMS = [
     href: "/dashboard/portfolio/performance",
     icon: BarChart3,
   },
-  // 추후 추가 예정
-  // { title: "연금 계좌", href: "/dashboard/portfolio/pension", icon: PiggyBank },
 ];
 
 // ACTION 3 · 자동화 루틴 — Morning Note + 주간/월간 리뷰 + 자동화 설정
