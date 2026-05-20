@@ -1,0 +1,80 @@
+{
+  "positions": [
+    {
+      "id": "f9459628-87ce-4e96-a93e-c07c90d6dd7d",
+      "stockCode": "0058470",
+      "stockName": "리노공업",
+      "buyDate": "2026-04-29",
+      "avgPrice": 109400,
+      "quantity": 56,
+      "commission": 800,
+      "sector": "반도체",
+      "unit": "",
+      "currentPrice": 0,
+      "evalAmount": 0,
+      "profitLoss": 0,
+      "profitLossPct": 0
+    },
+    {
+      "id": "92e05c31-61cf-475c-9f03-2ff8a0e8a7b4",
+      "stockCode": "144600",
+      "stockName": "KODEX 은선물(H)",
+      "buyDate": "2026-01-26",
+      "avgPrice": 15800,
+      "quantity": 158,
+      "commission": 360,
+      "sector": "Commodity",
+      "unit": "",
+      "currentPrice": 0,
+      "evalAmount": 0,
+      "profitLoss": 0,
+      "profitLossPct": 0
+    },
+    {
+      "id": "9dd0b23e-44eb-462e-9752-856db5218c42",
+      "stockCode": "411060",
+      "stockName": "ACE KRX금현물",
+      "buyDate": "2026-02-12",
+      "avgPrice": 31980,
+      "quantity": 82,
+      "commission": 380,
+      "sector": "Commodity",
+      "unit": "",
+      "currentPrice": 0,
+      "evalAmount": 0,
+      "profitLoss": 0,
+      "profitLossPct": 0
+    },
+    {
+      "id": "a4bf3782-017b-4523-b4a4-87b7da3fe8d9",
+      "stockCode": "278530",
+      "stockName": "KODEX 200TR",
+      "buyDate": "2026-03-04",
+      "avgPrice": 19835,
+      "quantity": 358,
+      "commission": 3230,
+      "sector": "Index",
+      "unit": "",
+      "currentPrice": 0,
+      "evalAmount": 0,
+      "profitLoss": 0,
+      "profitLossPct": 0
+    },
+    {
+      "id": "6163f4de-8eb3-4fcc-a1c3-bd8257c125d7",
+      "stockCode": "229200",
+      "stockName": "KODEX 코스닥150",
+      "buyDate": "2026-03-04",
+      "avgPrice": 21100,
+      "quantity": 189,
+      "commission": 590,
+      "sector": "Index",
+      "unit": "",
+      "currentPrice": 0,
+      "evalAmount": 0,
+      "profitLoss": 0,
+      "profitLossPct": 0
+    }
+  ],
+  "trades": []
+}
