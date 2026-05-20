@@ -3,3 +3,5 @@
 - [Step 3 체크포인트 구조 재설계](project_step3_checkpoint_redesign.md) — Claude 스트리밍 폐기 → 재무제표 수집+4대 질문 탭 구조 전환 (2026.05.13, PRD v4.2/ROADMAP v4.3)
 - [Step 2 주가 성과 분석 탭 추가](project_step2_stock_performance.md) — 2탭→3탭 확장, P8-12 구현 완료 (2026.05.16, PRD v4.4/ROADMAP v4.5)
 - [Phase 9 장기투자 계좌 대시보드](project_longterm_dashboard.md) — Excel 이중 파서+CRUD+FIFO 손익+현재가+JSON 백업+성과 분석+보유종목별 성과(MDR/Alpha/7대지표), P9-13~P9-26 완료 (2026.05.19, PRD v4.8/ROADMAP v5.0)
+- [Phase 9 교육 계좌 대시보드 + 단중기 인프라](project_education_shortterm_dashboard.md) — 파일 기반 3탭+PositionRiskTable(손절가·nR)+공유 다이얼로그, P9-27~P9-29 완료/P9-30 인프라 준비 (2026.05.20, PRD v4.9/ROADMAP v5.1)
+- [Phase 9 연금 계좌 대시보드](project_pension_dashboard.md) — 거래 기반 포지션 계산+3탭+계좌별 독립 리밸런싱+월평균 기하수익률+백업, P9-31~P9-37 완료 (2026.05.20, PRD v5.0/ROADMAP v5.2)

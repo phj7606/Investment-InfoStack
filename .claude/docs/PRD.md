@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v4.8 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
+> **버전**: v5.0 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.20 | **상태**: Living Document
 
 ---
 
@@ -77,6 +77,8 @@ Step 5: 매수 결정
 | `/dashboard/portfolio` | A2 | 포트폴리오 허브 (계좌 선택) | ✅ |
 | `/dashboard/portfolio/trend` | A2 | 추세추종 계좌 대시보드 | ✅ |
 | `/dashboard/portfolio/longterm` | A2 | 장기투자 계좌 대시보드 | ✅ |
+| `/dashboard/portfolio/education` | A2 | 교육 계좌 대시보드 (포지션/거래내역/리스크 관리 3탭) | ✅ |
+| `/dashboard/portfolio/pension` | A2 | 연금 계좌 대시보드 (퇴직연금/연금저축/IRP, 거래내역·리밸런싱·종목별 3탭) | ✅ |
 | `/dashboard/portfolio/performance` | A2 | 포트폴리오 성과 분석 (KR/US 월별 수익률·누적수익률·벤치마크 비교) | ✅ |
 | `/dashboard/settings` | 기타 | 앱 설정 | ✅ |
 
@@ -192,6 +194,33 @@ Step 5: 매수 결정
 | D1-08 | JSON 백업/복원 | 자동 일별 서버 백업(data/backups/YYYY-MM-DD.json, 30일 보관) + UI에서 JSON 다운로드(오프사이트 보관용) + JSON 복원(overwrite: 전체 교체 / merge: dedup 키 기준 신규 건만 추가). `/api/portfolio/longterm/backup` | ✅ |
 | D1-09 | 포트폴리오 성과 분석 | Jan~Apr 2026 Bootstrap JSON + May 2026+ 거래내역 동적 계산. Modified Dietz MoM%. TWR 누적수익률. KR/US 분리. KOSPI/S&P500/NASDAQ 벤치마크 비교. 완료 월 24h / 현재 월 5min TTL 캐시. `/dashboard/portfolio/performance`, `/api/portfolio/performance` | ✅ |
 | D1-10 | 보유 종목별 성과 분석 | Performance Analysis 탭 — TWR/Alpha/연환산Alpha/MDR(Modified Dietz)/Hit Rate/MDD/Up·Down Capture 7대 지표 테이블(KRW/USD 분리). Alpha vs 벤치마크 수평 바 차트. 벤치마크: KRW→KOSPI(^KS11), USD→S&P500(^GSPC). `/api/portfolio/longterm/holdings-performance`, `HoldingsPerformanceTable.tsx`, `HoldingsAlphaBarChart.tsx` | ✅ |
+
+#### 교육 계좌 (`/dashboard/portfolio/education`)
+
+| ID | 기능 | 설명 | 상태 |
+|----|------|------|------|
+| D2-01 | 포지션 관리 | 포지션 추가(`AddPositionDialog`) / 매도(`SellPositionDialog`) / 편집(`EditPositionDialog`). 현재가 자동 조회(Naver Finance KR). 계좌 총합/손익 실시간 표시. `data/education-account.json` 파일 기반 저장 | ✅ |
+| D2-02 | 거래내역 관리 | 거래 추가(`AddTradeDialog`) / 편집(`EditTradeDialog`). 성과 요약 상단(승률/손익비/EV/평균수익/평균손실/거래수). 날짜·결과별 정렬/필터 기능 | ✅ |
+| D2-03 | 리스크 관리 탭 | `RiskManagementPanel`(시장 단계 1~5 / 투자 가능금액 / 여유자금 / 2% 룰) + `PositionRiskTable`(손절가 / 주당리스크 / nR 수량 / 투자금 / 계좌손절비중 자동 계산). localStorage 설정 영구 저장 | ✅ |
+| D2-04 | 백업/복원 | `/api/portfolio/education/backup` — JSON 다운로드(오프사이트 보관용) + JSON 복원(overwrite: 전체 교체 / merge: 신규 건만 추가) | ✅ |
+
+#### 연금 계좌 (`/dashboard/portfolio/pension`)
+
+| ID | 기능 | 설명 | 상태 |
+|----|------|------|------|
+| D4-01 | 거래 CRUD | BUY/SELL/DIVIDEND 거래 추가/편집/삭제. 계좌별(퇴직연금/연금저축/IRP) 분류. `data/pension-transactions.json` 파일 기반 저장 | ✅ |
+| D4-02 | 포지션 계산 | 거래내역 → 현재 보유 포지션 동적 계산. 가중평균단가(avgCost) FIFO 추적. SELL 시 realizedPL 자동 계산. 카테고리(채권형/주식형) 분리 | ✅ |
+| D4-03 | 현재가 자동 조회 | `/api/portfolio/risk/prices` 연동. KRX 알파뉴메릭 ETF 코드(`0023A0` 등) 지원. 포지션 로드 시 자동 실행 | ✅ |
+| D4-04 | 월평균 기하수익률 | `(1+총수익률)^(1/보유개월)-1`. 보유기간이 다른 ETF 간 공정 비교 지표. 포지션 테이블 + 종목별 비중 설정 테이블 적용. evalAmount 기반 가중평균 합계 | ✅ |
+| D4-05 | 리밸런싱 분석 | 퇴직연금·연금저축 각각 독립적인 채권형/주식형 목표 비중 설정 및 저장. 현재가 기반 클라이언트 사이드 재계산. 보유 현금 포함 총평가금액 기준. 종목별 목표 비중 설정 테이블(현재금액/현재비중/월평균/목표%/목표금액/필요금액). `PensionRebalancingConfig { RETIREMENT, SAVINGS }` 계좌별 독립 저장 | ✅ |
+| D4-06 | 백업/복원 | `/api/portfolio/pension/backup` — JSON 다운로드(파일명: pension-backup-YYYY-MM-DD.json) + 복원(overwrite: 전체 교체 / merge: 중복 제외 신규 건만 추가). 자동 일별 서버 백업(data/pension-backups/, 30일 보관) | ✅ |
+| D4-07 | 종목별 탭 | 계좌·카테고리별 ETF 목록 accordion. 보유 포지션 현황 + 실현손익 표시 | ✅ |
+
+#### 단중기 계좌 (`/dashboard/portfolio/shortterm`)
+
+| ID | 기능 | 설명 | 상태 |
+|----|------|------|------|
+| D3-01 | 대시보드 인프라 | `/api/portfolio/shortterm/*` API 라우트(positions/sell/trades/backup) + `ShorttermAccountDashboardClient.tsx` + `data/shortterm-account.json` + `lib/portfolio/shorttermData.ts`. 교육 계좌와 동일 구조(파일 기반 3탭). 페이지 미구현 | 🔄 |
 
 ---
 
@@ -442,7 +471,9 @@ Step 5: 매수 결정
 | v4.6 | 2026.05.18 | 장기투자 계좌 개선 — D1-03 avgCost 수수료 제외 기준 통일(calcPositions/enrichSellTransaction BUY 누적 기준 동일화). D1-06 현재가 실시간 자동 조회(Naver Finance KR / Yahoo v8 US, 5분 TTL 캐시, KR 코드 보정 맵). D1-07 보유 포지션 합계 행 확장(평가손익·수익률·누적실현·비중). 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) |
 | v4.7 | 2026.05.19 | 장기투자 계좌 추가 구현(D1-08~D1-09) — JSON 백업 시스템(자동 일별 서버 백업+UI 다운로드/복원, overwrite/merge 모드). 포트폴리오 성과 분석 전용 페이지(Jan~Apr Bootstrap JSON + May+ 동적 계산, Modified Dietz MoM%, TWR 누적수익률, KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크, 엑셀 런타임 의존성 제거). 페이지 맵 `/dashboard/portfolio/performance` 추가 |
 | v4.8 | 2026.05.19 | 장기투자 계좌 보유 종목별 성과 분석(D1-10) 추가 — TWR/Alpha/연환산Alpha/MDR(Modified Dietz)/Hit Rate/MDD/Up·Down Capture 7대 지표 테이블(KRW/USD 분리). Alpha vs 벤치마크 수평 바 차트(HoldingsAlphaBarChart). MDR(Modified Dietz Return) 도입(XIRR 대체, 반복 수렴 불필요·수치 안정성 향상). Performance Analysis 탭 "실현손익 성과 분석" 섹션 제거 및 탭명 "Portfolio Analysis" → "Performance Analysis" 변경 |
+| v4.9 | 2026.05.20 | 교육 계좌 대시보드(D2-01~D2-04) — 파일 기반 포지션/거래내역/리스크 관리 3탭, PositionRiskTable(손절가·nR 자동 계산), 공유 다이얼로그(EditPosition/EditTrade). 단중기 계좌(D3-01) 인프라 준비(API+컴포넌트, 페이지 미구현). 페이지 맵 education 추가. 사이드바 계좌명 변경 반영 |
+| v5.0 | 2026.05.20 | 연금 계좌 대시보드(D4-01~D4-07) — 거래 기반 포지션 계산, 3탭(리밸런싱/거래내역/종목별), 퇴직연금·연금저축 계좌별 독립 리밸런싱(채권/주식 비중·현금 포함·현재가 기반), 월평균 기하수익률 컬럼, JSON 백업/복원. `/api/portfolio/risk/prices` KRX 알파뉴메릭 ETF 코드 지원·개수 제한 제거 |
 
 ---
 
-*v4.8 | 2026.05.19 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v5.0 | 2026.05.20 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*

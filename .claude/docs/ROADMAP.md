@@ -1,6 +1,6 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v5.0 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.19 | **상태**: Living Document
+> **버전**: v5.2 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.20 | **상태**: Living Document
 
 ---
 
@@ -11,7 +11,7 @@
 | Phase 0~6 | 기반 구축 (ETF RS/모멘텀, 시장 분석, 기업 분석) | ✅ 완료 |
 | Phase 7 | UI/UX Shell — 3개 Action 워크플로우 앱 재구성 | 🔄 95% 완료 |
 | **Phase 8** | **ACTION 1 · 종목 탐색 구현** | **🔄 진행 중** |
-| Phase 9 | ACTION 2 · 포트폴리오 관리 구현 | ⬜ 예정 |
+| **Phase 9** | **ACTION 2 · 포트폴리오 관리 구현** | **🔄 95% 완료** |
 | Phase 10 | ACTION 3 · 자동화 루틴 구현 | ⬜ 예정 |
 | Phase 11 | MCP 연동 완성 | ⬜ 예정 |
 
@@ -136,7 +136,7 @@
 
 ---
 
-## [진행 중] Phase 9 — ACTION 2 · 포트폴리오 관리
+## [95% 완료] Phase 9 — ACTION 2 · 포트폴리오 관리
 
 > **목표**: 키움 REST API 연동 기반 계좌별 대시보드 구현.
 > 1차: 추세추종 계좌(Account 1470) — 보유 포지션 + 리스크 관리 + 거래 이력 + 성과 분석.
@@ -186,6 +186,27 @@
 | P9-25 | 포트폴리오 성과 분석 전용 페이지 (`/dashboard/portfolio/performance`) — Jan~Apr 2026 Bootstrap JSON + May 2026+ 거래내역 동적 계산(Modified Dietz MoM%, TWR rechainCumPct() 누적수익률). KR/US 분리. KOSPI/S&P500/NASDAQ 벤치마크 비교. 완료 월 24h / 현재 월 5min TTL 캐시. 엑셀 런타임 의존성 제거(Option B 전환). `PerformanceDashboardClient.tsx`, `performance-benchmark.ts`, `performance-excel.ts`, `data/performance-bootstrap.json` | 🔴 | ✅ |
 | P9-26 | 보유 종목별 성과 분석 — TWR/Alpha/연환산α/MDR(Modified Dietz)/Hit Rate/MDD/Up·Down Capture 7대 지표. KRW/USD 탭 분리. Alpha vs 벤치마크 수평 바 차트(HoldingsAlphaBarChart). 벤치마크: ^KS11(KR)/^GSPC(US). Performance Analysis 탭 "실현손익 성과 분석" 섹션 제거 → 보유 종목별 성과로 대체. `lib/portfolio/holdings-performance.ts`, `HoldingsPerformanceTable.tsx`, `HoldingsAlphaBarChart.tsx`, `/api/portfolio/longterm/holdings-performance` | 🔴 | ✅ |
 
+### 교육 계좌 대시보드 (`/dashboard/portfolio/education`)
+
+| ID | 태스크 | 우선순위 | 상태 |
+|----|--------|---------|------|
+| P9-27 | 교육 계좌 대시보드 — 파일 기반 3탭(포지션/거래내역/리스크 관리). `AddPositionDialog`/`SellPositionDialog`/`AddTradeDialog`. 현재가 자동 조회(Naver Finance KR). `data/education-account.json` 파일 기반 저장. `RiskManagementPanel` + `PositionRiskTable` 리스크 탭. 백업/복원 API. `/api/portfolio/education/*`, `lib/portfolio/educationData.ts` | 🔴 | ✅ |
+| P9-28 | `PositionRiskTable` — 손절가(bidPrice × (1-cutoff)) / 주당리스크 / nR 수량(min(nR손실한도, 1회투자한도)) / 투자금 / 계좌손절비중 자동 계산. `/api/portfolio/risk/prices` 현재가 조회 연동. `components/portfolio/PositionRiskTable.tsx` | 🔴 | ✅ |
+| P9-29 | 공유 다이얼로그 컴포넌트(`components/portfolio/shared/`) — `EditPositionDialog`, `EditTradeDialog`. Education/Shortterm 계좌 공통 재사용 | 🟡 | ✅ |
+| P9-30 | 단중기 계좌(Account 2805) 인프라 — `/api/portfolio/shortterm/*` API 라우트 + `ShorttermAccountDashboardClient.tsx` + `data/shortterm-account.json` + `lib/portfolio/shorttermData.ts`. 페이지(`/dashboard/portfolio/shortterm`) 미구현 | 🔴 | 🔄 |
+
+### 연금 계좌 대시보드 (`/dashboard/portfolio/pension`)
+
+| ID | 태스크 | 우선순위 | 상태 |
+|----|--------|---------|------|
+| P9-31 | 연금 계좌 타입 정의 (`types/portfolio.ts`) — PensionTransaction(BUY/SELL/DIVIDEND), PensionPosition, PensionAccountSummary, PensionRebalancingConfig(RETIREMENT/SAVINGS 계좌별 독립) | 🔴 | ✅ |
+| P9-32 | 거래 CRUD API (`/api/portfolio/pension/transactions`) + 저장소(`lib/portfolio/pension-store.ts`) — BUY/SELL/DIVIDEND 추가/편집/삭제. `data/pension-transactions.json` 파일 기반. 자동 일별 백업(pension-backups/, 30일 보관) | 🔴 | ✅ |
+| P9-33 | 포지션 계산 모듈 (`lib/portfolio/pension-calc.ts`) — 거래내역 → 현재 보유 포지션 동적 계산. 가중평균단가 FIFO 추적. SELL 시 realizedPL 자동 계산. firstBuyDate 추출로 보유기간·월평균 기하수익률 계산 | 🔴 | ✅ |
+| P9-34 | 연금 계좌 대시보드 3탭 UI — 리밸런싱 탭(계좌별 포지션 테이블 + 리밸런싱 분석) / 거래내역 탭(BUY/SELL/DIVIDEND 이력 + 편집/삭제) / 종목별 탭(계좌·카테고리별 accordion). 월평균 기하수익률 컬럼((1+r)^(1/months)-1). 현재가 자동 조회 | 🔴 | ✅ |
+| P9-35 | 리밸런싱 분석 (`/api/portfolio/pension/rebalancing`) — 퇴직연금·연금저축 각각 독립적인 채권형/주식형 목표 비중 설정·저장. 현재가 기반 클라이언트 사이드 재계산. 보유 현금 포함 총평가금액 기준. 종목별 목표 비중 설정 테이블(월평균 수익률 포함). 구형 포맷 자동 마이그레이션 | 🔴 | ✅ |
+| P9-36 | JSON 백업/복원 (`/api/portfolio/pension/backup`) — GET 다운로드(pension-backup-YYYY-MM-DD.json) + POST 복원(overwrite/merge, dedup 키: date::stockCode::accountType::tradeType::quantity::price). 리밸런싱 탭·거래내역 탭 모두 복원/백업 버튼 배치 | 🔴 | ✅ |
+| P9-37 | `/api/portfolio/risk/prices` 개선 — KRX 알파뉴메릭 ETF 코드 지원(6자리+숫자포함=KR 판별, 기존 순수 숫자만 KR 판별 버그 수정). 10개 종목 제한 완전 제거 | 🔴 | ✅ |
+
 ### Phase 9 완료 기준
 - [x] 키움 REST API 토큰 발급·캐시
 - [x] 보유 포지션 조회 API
@@ -200,6 +221,11 @@
 - [x] JSON 백업 시스템 (자동 서버 백업 + UI 다운로드/복원)
 - [x] 포트폴리오 성과 분석 전용 페이지 (KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크)
 - [x] 보유 종목별 성과 분석 (TWR/Alpha/MDR/Hit Rate/MDD/Up·Down Capture + Alpha 바 차트)
+- [x] 교육 계좌 대시보드 (포지션/거래내역/리스크 관리 3탭, 현재가 조회, 백업/복원)
+- [x] PositionRiskTable — 손절가·nR 자동 계산
+- [x] 연금 계좌 대시보드 (거래 기반 포지션 계산, 3탭, 리밸런싱 분석)
+- [x] 연금 계좌 퇴직연금·연금저축 계좌별 독립 리밸런싱
+- [ ] 단중기 계좌 대시보드 페이지 구현
 - [ ] 키움 API 실제 연동 검증 (HTS 데이터 대조)
 - [ ] `npm run build` 오류 없음
 
@@ -305,7 +331,9 @@
 | v4.8 | 2026.05.18 | Phase 9 장기투자 계좌 추가 개선(P9-21~P9-23) — 포지션 탭 KR/US 분리(전체 탭 제거, 통화 혼산 방지) + avgCost 수수료 제외 기준 통일. 현재가 실시간 자동 조회 API(Naver Finance KR / Yahoo v8 US, FUND 제외, KR 코드 보정 맵, 5분 TTL 캐시, 마운트 시 자동 실행). 보유 포지션 합계 행 확장(평가손익·수익률·누적실현손익·비중 4개 컬럼 추가) |
 | v4.9 | 2026.05.19 | Phase 9 장기투자 계좌 추가 구현(P9-24~P9-25) — JSON 백업 시스템(자동 일별 서버 백업+UI 다운로드/복원, overwrite/merge 모드). 포트폴리오 성과 분석 전용 페이지(Jan~Apr Bootstrap JSON + May+ 동적 계산, Modified Dietz MoM%, TWR 누적수익률, KR/US 분리, KOSPI/S&P500/NASDAQ 벤치마크, 엑셀 런타임 의존성 제거) |
 | v5.0 | 2026.05.19 | Phase 9 P9-26 완료 — 장기투자 계좌 보유 종목별 성과 분석(TWR/Alpha/연환산α/MDR/Hit Rate/MDD/Up·Down Capture + HoldingsAlphaBarChart). MDR(Modified Dietz Return) 도입(XIRR 대체). Performance Analysis 탭 개선: 실현손익 섹션 제거, 보유 종목 성과 뷰 추가. 탭명 "Portfolio Analysis" → "Performance Analysis" |
+| v5.1 | 2026.05.20 | Phase 9 P9-27~P9-29 완료 — 교육 계좌 대시보드(3탭/현재가 조회/백업), PositionRiskTable(손절가·nR 계산), 공유 다이얼로그(EditPosition/EditTrade). P9-30 단중기 계좌 인프라 준비(API+컴포넌트+데이터, 페이지 미구현). 사이드바 Short-term/Education Account 메뉴 추가 |
+| v5.2 | 2026.05.20 | Phase 9 P9-31~P9-37 완료 — 연금 계좌 대시보드(3탭/거래 기반 포지션 계산/리밸런싱 분석/백업). 퇴직연금·연금저축 계좌별 독립 리밸런싱(채권/주식 비중 + 현금 포함 + 현재가 기반). 월평균 기하수익률 컬럼. `/api/portfolio/risk/prices` KRX 알파뉴메릭 코드 지원·개수 제한 제거 |
 
 ---
 
-*v5.0 | 2026.05.19 | Living Document*
+*v5.2 | 2026.05.20 | Living Document*
