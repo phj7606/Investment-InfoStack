@@ -33,7 +33,7 @@ import { Download, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-rea
 // 모듈 정의
 // ─────────────────────────────────────────
 
-type ModuleKey = "financial" | "pension" | "longterm" | "education" | "shortterm";
+type ModuleKey = "financial" | "pension" | "longterm" | "education" | "shortterm" | "monthly-cf";
 
 interface ModuleMeta {
   key: ModuleKey;
@@ -72,6 +72,12 @@ const MODULES: ModuleMeta[] = [
     label: "단기계좌 (2805)",
     description: "단기 계좌 포지션·거래 내역",
     backupEndpoint: "/api/portfolio/shortterm/backup",
+  },
+  {
+    key: "monthly-cf",
+    label: "월별 현금흐름",
+    description: "월별 수입·지출 항목 및 계좌 잔액",
+    backupEndpoint: "/api/portfolio/financial/monthly-cf/backup",
   },
 ];
 
@@ -463,6 +469,8 @@ function buildRestoreBody(
     case "education":
     case "shortterm":
       return { positions: data.positions, trades: data.trades, mode };
+    case "monthly-cf":
+      return { entries: data.entries, balances: data.balances, mode };
   }
 }
 
