@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v5.2 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
+> **버전**: v5.3 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
 
 ---
 
@@ -237,11 +237,12 @@ Step 5: 매수 결정
 | F-06 | 재무제표 탭 | 대차대조표(CURRENT/NON-CURRENT/INVESTMENT 섹션) + 부채 + 순자산. Net Worth 추세 차트(recharts). 월별 스냅샷 선택기 + DRAFT/CONFIRMED 상태 배지 표시 | ✅ |
 | F-07 | 자산관리 탭 | 엑셀 Asset Management 시트 구조 동일 연간 테이블. FUND/KOR Stocks/US Stocks/KRW Total 4개 섹션. Baseline(Dec) + Jan~Dec 월별 컬럼. YTD 컬럼: Bid/Ask(BV)/Fixed P/L/Principal은 cumBid/cumAskBv 누적값, Cum P/L % 분모=DecBalance+cumBid(엑셀 Q21 수식 동일). Stock Deposit/Cash/Summary YTD는 `-` 공란 처리. 연도 전환 자동화(매년 12월을 신년 baseline으로). 엑셀 Dec-25~Apr-26 데이터 복원 완료(35개 수치 100% 일치 검증) | ✅ |
 | F-08 | 연금·교육 탭 | 월별 스냅샷 기준 연금 계좌(퇴직연금/연금저축) + 교육 계좌 포지션 현황 요약 | ✅ |
-| F-09 | 현금흐름 탭 | `MonthlyCFView` — 월별 현금흐름 입력폼(`MonthlyCFForm`) + 집계 요약. `data/monthly-cf.json` 파일 기반 저장 | ✅ |
+| F-09 | 현금흐름 탭 | `MonthlyCFView` v2 — `cf-table-config.ts` config-driven 행 정의(section-header/input 행 타입). 셀 클릭 → `MonthlyCFSubItemDialog` 다이얼로그(항목 추가·인라인 편집(✏️ 버튼·Enter/Esc 단축키)·삭제, 여러 항목 지원). 연도 선택 버튼. `/api/portfolio/financial/monthly-cf/import-excel` 엑셀 Jan-Apr 가져오기(OneDrive FS 2026.xlsx "Monthly CF" 시트). 영문 레이블(Income/Fixed Expense/Credit Card/Cash/Tax/Account Transfer). 색상 규칙(Income=녹/적, 지출=검정, Expenses Total=붉은색). Account Balance = prev + Income - Expenses Total. `data/monthly-cf.json` + `data/monthly-cf-balance.json` 파일 기반 저장. | ✅ |
 | F-10 | 월말 확정 다이얼로그 | `MonthEndConfirmDialog` — DRAFT→CONFIRMED 전환 전 확인 UI. 포지션 집계 결과 미리보기 | ✅ |
 | F-11 | 스냅샷 수정 다이얼로그 | `SnapshotEditDialog` — CONFIRMED 스냅샷 수동 수정. 항목별 인라인 편집 | ✅ |
 | F-12 | JSON 백업/복원 | `/api/portfolio/financial/backup` — GET 다운로드 + POST overwrite/merge 복원(중복 기준: month 필드). `data/financial-snapshots.json` git 추적 등록(재발 방지) | ✅ |
-| F-13 | 통합 백업/복원 | `/api/backup/full` — 5개 모듈(재무/연금/중장기/교육/단기) 단일 JSON 통합 백업(GET: investment-backup-YYYY-MM-DD.json) + 선택적 복원(POST: modules 배열 + overwrite/merge 모드). `components/settings/BackupRestorePanel.tsx` — `/dashboard/settings` 백업/복원 탭: 전체 통합 다운로드·복원 + 모듈별 개별 백업/복원 카드(기존 개별 API 활용). 덮어쓰기 경고 표시 | ✅ |
+| F-13 | 통합 백업/복원 | `/api/backup/full` — 6개 모듈(재무/연금/중장기/교육/단기/월별현금흐름) 단일 JSON 통합 백업(GET: investment-backup-YYYY-MM-DD.json) + 선택적 복원(POST: modules 배열 + overwrite/merge 모드). `components/settings/BackupRestorePanel.tsx` — `/dashboard/settings` 백업/복원 탭: 전체 통합 다운로드·복원 + 모듈별 개별 백업/복원 카드(기존 개별 API 활용, 6번째 모듈 "월별 현금흐름" 카드 포함). 덮어쓰기 경고 표시 | ✅ |
+| F-14 | Monthly CF 백업/복원 | `/api/portfolio/financial/monthly-cf/backup` — GET: `monthly-cf.json`+`monthly-cf-balance.json` 단일 JSON 다운로드(`monthly-cf-backup-YYYY-MM-DD.json`). POST: overwrite(전체 교체) / merge(entries=id 기준·balances=month key 기준 중복 제외) 복원. `BackupRestorePanel` 6번째 모듈 카드("월별 현금흐름") 추가 | ✅ |
 
 ---
 
@@ -512,7 +513,8 @@ Step 5: 매수 결정
 | v5.0 | 2026.05.20 | 연금 계좌 대시보드(D4-01~D4-07) — 거래 기반 포지션 계산, 3탭(리밸런싱/거래내역/종목별), 퇴직연금·연금저축 계좌별 독립 리밸런싱(채권/주식 비중·현금 포함·현재가 기반), 월평균 기하수익률 컬럼, JSON 백업/복원. `/api/portfolio/risk/prices` KRX 알파뉴메릭 ETF 코드 지원·개수 제한 제거 |
 | v5.1 | 2026.05.21 | 재무제표 통합 대시보드(F-01~F-12) — `/dashboard/portfolio/financial` 신규 페이지. 4탭(재무제표/자산관리/연금·교육/현금흐름). 월별 스냅샷 DRAFT/CONFIRMED 관리 시스템(DRAFT=실시간 집계, CONFIRMED=고정 저장). 엑셀 Asset Management 시트 동일 YTD 수식(cumBid/cumAskBv 누적, Cum P/L % 분모=DecBalance+cumBid). yfinance 환율 실시간 조회(USD/KRW·CAD/KRW). 재무 데이터 JSON 백업/복원 및 git 추적 등록. 페이지 맵·데이터 흐름도 업데이트 |
 | v5.2 | 2026.05.21 | EduPensionView 자산관리 II 개선 — Education/Shortterm 실시간 잔고 업데이트(Naver 가격 fetch 확장), CONFIRMED 월 선택 시 liveData 항상 유지 버그 수정, 다이얼로그 UI 정리(Pension placeholder 제거·Stock Balance 필드 제거). 통합 백업/복원 시스템(F-13) 신규: `/api/backup/full` 5개 모듈 단일 JSON API + `BackupRestorePanel` + `/dashboard/settings` 백업/복원 탭. 페이지 맵 settings 설명 업데이트 |
+| v5.3 | 2026.05.21 | 현금흐름 탭 v2 전면 개편(F-09 업데이트) — config-driven 행 정의(`cf-table-config.ts`), `MonthlyCFSubItemDialog` v3(인라인 편집·Enter/Esc 단축키), 연도 선택 버튼, 엑셀 Jan-Apr 가져오기(OneDrive FS 2026.xlsx "Monthly CF" 시트), 영문 레이블(Income/Fixed Expense/Credit Card/Cash/Tax/Account Transfer), Account Balance 자동 계산(prev + Income - Expenses Total). Monthly CF 백업/복원(F-14 신규) — `/api/portfolio/financial/monthly-cf/backup` GET 다운로드+POST overwrite/merge 복원, `monthly-cf-balance.json` 이중 저장. 통합 백업 6개 모듈(F-13 업데이트) — "월별 현금흐름" 모듈 카드 추가, `BackupRestorePanel` 6번째 카드 |
 
 ---
 
-*v5.2 | 2026.05.21 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v5.3 | 2026.05.21 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
