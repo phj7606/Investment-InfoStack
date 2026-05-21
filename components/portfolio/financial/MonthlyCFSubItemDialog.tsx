@@ -62,8 +62,9 @@ export function MonthlyCFSubItemDialog({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [addError, setAddError] = useState("");
 
-  // INCOME만 양수, 나머지는 음수로 저장
-  const isExpense = category !== "INCOME";
+  // INCOME, ACCOUNT_TRANSFER는 양수 저장, 나머지 지출은 음수 저장
+  // (Account Transfer가 Income 섹션으로 이동했으므로 수입과 동일 처리)
+  const isExpense = category !== "INCOME" && category !== "ACCOUNT_TRANSFER";
 
   // 합계 (부호 그대로 합산)
   const catTotal = entries.reduce((s, e) => s + e.amount, 0);

@@ -1,25 +1,28 @@
 "use client";
 
 /**
- * Monthly CF (현금흐름) 탭 v2 — 엑셀 "Monthly CF" 시트와 동일한 테이블
+ * Monthly CF (현금흐름) 탭 v3
  *
- * 핵심 특징:
- *   1. 모든 sub-item row 항상 표시 (다이얼로그 없이 테이블에 노출)
- *   2. 영문 레이블 (엑셀과 동일)
- *   3. 셀 클릭 → 다이얼로그에서 해당 셀의 여러 항목 관리
- *      (같은 [category, name, month]에 여러 항목 추가 가능)
- *   4. 셀에는 해당 항목들의 합산값 표시
- *   5. 연도 선택 버튼 (자산관리와 동일 패턴)
- *   6. Import Jan–Apr 버튼으로 엑셀에서 일괄 가져오기
+ * 레이아웃:
+ *   Account Balance (prev)
+ *   Income (합계 = INCOME 합 + Account Transfer)
+ *     Salary / Interest / Rental / Others / Account Transfer
+ *   Fixed Expense (합계)
+ *     Insurance / Telecommunication / Monthly Installment
+ *   Credit Card (합계)
+ *     Hana / Others
+ *   Cash (합계)
+ *     CNY Exchange / Cash-gift / Tuition / Others
+ *   Tax (합계)
+ *     Real estate - rent / Real estate / Investment
+ *   Expenses Total  ← 양수·붉은색
+ *   Account Balance  ← prev + Income - Expenses Total
  *
- * 계산 행 목록 (읽기 전용):
- *   section-header:     카테고리 합계
- *   YTD Cumulative:     Monthly Installment / Spent 누적합
- *   Installment Balance: Cumulative - Cum Spent
- *   Expenses Total:     모든 지출 카테고리 합산
- *   Net Monthly CF:     Income + Expenses Total
- *   Account Monthly NCF: Net CF + Transfer + FX (Education Savings 제외)
- *   Account Balance:    opening + NCF (연쇄 계산)
+ * 색상 규칙:
+ *   - Income 섹션(INCOME + Account Transfer): 녹색/적색
+ *   - 나머지 숫자: 검정 (text-foreground)
+ *   - Expenses Total: 항상 붉은색 ("+" 부호)
+ *   - Account Balance 행: 파란색 (특수 행)
  */
 
 import { useState, useCallback, useMemo } from "react";
@@ -29,33 +32,23 @@ import { Input } from "@/components/ui/input";
 import { Check, X, Upload, RefreshCw } from "lucide-react";
 import { MonthlyCFSubItemDialog } from "../MonthlyCFSubItemDialog";
 import type { MonthlyCFEntry, MonthlyCFBalance, CFCategoryType } from "@/types/financial";
-import {
-  CF_TABLE_ROWS,
-  CF_TRANSFER_ROWS,
-  type CFTableRowDef,
-} from "@/lib/portfolio/cf-table-config";
+import { CF_TABLE_ROWS, type CFTableRowDef } from "@/lib/portfolio/cf-table-config";
 
 // ─────────────────────────────────────────
 // Props
 // ─────────────────────────────────────────
 
 interface MonthlyCFViewProps {
-  /** 전체 CF 항목 (연도 필터 없이 모두 전달) */
   entries: MonthlyCFEntry[];
-  /** 월별 계좌 opening 잔액 맵 */
   balances: MonthlyCFBalance;
-  /** 기본 표시 연도 */
   year: number;
-  /** 데이터 재조회 콜백 */
   onRefresh: () => void;
-  /** 계좌 잔액 저장 콜백 */
   onBalanceUpdate: (month: string, amount: number) => Promise<void>;
-  /** 계좌 잔액 삭제(자동계산 복귀) 콜백 */
   onBalanceDelete: (month: string) => Promise<void>;
 }
 
 // ─────────────────────────────────────────
-// 다이얼로그 열린 상태 타입
+// 다이얼로그 열린 상태
 // ─────────────────────────────────────────
 
 interface OpenDialog {
@@ -64,26 +57,48 @@ interface OpenDialog {
 }
 
 // ─────────────────────────────────────────
-// Account Balance 인라인 편집 상태
+// Account Balance 인라인 편집
 // ─────────────────────────────────────────
 
-interface BalanceEditState {
+interface BalanceEdit {
   month: string;
   value: string;
 }
 
 // ─────────────────────────────────────────
-// 월 레이블 헬퍼
+// 월 레이블
 // ─────────────────────────────────────────
 
 const MONTH_LABELS = [
   "Jan","Feb","Mar","Apr","May","Jun",
   "Jul","Aug","Sep","Oct","Nov","Dec",
 ];
+function monthLabel(m: string) {
+  return MONTH_LABELS[parseInt(m.split("-")[1]) - 1] ?? m;
+}
 
-function monthLabel(monthStr: string): string {
-  const mo = parseInt(monthStr.split("-")[1]) - 1;
-  return MONTH_LABELS[mo] ?? monthStr;
+// ─────────────────────────────────────────
+// Income 섹션으로 이동한 Account Transfer 키
+// ─────────────────────────────────────────
+const ACCT_TRANSFER_KEY = "acct_transfer";
+const ACCT_TRANSFER_NAME = "Account Transfer";
+
+// ─────────────────────────────────────────
+// 색상 헬퍼
+// ─────────────────────────────────────────
+
+/** Income 섹션에 속하는 행인지 (색상 결정용) */
+function isIncomeStyling(rowDef: CFTableRowDef): boolean {
+  return (
+    rowDef.category === "INCOME" ||
+    rowDef.key === ACCT_TRANSFER_KEY
+  );
+}
+
+/** 셀 색상 — Income: 녹/적, 나머지: 검정 */
+function incomeColor(val: number): string {
+  if (val === 0 || isNaN(val)) return "text-muted-foreground";
+  return val >= 0 ? "text-emerald-600" : "text-red-500";
 }
 
 // ─────────────────────────────────────────
@@ -99,191 +114,143 @@ export function MonthlyCFView({
 }: MonthlyCFViewProps) {
   const curYear = new Date().getFullYear();
 
-  // ── 연도 선택 ─────────────────────────────────────────────────
+  // ── 연도 선택 ──────────────────────────────────────────────────
   const [selectedYear, setSelectedYear] = useState(year);
 
-  // ── 표시할 월 목록 (Jan ~ 해당 연도 현재월) ──────────────────
+  // ── 표시 월 목록 ───────────────────────────────────────────────
   const months = useMemo(() => {
     const now = new Date();
-    const endMonth =
-      now.getFullYear() === selectedYear ? now.getMonth() + 1 : 12;
-    return Array.from({ length: endMonth }, (_, i) =>
+    const end = now.getFullYear() === selectedYear ? now.getMonth() + 1 : 12;
+    return Array.from({ length: end }, (_, i) =>
       `${selectedYear}-${String(i + 1).padStart(2, "0")}`
     );
   }, [selectedYear]);
 
-  // ── 다이얼로그 상태 ───────────────────────────────────────────
+  // ── 다이얼로그 상태 ────────────────────────────────────────────
   const [openDialog, setOpenDialog] = useState<OpenDialog | null>(null);
 
-  // ── Account Balance 인라인 편집 상태 ─────────────────────────
-  const [balanceEdit, setBalanceEdit] = useState<BalanceEditState | null>(null);
-  const [balanceSaving, setBalanceSaving] = useState(false);
+  // ── Balance 인라인 편집 ────────────────────────────────────────
+  const [balEdit, setBalEdit] = useState<BalanceEdit | null>(null);
+  const [balSaving, setBalSaving] = useState(false);
 
-  // ── Import 상태 ───────────────────────────────────────────────
+  // ── Import 상태 ────────────────────────────────────────────────
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState<string | null>(null);
 
-  // ── entries → 빠른 조회 맵 { "CAT|name|month": MonthlyCFEntry[] } ─
-  // 같은 [category, name, month]에 여러 항목이 존재할 수 있으므로 배열로 관리
+  // ── entry 맵 { "CAT|name|month": MonthlyCFEntry[] } ───────────
   const entryMap = useMemo(() => {
     const map = new Map<string, MonthlyCFEntry[]>();
     for (const e of entries) {
-      const key = `${e.category}|${e.name}|${e.month}`;
-      const arr = map.get(key) ?? [];
+      const k = `${e.category}|${e.name}|${e.month}`;
+      const arr = map.get(k) ?? [];
       arr.push(e);
-      map.set(key, arr);
+      map.set(k, arr);
     }
     return map;
   }, [entries]);
 
-  /** 특정 [category, name, month]의 모든 항목 조회 */
   const getEntries = useCallback(
-    (category: string, name: string, month: string): MonthlyCFEntry[] => {
-      return entryMap.get(`${category}|${name}|${month}`) ?? [];
-    },
+    (cat: string, name: string, month: string) =>
+      entryMap.get(`${cat}|${name}|${month}`) ?? [],
     [entryMap]
   );
 
-  /** 특정 [category, name, month]의 합산 amount */
   const getAmount = useCallback(
-    (category: string, name: string, month: string): number => {
-      return getEntries(category, name, month).reduce((s, e) => s + e.amount, 0);
-    },
+    (cat: string, name: string, month: string): number =>
+      getEntries(cat, name, month).reduce((s, e) => s + e.amount, 0),
     [getEntries]
   );
 
-  // ── 계산 함수들 ───────────────────────────────────────────────
+  // ── 계산 ──────────────────────────────────────────────────────
 
-  /** section-header: 해당 카테고리 includeInCatTotal=true 행 합산 */
+  /** INCOME 카테고리 합산 (Account Transfer 미포함) */
+  const getIncomeCatTotal = useCallback(
+    (month: string): number =>
+      CF_TABLE_ROWS.filter(
+        (r) => r.category === "INCOME" && r.rowType === "input" && r.includeInCatTotal
+      ).reduce((s, r) => s + getAmount("INCOME", r.name, month), 0),
+    [getAmount]
+  );
+
+  /** Account Transfer 금액 */
+  const getTransferAmount = useCallback(
+    (month: string): number =>
+      getAmount("ACCOUNT_TRANSFER", ACCT_TRANSFER_NAME, month),
+    [getAmount]
+  );
+
+  /** Income 합계 = INCOME rows + Account Transfer */
+  const getIncomeTotal = useCallback(
+    (month: string): number =>
+      getIncomeCatTotal(month) + getTransferAmount(month),
+    [getIncomeCatTotal, getTransferAmount]
+  );
+
+  /** 카테고리 합계 (section-header 표시용) */
   const getCatTotal = useCallback(
-    (category: CFCategoryType, month: string): number => {
-      const allRows = [...CF_TABLE_ROWS, ...CF_TRANSFER_ROWS];
-      return allRows
-        .filter(
-          (r) => r.category === category && r.rowType === "input" && r.includeInCatTotal
-        )
-        .reduce((sum, r) => sum + getAmount(category, r.name, month), 0);
-    },
-    [getAmount]
-  );
-
-  /** calc-ytd: 해당 연도 1월~해당 월까지 누적합 */
-  const getYTD = useCallback(
-    (rowDef: CFTableRowDef, month: string): number => {
-      if (!rowDef.category) return 0;
-      const [yr, mo] = month.split("-");
-      const moNum = parseInt(mo);
-      let total = 0;
-      for (let m = 1; m <= moNum; m++) {
-        const mStr = `${yr}-${String(m).padStart(2, "0")}`;
-        total += getAmount(rowDef.category, rowDef.name, mStr);
-      }
-      return total;
-    },
-    [getAmount]
-  );
-
-  /** Monthly Installment Balance = Cumulative - Cum Spent */
-  const getInstallmentBalance = useCallback(
-    (month: string): number => {
-      const [yr, mo] = month.split("-");
-      const moNum = parseInt(mo);
-      let cumInstallment = 0;
-      let cumSpent = 0;
-      for (let m = 1; m <= moNum; m++) {
-        const mStr = `${yr}-${String(m).padStart(2, "0")}`;
-        cumInstallment += getAmount("FIXED_EXPENSE", "Monthly Installment", mStr);
-        cumSpent += getAmount("FIXED_EXPENSE", "Monthly Installment Spent", mStr);
-      }
-      // 지출은 음수 → Balance = Cumulative - CumSpent (음수 - 음수)
-      return cumInstallment - cumSpent;
-    },
+    (category: CFCategoryType, month: string): number =>
+      CF_TABLE_ROWS.filter(
+        (r) => r.category === category && r.rowType === "input" && r.includeInCatTotal
+      ).reduce((s, r) => s + getAmount(category, r.name, month), 0),
     [getAmount]
   );
 
   /**
-   * Expenses Total — 모든 지출 카테고리의 includeInCatTotal=true 행 합산
-   * Monthly Installment Spent 등 informational 행 제외
+   * Expenses Total — 지출 카테고리 합산 (음수로 저장된 값의 합)
+   * 결과는 음수 (내부 표현), 표시 시 절대값으로 변환
    */
   const getExpensesTotal = useCallback(
     (month: string): number => {
-      const expenseCats = ["FIXED_EXPENSE", "CREDIT_CARD", "CASH_EXPENSE", "TAX"] as const;
-      return expenseCats.reduce((sum, cat) => {
-        return (
+      const expCats = ["FIXED_EXPENSE", "CREDIT_CARD", "CASH_EXPENSE", "TAX"] as const;
+      return expCats.reduce(
+        (sum, cat) =>
           sum +
           CF_TABLE_ROWS.filter(
             (r) => r.category === cat && r.rowType === "input" && r.includeInCatTotal
-          ).reduce((s, r) => s + getAmount(cat, r.name, month), 0)
-        );
-      }, 0);
+          ).reduce((s, r) => s + getAmount(cat, r.name, month), 0),
+        0
+      );
     },
     [getAmount]
   );
 
-  /** Net Monthly CF = Income + Expenses Total (지출 음수 포함) */
-  const getNetCF = useCallback(
-    (month: string): number => {
-      return getCatTotal("INCOME", month) + getExpensesTotal(month);
-    },
-    [getCatTotal, getExpensesTotal]
-  );
-
   /**
-   * Account Monthly NCF = Net CF + Account Transfer + Foreign Exchange
-   * Education Savings 제외 (informational)
-   */
-  const getAccountNCF = useCallback(
-    (month: string): number => {
-      return (
-        getNetCF(month) +
-        getAmount("ACCOUNT_TRANSFER", "Account Transfer", month) +
-        getAmount("ACCOUNT_TRANSFER", "Foreign Exchange", month)
-      );
-    },
-    [getNetCF, getAmount]
-  );
-
-  /**
-   * Account Balance (closing) = opening + Account Monthly NCF
-   * 전월 closing이 당월 opening으로 자동 연쇄
+   * Account Balance (closing) = prev + Income - abs(Expenses Total)
+   * = prev + Income + Expenses (음수)  ← 부호 처리 동일
    */
   const getClosingBalance = useCallback(
-    (month: string): number => {
-      return getOpeningBalance(month) + getAccountNCF(month);
-    },
+    (month: string): number =>
+      getOpeningBalance(month) + getIncomeTotal(month) + getExpensesTotal(month),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [getAccountNCF, balances, months]
+    [getIncomeTotal, getExpensesTotal, balances, months]
   );
 
   const getOpeningBalance = useCallback(
     (month: string): number => {
       if (balances[month] !== undefined) return balances[month];
       const [yr, mo] = month.split("-");
-      const prevMo = parseInt(mo) - 1;
-      if (prevMo <= 0) return 0;
-      const prevMonth = `${yr}-${String(prevMo).padStart(2, "0")}`;
-      return getClosingBalance(prevMonth);
+      const prev = parseInt(mo) - 1;
+      if (prev <= 0) return 0;
+      return getClosingBalance(`${yr}-${String(prev).padStart(2, "0")}`);
     },
     [balances, getClosingBalance]
   );
 
-  /** rowType별 셀 값 계산 */
+  /** rowType별 셀 값 */
   const getCellValue = useCallback(
     (rowDef: CFTableRowDef, month: string): number => {
-      switch (rowDef.rowType) {
-        case "section-header":
-          return rowDef.category ? getCatTotal(rowDef.category, month) : 0;
-        case "input":
-          return rowDef.category ? getAmount(rowDef.category, rowDef.name, month) : 0;
-        case "calc-ytd":
-          return getYTD(rowDef, month);
-        case "calc-installment-bal":
-          return getInstallmentBalance(month);
-        default:
-          return 0;
+      if (rowDef.rowType === "section-header") {
+        if (!rowDef.category) return 0;
+        // Income 헤더: INCOME 합 + Account Transfer 포함
+        if (rowDef.category === "INCOME") return getIncomeTotal(month);
+        return getCatTotal(rowDef.category, month);
       }
+      if (rowDef.rowType === "input" && rowDef.category) {
+        return getAmount(rowDef.category, rowDef.name, month);
+      }
+      return 0;
     },
-    [getCatTotal, getAmount, getYTD, getInstallmentBalance]
+    [getIncomeTotal, getCatTotal, getAmount]
   );
 
   // ── 다이얼로그 콜백 ───────────────────────────────────────────
@@ -316,29 +283,26 @@ export function MonthlyCFView({
     [onRefresh]
   );
 
-  // ── Account Balance 인라인 편집 ───────────────────────────────
+  // ── Account Balance 편집 ──────────────────────────────────────
 
-  const startBalanceEdit = (month: string) => {
-    const current = balances[month];
-    setBalanceEdit({
-      month,
-      value: current !== undefined ? String(current) : "",
-    });
+  const startBalEdit = (month: string) => {
+    const cur = balances[month];
+    setBalEdit({ month, value: cur !== undefined ? String(cur) : "" });
   };
 
-  const confirmBalanceEdit = async () => {
-    if (!balanceEdit || balanceSaving) return;
-    const raw = parseFloat(balanceEdit.value.replace(/,/g, ""));
-    if (!isNaN(raw)) {
-      setBalanceSaving(true);
+  const confirmBalEdit = async () => {
+    if (!balEdit || balSaving) return;
+    const num = parseFloat(balEdit.value.replace(/,/g, ""));
+    if (!isNaN(num)) {
+      setBalSaving(true);
       try {
-        await onBalanceUpdate(balanceEdit.month, raw);
+        await onBalanceUpdate(balEdit.month, num);
         onRefresh();
       } finally {
-        setBalanceSaving(false);
+        setBalSaving(false);
       }
     }
-    setBalanceEdit(null);
+    setBalEdit(null);
   };
 
   // ── Excel Import ──────────────────────────────────────────────
@@ -352,14 +316,12 @@ export function MonthlyCFView({
         { method: "POST" }
       );
       const data = await res.json();
-      if (!res.ok) {
-        setImportMsg(`오류: ${data.error}`);
-      } else {
-        setImportMsg(
-          `완료 — 신규: ${data.imported}건, 스킵: ${data.skipped}건`
-        );
-        onRefresh();
-      }
+      setImportMsg(
+        res.ok
+          ? `완료 — 신규: ${data.imported}건, 스킵: ${data.skipped}건`
+          : `오류: ${data.error}`
+      );
+      if (res.ok) onRefresh();
     } catch (e) {
       setImportMsg(`요청 실패: ${String(e)}`);
     } finally {
@@ -367,22 +329,24 @@ export function MonthlyCFView({
     }
   };
 
-  // ── 표시 포맷 ────────────────────────────────────────────────
+  // ── 포맷 ─────────────────────────────────────────────────────
 
+  /** 절대값 표시 (지출 행: 음수 저장 → 양수 표시) */
   function fmtAbs(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
     return Math.abs(val).toLocaleString();
   }
 
+  /** Expenses Total: 항상 양수 + "+" 접두사 */
+  function fmtExpTotal(val: number): string {
+    if (val === 0 || isNaN(val)) return "—";
+    return `+${Math.abs(val).toLocaleString()}`;
+  }
+
+  /** Income/Balance: 부호 포함 */
   function fmtSigned(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
     return val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString();
-  }
-
-  function cellColor(val: number, isIncomeRow: boolean): string {
-    if (val === 0 || isNaN(val)) return "text-muted-foreground";
-    if (isIncomeRow) return val >= 0 ? "text-emerald-600" : "text-red-500";
-    return val < 0 ? "text-red-500" : "text-emerald-600";
   }
 
   // ── 행 렌더링 ────────────────────────────────────────────────
@@ -390,26 +354,21 @@ export function MonthlyCFView({
   function renderRow(rowDef: CFTableRowDef) {
     const isHeader = rowDef.rowType === "section-header";
     const isInput = rowDef.rowType === "input";
-    const isCalc = !isInput && !isHeader;
-    const isIncome = rowDef.category === "INCOME";
+    const incomeStyled = isIncomeStyling(rowDef);
 
-    const indentCls = rowDef.indent === 1 ? "pl-4" : rowDef.indent === 2 ? "pl-8" : "";
-    const bgCls = isHeader ? "bg-muted/50" : isCalc ? "bg-muted/20" : "";
-    const weightCls = isHeader ? "font-semibold" : isCalc ? "font-medium" : "";
-    const szCls = rowDef.indent >= 2 ? "text-xs" : "text-sm";
+    const indentCls = rowDef.indent === 1 ? "pl-5" : rowDef.indent === 2 ? "pl-9" : "";
+    const bgCls = isHeader ? "bg-muted/50" : "";
+    const weightCls = isHeader ? "font-semibold" : "";
     const borderCls = isHeader ? "border-t-2 border-border" : "border-t border-border/30";
 
-    // Total 컬럼 값
-    const totalVal =
-      rowDef.rowType === "calc-ytd" || rowDef.rowType === "calc-installment-bal"
-        ? NaN
-        : months.reduce((s, m) => s + getCellValue(rowDef, m), 0);
+    // Total 컬럼 합산
+    const totalVal = months.reduce((s, m) => s + getCellValue(rowDef, m), 0);
 
     return (
       <tr key={rowDef.key} className={`${borderCls} ${bgCls}`}>
         {/* 레이블 */}
         <td
-          className={`sticky left-0 z-10 bg-inherit px-3 py-1.5 whitespace-nowrap ${szCls} ${weightCls} ${indentCls} ${bgCls || "bg-card"}`}
+          className={`sticky left-0 z-10 bg-inherit px-3 py-1.5 whitespace-nowrap text-sm ${weightCls} ${indentCls} ${bgCls || "bg-card"}`}
         >
           {rowDef.label}
         </td>
@@ -417,64 +376,66 @@ export function MonthlyCFView({
         {/* 월별 셀 */}
         {months.map((month) => {
           const val = getCellValue(rowDef, month);
-          const clickable = isInput && rowDef.category;
+
+          // 색상 결정
+          let colorCls: string;
+          if (isHeader && rowDef.category === "INCOME") {
+            // Income header: 값이 있으면 녹색
+            colorCls = val === 0 ? "text-muted-foreground" : incomeColor(val);
+          } else if (incomeStyled) {
+            colorCls = incomeColor(val);
+          } else {
+            // 지출 섹션: 검정 (값 있으면), 없으면 회색
+            colorCls = val === 0 ? "text-muted-foreground" : "text-foreground";
+          }
 
           return (
             <td
               key={month}
-              onClick={() => {
-                if (clickable)
-                  setOpenDialog({ rowDef, month });
-              }}
-              className={`px-3 py-1.5 text-right tabular-nums ${szCls}
-                ${cellColor(val, isIncome)}
-                ${clickable ? "cursor-pointer hover:bg-muted/60" : ""}
+              onClick={() => isInput && rowDef.category && setOpenDialog({ rowDef, month })}
+              className={`px-3 py-1.5 text-right tabular-nums text-sm
+                ${colorCls}
+                ${isInput && rowDef.category ? "cursor-pointer hover:bg-muted/60" : ""}
               `}
             >
-              {/* input 행: 절대값, 계산 행: 부호 포함 */}
-              {isInput ? fmtAbs(val) : isHeader ? fmtAbs(val) : fmtSigned(val)}
+              {/* Income/Transfer: 부호 포함, 나머지: 절대값 */}
+              {incomeStyled || isHeader
+                ? fmtSigned(val)
+                : fmtAbs(val)}
             </td>
           );
         })}
 
-        {/* Total */}
-        <td className={`px-3 py-1.5 text-right tabular-nums ${szCls} text-muted-foreground`}>
-          {isNaN(totalVal) ? "—" : isInput ? fmtAbs(totalVal) : fmtSigned(totalVal)}
+        {/* Total 컬럼 */}
+        <td className={`px-3 py-1.5 text-right tabular-nums text-sm ${
+          incomeStyled || isHeader
+            ? totalVal === 0 ? "text-muted-foreground" : incomeStyled ? incomeColor(totalVal) : "text-muted-foreground"
+            : totalVal === 0 ? "text-muted-foreground" : "text-foreground"
+        }`}>
+          {incomeStyled || isHeader ? fmtSigned(totalVal) : fmtAbs(totalVal)}
         </td>
       </tr>
     );
   }
 
-  /** 계산 전용 요약 행 (Expenses Total / Net CF / Account NCF) */
-  function renderSummaryRow(opts: {
-    key: string;
-    label: string;
-    getValue: (month: string) => number;
-    bold?: boolean;
-    borderTop?: boolean;
-    showTotal?: boolean;
-  }) {
-    const { key, label, getValue, bold = false, borderTop = false, showTotal = true } = opts;
+  /** Expenses Total 행 — 양수, 붉은색 */
+  function renderExpensesTotal() {
+    const totalYTD = months.reduce((s, m) => s + getExpensesTotal(m), 0);
     return (
-      <tr key={key} className={`${borderTop ? "border-t-2 border-border" : "border-t border-border/30"} bg-muted/50`}>
-        <td className={`sticky left-0 z-10 bg-muted/50 px-3 py-1.5 whitespace-nowrap text-sm ${bold ? "font-bold" : "font-semibold"}`}>
-          {label}
+      <tr className="border-t-2 border-border bg-muted/50">
+        <td className="sticky left-0 z-10 bg-muted/50 px-3 py-1.5 whitespace-nowrap text-sm font-bold">
+          Expenses Total
         </td>
         {months.map((month) => {
-          const val = getValue(month);
+          const val = getExpensesTotal(month);
           return (
-            <td
-              key={month}
-              className={`px-3 py-1.5 text-right tabular-nums text-sm ${cellColor(val, true)}`}
-            >
-              {fmtSigned(val)}
+            <td key={month} className={`px-3 py-1.5 text-right tabular-nums text-sm font-semibold ${val !== 0 ? "text-red-500" : "text-muted-foreground"}`}>
+              {fmtExpTotal(val)}
             </td>
           );
         })}
-        <td className="px-3 py-1.5 text-right tabular-nums text-sm text-muted-foreground">
-          {showTotal
-            ? fmtSigned(months.reduce((s, m) => s + getValue(m), 0))
-            : "—"}
+        <td className={`px-3 py-1.5 text-right tabular-nums text-sm font-semibold ${totalYTD !== 0 ? "text-red-500" : "text-muted-foreground"}`}>
+          {fmtExpTotal(totalYTD)}
         </td>
       </tr>
     );
@@ -482,27 +443,27 @@ export function MonthlyCFView({
 
   /** Account Balance (opening/closing) 행 */
   function renderBalanceRow(type: "prev" | "close") {
-    const label = type === "prev" ? "Account Balance (prev)" : "Account Balance";
+    const label =
+      type === "prev" ? "Account Balance (prev)" : "Account Balance";
     const getVal = type === "prev" ? getOpeningBalance : getClosingBalance;
-    const rowKey = type === "prev" ? "balance_prev" : "balance_close";
 
     return (
       <tr
-        key={rowKey}
+        key={type === "prev" ? "balance_prev" : "balance_close"}
         className="border-t-2 border-border bg-blue-50/40 dark:bg-blue-950/20"
       >
         <td className="sticky left-0 z-10 bg-blue-50/40 dark:bg-blue-950/20 px-3 py-1.5 whitespace-nowrap text-sm font-bold">
           {label}
         </td>
         {months.map((month) => {
-          const isEditing = balanceEdit?.month === month && type === "prev";
+          const isEditing = balEdit?.month === month && type === "prev";
           const val = getVal(month);
           const isManual = type === "prev" && balances[month] !== undefined;
 
           return (
             <td
               key={month}
-              onClick={() => type === "prev" && !isEditing && startBalanceEdit(month)}
+              onClick={() => type === "prev" && !isEditing && startBalEdit(month)}
               className={`px-3 py-1.5 text-right tabular-nums text-sm
                 ${type === "prev" ? "cursor-pointer hover:bg-muted/60" : ""}
                 ${val >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-500"}
@@ -513,24 +474,22 @@ export function MonthlyCFView({
                 <div className="flex items-center justify-end gap-1">
                   <Input
                     autoFocus
-                    value={balanceEdit.value}
+                    value={balEdit.value}
                     onChange={(e) =>
-                      setBalanceEdit((prev) =>
-                        prev ? { ...prev, value: e.target.value } : null
-                      )
+                      setBalEdit((prev) => prev ? { ...prev, value: e.target.value } : null)
                     }
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") confirmBalanceEdit();
-                      if (e.key === "Escape") setBalanceEdit(null);
+                      if (e.key === "Enter") confirmBalEdit();
+                      if (e.key === "Escape") setBalEdit(null);
                     }}
                     className="h-6 w-24 text-xs px-1 py-0 text-right"
                     type="number"
-                    disabled={balanceSaving}
+                    disabled={balSaving}
                   />
-                  <button onClick={confirmBalanceEdit} disabled={balanceSaving} className="text-emerald-600">
+                  <button onClick={confirmBalEdit} disabled={balSaving} className="text-emerald-600">
                     <Check className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={() => setBalanceEdit(null)} className="text-muted-foreground">
+                  <button onClick={() => setBalEdit(null)} className="text-muted-foreground">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -543,17 +502,13 @@ export function MonthlyCFView({
     );
   }
 
-  // ── 다이얼로그에 전달할 entries ───────────────────────────────
+  // ── 다이얼로그 entries ────────────────────────────────────────
 
   const dialogEntries = openDialog
-    ? getEntries(
-        openDialog.rowDef.category!,
-        openDialog.rowDef.name,
-        openDialog.month
-      )
+    ? getEntries(openDialog.rowDef.category!, openDialog.rowDef.name, openDialog.month)
     : [];
 
-  // ── 렌더링 ────────────────────────────────────────────────────
+  // ── 렌더링 ───────────────────────────────────────────────────
 
   return (
     <>
@@ -562,7 +517,6 @@ export function MonthlyCFView({
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               <CardTitle className="text-base">Monthly Cashflow</CardTitle>
-              {/* 연도 선택 버튼 */}
               <div className="flex gap-1">
                 {[curYear - 1, curYear].map((y) => (
                   <Button
@@ -623,48 +577,14 @@ export function MonthlyCFView({
               </thead>
 
               <tbody>
-                {/* Account Balance (opening) */}
+                {/* Account Balance (prev) */}
                 {renderBalanceRow("prev")}
 
-                {/* Income + 지출 카테고리 모든 행 */}
+                {/* 모든 CF 행 (Income 포함 acct_transfer, 지출 카테고리) */}
                 {CF_TABLE_ROWS.map((rowDef) => renderRow(rowDef))}
 
                 {/* Expenses Total */}
-                {renderSummaryRow({
-                  key: "expenses_total",
-                  label: "Expenses Total",
-                  getValue: getExpensesTotal,
-                  bold: true,
-                  borderTop: true,
-                })}
-
-                {/* Net Monthly CF */}
-                {renderSummaryRow({
-                  key: "net_cf",
-                  label: "Net Monthly CF",
-                  getValue: getNetCF,
-                  bold: true,
-                })}
-
-                {/* Account Transfer 섹션 헤더 */}
-                <tr className="border-t-2 border-border">
-                  <td
-                    colSpan={months.length + 2}
-                    className="px-3 py-1 text-xs font-semibold text-muted-foreground bg-muted/20"
-                  >
-                    Account Transfer
-                  </td>
-                </tr>
-                {CF_TRANSFER_ROWS.map((rowDef) => renderRow(rowDef))}
-
-                {/* Account Monthly NCF */}
-                {renderSummaryRow({
-                  key: "account_ncf",
-                  label: "Account Monthly NCF",
-                  getValue: getAccountNCF,
-                  bold: true,
-                  borderTop: true,
-                })}
+                {renderExpensesTotal()}
 
                 {/* Account Balance (closing) */}
                 {renderBalanceRow("close")}
@@ -674,10 +594,10 @@ export function MonthlyCFView({
         </CardContent>
       </Card>
 
-      {/* ── 세부항목 다이얼로그 ─────────────────────────────────── */}
+      {/* 세부항목 다이얼로그 */}
       {openDialog && (
         <MonthlyCFSubItemDialog
-          open={!!openDialog}
+          open
           onClose={() => setOpenDialog(null)}
           label={openDialog.rowDef.label}
           category={openDialog.rowDef.category!}
