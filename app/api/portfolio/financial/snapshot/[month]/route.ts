@@ -109,6 +109,16 @@ function mergeSnapshotUpdate(
     midterm2805: body.midterm2805 ?? snapshot.midterm2805,
     // 계좌별 주식예수금
     stockDepositByAccount: body.stockDepositByAccount ?? snapshot.stockDepositByAccount,
+    // 자산관리 II 월별 직접입력 (교육, 연금, 단기)
+    educationMonthly: body.educationMonthly
+      ? { ...snapshot.educationMonthly, ...body.educationMonthly }
+      : snapshot.educationMonthly,
+    shorttermMonthly: body.shorttermMonthly
+      ? { ...snapshot.shorttermMonthly, ...body.shorttermMonthly }
+      : snapshot.shorttermMonthly,
+    pensionMonthly: body.pensionMonthly
+      ? { ...snapshot.pensionMonthly, ...body.pensionMonthly }
+      : snapshot.pensionMonthly,
     // 기타자산
     otherAssets: body.otherAssets ?? snapshot.otherAssets,
     updatedAt: new Date().toISOString(),

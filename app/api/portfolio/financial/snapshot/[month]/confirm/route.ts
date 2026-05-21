@@ -90,36 +90,73 @@ export async function POST(
     )
   );
 
+  // 자산관리 II용 Shortterm 포지션 집계 (stockBalance + principal 분리)
+  const shorttermStockBalance = Math.round(
+    shorttermData.positions.reduce(
+      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
+      0
+    )
+  );
+  const shorttermPrincipal = Math.round(
+    shorttermData.positions.reduce((s, p) => s + p.avgPrice * p.quantity, 0)
+  );
+
   // ── 3. Pension 계좌별 집계 ────────────────────────────────
-  const pensionTxs = readPensionTxs();
-  const pensionPositions = calcPensionPositions(pensionTxs, {});
+  // DRAFT 스냅샷에 pensionMonthly 수동 입력값이 있으면 그 값을 우선 사용 (실제 잔액 반영)
+  const draftSnap = idx !== -1 ? snapshots[idx] : null;
+  const pm = draftSnap?.pensionMonthly;
 
-  // RETIREMENT (퇴직연금) → pensionFund
-  const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
-  const pensionFundBalance = Math.round(retirementPositions.reduce((s, p) => s + p.evalAmount, 0));
-  const pensionFundPrincipal = Math.round(retirementPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+  let pensionFundBalance: number;
+  let pensionFundPrincipal: number;
+  let pensionDepositBalance: number;
+  let pensionDepositPrincipal: number;
+  let irpBalance: number;
+  let irpPrincipal: number;
 
-  // SAVINGS (연금저축) → pensionDeposit
-  const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
-  const pensionDepositBalance = Math.round(savingsPositions.reduce((s, p) => s + p.evalAmount, 0));
-  const pensionDepositPrincipal = Math.round(savingsPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+  if (pm?.fundBalance != null || pm?.fundPrincipal != null || pm?.depositBalance != null ||
+      pm?.depositPrincipal != null || pm?.irpBalance != null || pm?.irpPrincipal != null) {
+    // pensionMonthly 수동 입력값 사용 (일부만 있어도 나머지는 live calc로 보완)
+    const pensionTxs = readPensionTxs();
+    const pensionPositions = calcPensionPositions(pensionTxs, {});
+    const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
+    const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
+    const irpPositions = pensionPositions.filter((p) => p.accountType === "IRP");
 
-  // IRP
-  const irpPositions = pensionPositions.filter((p) => p.accountType === "IRP");
-  const irpBalance = Math.round(irpPositions.reduce((s, p) => s + p.evalAmount, 0));
-  const irpPrincipal = Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionFundBalance = pm.fundBalance ?? Math.round(retirementPositions.reduce((s, p) => s + p.evalAmount, 0));
+    pensionFundPrincipal = pm.fundPrincipal ?? Math.round(retirementPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionDepositBalance = pm.depositBalance ?? Math.round(savingsPositions.reduce((s, p) => s + p.evalAmount, 0));
+    pensionDepositPrincipal = pm.depositPrincipal ?? Math.round(savingsPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    irpBalance = pm.irpBalance ?? Math.round(irpPositions.reduce((s, p) => s + p.evalAmount, 0));
+    irpPrincipal = pm.irpPrincipal ?? Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+  } else {
+    // 수동 입력 없으면 거래내역 기반 자동 계산
+    const pensionTxs = readPensionTxs();
+    const pensionPositions = calcPensionPositions(pensionTxs, {});
+    const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
+    const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
+    const irpPositions = pensionPositions.filter((p) => p.accountType === "IRP");
+
+    pensionFundBalance = Math.round(retirementPositions.reduce((s, p) => s + p.evalAmount, 0));
+    pensionFundPrincipal = Math.round(retirementPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionDepositBalance = Math.round(savingsPositions.reduce((s, p) => s + p.evalAmount, 0));
+    pensionDepositPrincipal = Math.round(savingsPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    irpBalance = Math.round(irpPositions.reduce((s, p) => s + p.evalAmount, 0));
+    irpPrincipal = Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+  }
 
   // 캐나다 연금 KRW 환산
   const canadianPensionKrw = Math.round(body.canadianPension.balanceCad * body.cadKrw);
 
   // ── 4. Education 1470 집계 ────────────────────────────────
   const educationData = await readEducationData();
-  const education1470Stock = Math.round(
+  const education1470StockLive = Math.round(
     educationData.positions.reduce(
       (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
       0
     )
   );
+  // educationMonthly.stockBalance 수동 입력값이 있으면 우선 사용 (currentPrice=0 문제 우회)
+  const education1470Stock = draftSnap?.educationMonthly?.stockBalance ?? education1470StockLive;
   const education1470Principal = Math.round(
     educationData.positions.reduce((s, p) => s + p.avgPrice * p.quantity, 0)
   );
@@ -178,9 +215,13 @@ export async function POST(
       irpBalance,
       irpPrincipal,
       // Education 1470
-      education1470Deposit: 0,
+      education1470Deposit: base.educationMonthly?.deposit ?? 0,
       education1470Stock,
       education1470Principal,
+      // Short-term Account (2805) — 자산관리 II 표시용
+      shorttermStockBalance,
+      shorttermPrincipal,
+      shorttermDeposit: base.shorttermMonthly?.deposit ?? 0,
       // 이전 버전 호환
       canadianPensionKrw,
     },

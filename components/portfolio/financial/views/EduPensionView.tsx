@@ -1,67 +1,283 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Pencil, RefreshCw, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Edit } from "lucide-react";
-import { SnapshotEditDialog } from "../SnapshotEditDialog";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { buildAssetManagementIIYearlyData } from "@/lib/portfolio/financial-calc";
 import type {
   FinancialSnapshot,
-  UpdateSnapshotRequest,
+  AssetManagementIIColumnData,
   LivePortfolioData,
+  UpdateSnapshotRequest,
 } from "@/types/financial";
 
+// ─────────────────────────────────────────
+// Props 및 상수
+// ─────────────────────────────────────────
+
 interface EduPensionViewProps {
-  snapshot: FinancialSnapshot;
+  snapshots: FinancialSnapshot[];
   liveData: LivePortfolioData | null;
   liveLoading: boolean;
-  isConfirmed: boolean;
   onRefresh: () => void;
 }
 
+// 월 레이블 (Jan ~ Dec)
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 // ─────────────────────────────────────────
-// 포맷 유틸
+// 숫자 포맷 유틸
 // ─────────────────────────────────────────
 
+// 자산관리 탭과 동일한 en-dash(–) 사용 — em-dash(—) 아님
 function fmtKrw(v: number): string {
-  const neg = v < 0;
-  const abs = Math.abs(v);
-  let str: string;
-  if (abs >= 1_0000_0000) str = `${(abs / 1_0000_0000).toFixed(2)}억`;
-  else if (abs >= 10_000) str = `${(abs / 10_000).toFixed(0)}만`;
-  else str = abs.toLocaleString() + "원";
-  return neg ? `−${str}` : str;
+  if (v === 0) return "–";
+  return v.toLocaleString("ko-KR");
 }
 
-function fmtKrwFull(v: number): string {
-  return v.toLocaleString() + "원";
+function fmtUsd(v: number): string {
+  if (v === 0) return "–";
+  // 소수점 없이 정수 표시 (엑셀 달러 표기 동일)
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function fmtCad(v: number): string {
+  if (v === 0) return "–";
+  // 소수점 없이 정수 표시
+  return `C$${v.toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function fmtPct(v: number): string {
-  return `${v >= 0 ? "+" : ""}${(v * 100).toFixed(2)}%`;
+  if (v === 0) return "–";
+  const sign = v >= 0 ? "+" : "";
+  return `${sign}${(v * 100).toFixed(2)}%`;
 }
 
-function plColor(v: number): string {
-  return v >= 0 ? "text-emerald-600" : "text-red-600";
+/** P/L 값에 따른 텍스트 색상 클래스 */
+function pnlClass(v: number): string {
+  if (v > 0) return "text-emerald-600";
+  if (v < 0) return "text-rose-500";
+  return "text-muted-foreground";
 }
 
-function PLCell({ value, pct }: { value: number; pct?: number }) {
-  const color = plColor(value);
+// ─────────────────────────────────────────
+// 셀 렌더링 헬퍼
+// ─────────────────────────────────────────
+
+interface CellProps {
+  value: string;
+  className?: string;
+  isBaseline?: boolean;
+}
+
+function Cell({ value, className = "", isBaseline = false }: CellProps) {
+  // hasData=false인 셀: 자산관리 탭과 동일하게 en-dash + 흐린 색상
+  // (빈 값은 fmtKrw에서 "–"로 변환되어 전달됨)
   return (
-    <div className={`text-right font-mono text-sm ${color}`}>
-      <div>{value >= 0 ? "+" : ""}{fmtKrw(value)}</div>
-      {pct !== undefined && <div className="text-xs opacity-80">{fmtPct(pct)}</div>}
-    </div>
+    <td
+      className={[
+        "tabular-nums text-right px-2 py-1 text-xs border-l border-border/50",
+        isBaseline ? "bg-muted/40 text-muted-foreground" : "",
+        value === "–" && !className ? "text-muted-foreground/40" : "",
+        className,
+      ].join(" ")}
+    >
+      {value}
+    </td>
+  );
+}
+
+// ─────────────────────────────────────────
+// 입력 다이얼로그 (AssetManagementIIInputDialog)
+// ─────────────────────────────────────────
+
+interface DialogState {
+  month: string;
+  // Digital Asset
+  upbitBalance: string;
+  upbitPrincipal: string;
+  korbitBalance: string;
+  korbitPrincipal: string;
+  binanceBalance: string;
+  binancePrincipal: string;
+  // Education 1470
+  educationDeposit: string;
+  // Pension (실제 잔액 수동 입력)
+  pensionFundBalance: string;
+  pensionFundPrincipal: string;
+  pensionDepositBalance: string;
+  pensionDepositPrincipal: string;
+  irpBalance: string;
+  irpPrincipal: string;
+  // RESP/RRSP
+  respRrspBalanceCad: string;
+  // Short-term Account (2805)
+  shorttermDeposit: string;
+}
+
+interface InputDialogProps {
+  open: boolean;
+  onClose: () => void;
+  state: DialogState;
+  onChange: (state: DialogState) => void;
+  onSave: () => Promise<void>;
+  onCopyPrev: () => void;
+  hasPrev: boolean;
+  saving: boolean;
+}
+
+function AssetManagementIIInputDialog({
+  open, onClose, state, onChange, onSave, onCopyPrev, hasPrev, saving,
+}: InputDialogProps) {
+  const set = (key: keyof DialogState) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    onChange({ ...state, [key]: e.target.value });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-sm">
+            자산관리 II 편집 — {state.month}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Digital Asset */}
+          <section>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Digital Asset
+              </p>
+              {hasPrev && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-xs gap-1"
+                  onClick={onCopyPrev}
+                >
+                  <Copy className="h-3 w-3" />
+                  전월 원가 복사
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Upbit 잔액 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.upbitBalance} onChange={set("upbitBalance")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Upbit 원가 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.upbitPrincipal} onChange={set("upbitPrincipal")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Korbit 잔액 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.korbitBalance} onChange={set("korbitBalance")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Korbit 원가 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.korbitPrincipal} onChange={set("korbitPrincipal")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Binance 잔액 (USD)</Label>
+                <Input className="h-7 text-xs" value={state.binanceBalance} onChange={set("binanceBalance")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Binance 원가 (USD)</Label>
+                <Input className="h-7 text-xs" value={state.binancePrincipal} onChange={set("binancePrincipal")} placeholder="0" />
+              </div>
+            </div>
+          </section>
+
+          {/* Education 1470 */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Education 1470
+            </p>
+            <div>
+              <Label className="text-xs">예수금 / Deposit (KRW)</Label>
+              <Input className="h-7 text-xs" value={state.educationDeposit} onChange={set("educationDeposit")} placeholder="0" />
+            </div>
+          </section>
+
+          {/* Pension */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Pension
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">퇴직연금 잔액 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.pensionFundBalance} onChange={set("pensionFundBalance")} placeholder="" />
+              </div>
+              <div>
+                <Label className="text-xs">퇴직연금 원금 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.pensionFundPrincipal} onChange={set("pensionFundPrincipal")} placeholder="" />
+              </div>
+              <div>
+                <Label className="text-xs">연금저축 잔액 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.pensionDepositBalance} onChange={set("pensionDepositBalance")} placeholder="" />
+              </div>
+              <div>
+                <Label className="text-xs">연금저축 원금 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.pensionDepositPrincipal} onChange={set("pensionDepositPrincipal")} placeholder="" />
+              </div>
+              <div>
+                <Label className="text-xs">IRP 잔액 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.irpBalance} onChange={set("irpBalance")} placeholder="" />
+              </div>
+              <div>
+                <Label className="text-xs">IRP 원금 (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.irpPrincipal} onChange={set("irpPrincipal")} placeholder="" />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              * 비워두면 거래내역 기반 자동 계산값 사용
+            </p>
+          </section>
+
+          {/* RESP/RRSP */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              RESP/RRSP
+            </p>
+            <div>
+              <Label className="text-xs">잔액 (CAD)</Label>
+              <Input className="h-7 text-xs" value={state.respRrspBalanceCad} onChange={set("respRrspBalanceCad")} placeholder="0" />
+            </div>
+          </section>
+
+          {/* Short-term Account (2805) */}
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              Short-term Account (2805)
+            </p>
+            <div>
+              <Label className="text-xs">예수금 / Deposit (KRW)</Label>
+              <Input className="h-7 text-xs" value={state.shorttermDeposit} onChange={set("shorttermDeposit")} placeholder="0" />
+            </div>
+          </section>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>
+            취소
+          </Button>
+          <Button size="sm" onClick={onSave} disabled={saving}>
+            {saving ? "저장 중..." : "저장"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -69,351 +285,641 @@ function PLCell({ value, pct }: { value: number; pct?: number }) {
 // 메인 컴포넌트
 // ─────────────────────────────────────────
 
-export function EduPensionView({
-  snapshot,
-  liveData,
-  liveLoading,
-  isConfirmed,
-  onRefresh,
-}: EduPensionViewProps) {
-  const [showEdit, setShowEdit] = useState(false);
+export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: EduPensionViewProps) {
+  const curYear = new Date().getFullYear();
+  const [year, setYear] = useState(curYear);
 
-  const handleSaveSnapshot = useCallback(async (req: UpdateSnapshotRequest) => {
-    const res = await fetch(`/api/portfolio/financial/snapshot/${snapshot.month}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
+  // 다이얼로그 상태
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dialogState, setDialogState] = useState<DialogState>({
+    month: "",
+    upbitBalance: "0", upbitPrincipal: "0",
+    korbitBalance: "0", korbitPrincipal: "0",
+    binanceBalance: "0", binancePrincipal: "0",
+    educationDeposit: "0",
+    pensionFundBalance: "", pensionFundPrincipal: "",
+    pensionDepositBalance: "", pensionDepositPrincipal: "",
+    irpBalance: "", irpPrincipal: "",
+    respRrspBalanceCad: "0",
+    shorttermDeposit: "0",
+  });
+
+  // 스냅샷 맵 (month → snapshot) — 이전 월 데이터 접근용
+  const snapMap = new Map(snapshots.map((s) => [s.month, s]));
+
+  // 컬럼 데이터 빌드
+  const columns = buildAssetManagementIIYearlyData(snapshots, liveData, year);
+
+  // 헤더 레이블 — Dec-{year-1} + Jan~Dec
+  const headerLabels = [`Dec-${year - 1}`, ...MONTH_LABELS];
+
+  // ── 편집 버튼 클릭 핸들러 ──────────────────────────
+  const handleEdit = useCallback((col: AssetManagementIIColumnData) => {
+    const snap = snapMap.get(col.month);
+    const crypto = snap?.crypto;
+    const pm = snap?.pensionMonthly;
+
+    setDialogState({
+      month: col.month,
+      upbitBalance: String(crypto?.upbit?.balance ?? col.digitalAsset.upbitBalance),
+      upbitPrincipal: String(crypto?.upbit?.principal ?? col.digitalAsset.upbitPrincipal),
+      korbitBalance: String(crypto?.korbit?.balance ?? col.digitalAsset.korbitBalance),
+      korbitPrincipal: String(crypto?.korbit?.principal ?? col.digitalAsset.korbitPrincipal),
+      binanceBalance: String(crypto?.binance?.balance ?? col.digitalAsset.binanceBalanceUsd),
+      binancePrincipal: String(crypto?.binance?.principal ?? col.digitalAsset.binancePrincipalUsd),
+      // Education: 저장된 수동 입력값 우선, 없으면 현재 집계값
+      educationDeposit: String(snap?.educationMonthly?.deposit ?? col.education.deposit),
+      // Pension: 저장된 수동 입력값 우선 (없으면 빈 문자열 → 자동 계산 사용)
+      pensionFundBalance: pm?.fundBalance != null ? String(pm.fundBalance) : "",
+      pensionFundPrincipal: pm?.fundPrincipal != null ? String(pm.fundPrincipal) : "",
+      pensionDepositBalance: pm?.depositBalance != null ? String(pm.depositBalance) : "",
+      pensionDepositPrincipal: pm?.depositPrincipal != null ? String(pm.depositPrincipal) : "",
+      irpBalance: pm?.irpBalance != null ? String(pm.irpBalance) : "",
+      irpPrincipal: pm?.irpPrincipal != null ? String(pm.irpPrincipal) : "",
+      respRrspBalanceCad: String(snap?.canadianPension?.balanceCad ?? col.respRrsp.balanceCad),
+      // Short-term: 저장된 수동 입력값 우선, 없으면 현재 집계값
+      shorttermDeposit: String(snap?.shorttermMonthly?.deposit ?? col.shortterm.deposit),
     });
-    if (!res.ok) throw new Error(await res.text());
-    onRefresh();
-  }, [snapshot.month, onRefresh]);
+    setDialogOpen(true);
+  }, [snapMap]);
 
-  const cp = snapshot.confirmedPortfolio;
-  const { exchangeRates } = snapshot;
-  const usdKrw = exchangeRates.usdKrw;
-  const cadKrw = exchangeRates.cadKrw;
+  // ── 전월 원가 복사 ────────────────────────────────
+  const handleCopyPrev = useCallback(() => {
+    const [yearStr, monthStr] = dialogState.month.split("-");
+    const prevMonth = parseInt(monthStr) === 1
+      ? `${parseInt(yearStr) - 1}-12`
+      : `${yearStr}-${String(parseInt(monthStr) - 1).padStart(2, "0")}`;
+    const prevSnap = snapMap.get(prevMonth);
+    if (!prevSnap?.crypto) return;
 
-  // ── 가상자산 (Crypto) ─────────────────────────────────
-  const upbitBalance = snapshot.crypto.upbit.balance;
-  const upbitPrincipal = snapshot.crypto.upbit.principal;
-  const upbitPnl = upbitBalance - upbitPrincipal;
-  const upbitPnlPct = upbitPrincipal > 0 ? upbitPnl / upbitPrincipal : 0;
+    setDialogState((prev) => ({
+      ...prev,
+      upbitPrincipal: String(prevSnap.crypto?.upbit?.principal ?? prev.upbitPrincipal),
+      korbitPrincipal: String(prevSnap.crypto?.korbit?.principal ?? prev.korbitPrincipal),
+      binancePrincipal: String(prevSnap.crypto?.binance?.principal ?? prev.binancePrincipal),
+    }));
+  }, [dialogState.month, snapMap]);
 
-  const korbitBalance = snapshot.crypto.korbit.balance;
-  const korbitPrincipal = snapshot.crypto.korbit.principal;
-  const korbitPnl = korbitBalance - korbitPrincipal;
-  const korbitPnlPct = korbitPrincipal > 0 ? korbitPnl / korbitPrincipal : 0;
+  // ── 전월 데이터 존재 여부 확인 ──────────────────
+  const hasPrevData = useCallback(() => {
+    const [yearStr, monthStr] = dialogState.month.split("-");
+    const prevMonth = parseInt(monthStr) === 1
+      ? `${parseInt(yearStr) - 1}-12`
+      : `${yearStr}-${String(parseInt(monthStr) - 1).padStart(2, "0")}`;
+    return snapMap.has(prevMonth);
+  }, [dialogState.month, snapMap]);
 
-  const binanceBalanceUsd = snapshot.crypto.binance.balance;
-  const binancePrincipalUsd = snapshot.crypto.binance.principal;
-  const binanceBalanceKrw = Math.round(binanceBalanceUsd * usdKrw);
-  const binancePrincipalKrw = Math.round(binancePrincipalUsd * usdKrw);
-  const binancePnlKrw = binanceBalanceKrw - binancePrincipalKrw;
-  const binancePnlPct = binancePrincipalUsd > 0 ? (binanceBalanceUsd - binancePrincipalUsd) / binancePrincipalUsd : 0;
+  // ── 저장 처리 ─────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    try {
+      // Pension 수동 입력: 빈 문자열이면 null(= 자동 계산 사용), 숫자면 수동 입력값
+      const parsePension = (v: string) => v.trim() === "" ? undefined : (Number(v) || 0);
 
-  const cryptoTotalBalance = upbitBalance + korbitBalance + binanceBalanceKrw;
-  const cryptoTotalPrincipal = upbitPrincipal + korbitPrincipal + binancePrincipalKrw;
-  const cryptoTotalPnl = cryptoTotalBalance - cryptoTotalPrincipal;
-  const cryptoTotalPnlPct = cryptoTotalPrincipal > 0 ? cryptoTotalPnl / cryptoTotalPrincipal : 0;
+      const body: UpdateSnapshotRequest = {
+        crypto: {
+          upbit: {
+            balance: Number(dialogState.upbitBalance) || 0,
+            principal: Number(dialogState.upbitPrincipal) || 0,
+          },
+          korbit: {
+            balance: Number(dialogState.korbitBalance) || 0,
+            principal: Number(dialogState.korbitPrincipal) || 0,
+          },
+          binance: {
+            balance: Number(dialogState.binanceBalance) || 0,
+            principal: Number(dialogState.binancePrincipal) || 0,
+          },
+        },
+        educationMonthly: {
+          deposit: Number(dialogState.educationDeposit) || 0,
+        },
+        pensionMonthly: {
+          fundBalance: parsePension(dialogState.pensionFundBalance),
+          fundPrincipal: parsePension(dialogState.pensionFundPrincipal),
+          depositBalance: parsePension(dialogState.pensionDepositBalance),
+          depositPrincipal: parsePension(dialogState.pensionDepositPrincipal),
+          irpBalance: parsePension(dialogState.irpBalance),
+          irpPrincipal: parsePension(dialogState.irpPrincipal),
+        },
+        canadianPension: {
+          balanceCad: Number(dialogState.respRrspBalanceCad) || 0,
+          monthlyFeeCad: 0,
+        },
+        shorttermMonthly: {
+          deposit: Number(dialogState.shorttermDeposit) || 0,
+        },
+      };
 
-  // ── Education 1470 ────────────────────────────────────
-  const edu1470Deposit = isConfirmed ? (cp?.education1470Deposit ?? 0) : (liveData?.education1470.deposit ?? 0);
-  const edu1470Stock = isConfirmed ? (cp?.education1470Stock ?? 0) : (liveData?.education1470.stock ?? 0);
-  const edu1470Total = edu1470Deposit + edu1470Stock;
-  const edu1470Principal = isConfirmed ? (cp?.education1470Principal ?? 0) : (liveData?.education1470.principal ?? 0);
-  const edu1470Pnl = edu1470Total - edu1470Principal;
-  const edu1470PnlPct = edu1470Principal > 0 ? edu1470Pnl / edu1470Principal : 0;
+      const res = await fetch(`/api/portfolio/financial/snapshot/${dialogState.month}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-  // ── Pension (국내) ────────────────────────────────────
-  const pensionFundBalance = isConfirmed ? (cp?.pensionFundBalance ?? 0) : (liveData?.pensionFund.balance ?? 0);
-  const pensionFundPrincipal = isConfirmed ? (cp?.pensionFundPrincipal ?? 0) : (liveData?.pensionFund.principal ?? 0);
-  const pensionFundPnl = pensionFundBalance - pensionFundPrincipal;
-  const pensionFundPnlPct = pensionFundPrincipal > 0 ? pensionFundPnl / pensionFundPrincipal : 0;
+      if (!res.ok) throw new Error("저장 실패");
+      setDialogOpen(false);
+      onRefresh();
+    } catch (e) {
+      console.error("[EduPensionView] save error", e);
+    } finally {
+      setSaving(false);
+    }
+  }, [dialogState, onRefresh]);
 
-  const pensionDepositBalance = isConfirmed ? (cp?.pensionDepositBalance ?? 0) : (liveData?.pensionDeposit.balance ?? 0);
-  const pensionDepositPrincipal = isConfirmed ? (cp?.pensionDepositPrincipal ?? 0) : (liveData?.pensionDeposit.principal ?? 0);
-  const pensionDepositPnl = pensionDepositBalance - pensionDepositPrincipal;
-  const pensionDepositPnlPct = pensionDepositPrincipal > 0 ? pensionDepositPnl / pensionDepositPrincipal : 0;
-
-  const irpBalance = isConfirmed ? (cp?.irpBalance ?? 0) : (liveData?.irp.balance ?? 0);
-  const irpPrincipal = isConfirmed ? (cp?.irpPrincipal ?? 0) : (liveData?.irp.principal ?? 0);
-  const irpPnl = irpBalance - irpPrincipal;
-  const irpPnlPct = irpPrincipal > 0 ? irpPnl / irpPrincipal : 0;
-
-  const pensionTotalBalance = pensionFundBalance + pensionDepositBalance + irpBalance;
-  const pensionTotalPrincipal = pensionFundPrincipal + pensionDepositPrincipal + irpPrincipal;
-  const pensionTotalPnl = pensionTotalBalance - pensionTotalPrincipal;
-  const pensionTotalPnlPct = pensionTotalPrincipal > 0 ? pensionTotalPnl / pensionTotalPrincipal : 0;
-
-  // ── 캐나다 연금 RESP/RRSP ─────────────────────────────
-  const canadianBalanceCad = snapshot.canadianPension.balanceCad;
-  const canadianBalanceKrw = Math.round(canadianBalanceCad * cadKrw);
-
-  // ── 2805 중기 계좌 ────────────────────────────────────
-  const { midterm2805 } = snapshot;
-  const netInstallment = midterm2805.cumInstallment - midterm2805.cumSpent;
-  const estimatedPnl = midterm2805.balance - netInstallment;
+  // ── 테이블 렌더링 ─────────────────────────────────
 
   return (
-    <div className="space-y-6">
-      {/* 상단 헤더 */}
+    <div className="space-y-3">
+      {/* 헤더 컨트롤 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{snapshot.month} 연금·교육 현황</span>
-          {isConfirmed ? (
-            <Badge variant="outline" className="text-emerald-600 border-emerald-400 text-xs">🔒 확정</Badge>
-          ) : (
-            <Badge variant="outline" className="text-amber-600 border-amber-400 text-xs">DRAFT</Badge>
-          )}
-        </div>
-        {!isConfirmed && (
-          <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
-            <Edit className="w-3.5 h-3.5 mr-1" />수정
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setYear((y) => y - 1)}>
+            <ChevronLeft className="h-3 w-3" />
           </Button>
-        )}
+          <span className="text-sm font-semibold tabular-nums w-12 text-center">{year}</span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setYear((y) => y + 1)}
+            disabled={year >= curYear}
+          >
+            <ChevronRight className="h-3 w-3" />
+          </Button>
+        </div>
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onRefresh} disabled={liveLoading}>
+          <RefreshCw className={`h-3 w-3 ${liveLoading ? "animate-spin" : ""}`} />
+          새로고침
+        </Button>
       </div>
 
-      {/* ── Section 1: 가상자산 (Education Cryptocurrency) ─────── */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm">교육자금 가상자산</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-xs">
-                <TableHead className="pl-4">거래소</TableHead>
-                <TableHead className="text-right">잔액 (KRW)</TableHead>
-                <TableHead className="text-right">원금</TableHead>
-                <TableHead className="text-right">손익</TableHead>
-                <TableHead className="text-right pr-4">수익률</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <TableRow>
-                <TableCell className="pl-4 text-sm font-medium">Upbit (KRW)</TableCell>
-                <TableCell className="text-right font-mono text-sm">{fmtKrwFull(upbitBalance)}</TableCell>
-                <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrwFull(upbitPrincipal)}</TableCell>
-                <TableCell><PLCell value={upbitPnl} /></TableCell>
-                <TableCell className={`text-right text-sm pr-4 ${plColor(upbitPnlPct)}`}>{fmtPct(upbitPnlPct)}</TableCell>
-              </TableRow>
-
-              <TableRow>
-                <TableCell className="pl-4 text-sm font-medium">Korbit (KRW)</TableCell>
-                <TableCell className="text-right font-mono text-sm">{fmtKrwFull(korbitBalance)}</TableCell>
-                <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrwFull(korbitPrincipal)}</TableCell>
-                <TableCell><PLCell value={korbitPnl} /></TableCell>
-                <TableCell className={`text-right text-sm pr-4 ${plColor(korbitPnlPct)}`}>{fmtPct(korbitPnlPct)}</TableCell>
-              </TableRow>
-
-              <TableRow>
-                <TableCell className="pl-4 text-sm font-medium">
-                  <div>Binance (USD)</div>
-                  <div className="text-xs text-muted-foreground">
-                    ${binanceBalanceUsd.toLocaleString(undefined, { maximumFractionDigits: 2 })} × {usdKrw}
+      {/* 테이블 */}
+      <div className="overflow-x-auto rounded-md border border-border">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="bg-muted/50 border-b border-border">
+              {/* 고정 레이블 컬럼 */}
+              <th className="sticky left-0 z-10 bg-muted/70 text-left px-3 py-2 text-xs font-semibold w-48 min-w-[180px] border-r border-border">
+                항목
+              </th>
+              {columns.map((col, idx) => (
+                <th
+                  key={col.month}
+                  className={[
+                    "text-center px-2 py-2 font-medium border-l border-border/50 min-w-[90px]",
+                    col.isBaseline ? "bg-muted/40 text-muted-foreground" : "",
+                    !col.hasData ? "text-muted-foreground/50" : "",
+                  ].join(" ")}
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span>{headerLabels[idx]}</span>
+                    {col.hasData && (
+                      <div className="flex items-center gap-1">
+                        {col.isDraft ? (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-orange-400 text-orange-500">
+                            DRAFT
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-400 text-emerald-600">
+                            확정
+                          </Badge>
+                        )}
+                        {col.isDraft && (
+                          <button
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => handleEdit(col)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </TableCell>
-                <TableCell className="text-right font-mono text-sm">{fmtKrwFull(binanceBalanceKrw)}</TableCell>
-                <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrwFull(binancePrincipalKrw)}</TableCell>
-                <TableCell><PLCell value={binancePnlKrw} /></TableCell>
-                <TableCell className={`text-right text-sm pr-4 ${plColor(binancePnlPct)}`}>{fmtPct(binancePnlPct)}</TableCell>
-              </TableRow>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* ── Digital Asset 섹션 ── */}
+            <SectionHeaderRow label="Digital Asset" colCount={columns.length} />
 
-              <TableRow className="bg-muted/40 font-semibold">
-                <TableCell className="pl-4 text-sm">합계</TableCell>
-                <TableCell className="text-right font-mono text-sm">{fmtKrwFull(cryptoTotalBalance)}</TableCell>
-                <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrwFull(cryptoTotalPrincipal)}</TableCell>
-                <TableCell><PLCell value={cryptoTotalPnl} /></TableCell>
-                <TableCell className={`text-right text-sm pr-4 ${plColor(cryptoTotalPnlPct)}`}>{fmtPct(cryptoTotalPnlPct)}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            {/* Principal */}
+            <LabelRow label="Principal (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Upbit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitPrincipal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Korbit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitPrincipal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Binance (USD)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binancePrincipalUsd)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Principal"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.digitalAsset.totalPrincipalKrw)}
+            />
 
-      {/* ── Section 2: 1470 Education Account ──────────────────── */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm">1470 교육 계좌</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          {liveLoading && !isConfirmed ? (
-            <div className="p-4"><Skeleton className="h-16 w-full" /></div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="text-xs">
-                  <TableHead className="pl-4">예금</TableHead>
-                  <TableHead className="text-right">주식</TableHead>
-                  <TableHead className="text-right">총잔액</TableHead>
-                  <TableHead className="text-right">원금</TableHead>
-                  <TableHead className="text-right">손익</TableHead>
-                  <TableHead className="text-right pr-4">수익률</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="pl-4 font-mono text-sm">{fmtKrwFull(edu1470Deposit)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{fmtKrwFull(edu1470Stock)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm font-semibold">{fmtKrwFull(edu1470Total)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrwFull(edu1470Principal)}</TableCell>
-                  <TableCell><PLCell value={edu1470Pnl} /></TableCell>
-                  <TableCell className={`text-right text-sm pr-4 ${plColor(edu1470PnlPct)}`}>{fmtPct(edu1470PnlPct)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+            {/* Balance */}
+            <LabelRow label="Balance (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Upbit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Korbit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Binance (USD)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binanceBalanceUsd)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.digitalAsset.totalKrw)}
+            />
 
-      {/* ── Section 3: 연금 (국내) ─────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-sm">연금 (국내)</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          {liveLoading && !isConfirmed ? (
-            <div className="p-4 space-y-2">
-              {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="text-xs">
-                  <TableHead className="pl-4">계좌</TableHead>
-                  <TableHead className="text-right">잔액</TableHead>
-                  <TableHead className="text-right">원금</TableHead>
-                  <TableHead className="text-right">손익</TableHead>
-                  <TableHead className="text-right pr-4">수익률</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Pension Fund (퇴직연금) */}
-                <TableRow>
-                  <TableCell className="pl-4 text-sm font-medium">Pension Fund (퇴직연금)</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{fmtKrw(pensionFundBalance)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrw(pensionFundPrincipal)}</TableCell>
-                  <TableCell><PLCell value={pensionFundPnl} /></TableCell>
-                  <TableCell className={`text-right text-sm pr-4 ${plColor(pensionFundPnlPct)}`}>{fmtPct(pensionFundPnlPct)}</TableCell>
-                </TableRow>
+            {/* P/L */}
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="P/L (KRW)" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.digitalAsset.pnlKrw)}
+                  className={pnlClass(col.digitalAsset.pnlKrw)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/40">
+              <LabelCell label="P/L %" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtPct(col.digitalAsset.pnlPct)}
+                  className={pnlClass(col.digitalAsset.pnlPct)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
 
-                {/* Pension Deposit (연금저축) */}
-                <TableRow>
-                  <TableCell className="pl-4 text-sm font-medium">Pension Deposit (연금저축)</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{fmtKrw(pensionDepositBalance)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrw(pensionDepositPrincipal)}</TableCell>
-                  <TableCell><PLCell value={pensionDepositPnl} /></TableCell>
-                  <TableCell className={`text-right text-sm pr-4 ${plColor(pensionDepositPnlPct)}`}>{fmtPct(pensionDepositPnlPct)}</TableCell>
-                </TableRow>
+            {/* ── Education 1470 섹션 ── */}
+            <SectionHeaderRow label="Education 1470" colCount={columns.length} />
 
-                {/* IRP */}
-                <TableRow>
-                  <TableCell className="pl-4 text-sm font-medium">IRP</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{fmtKrw(irpBalance)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrw(irpPrincipal)}</TableCell>
-                  <TableCell><PLCell value={irpPnl} /></TableCell>
-                  <TableCell className={`text-right text-sm pr-4 ${plColor(irpPnlPct)}`}>{fmtPct(irpPnlPct)}</TableCell>
-                </TableRow>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Principal (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.education.principal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
 
-                {/* 합계 */}
-                <TableRow className="bg-muted/40 font-semibold">
-                  <TableCell className="pl-4 text-sm">합계</TableCell>
-                  <TableCell className="text-right font-mono text-sm">{fmtKrw(pensionTotalBalance)}</TableCell>
-                  <TableCell className="text-right font-mono text-sm text-muted-foreground">{fmtKrw(pensionTotalPrincipal)}</TableCell>
-                  <TableCell><PLCell value={pensionTotalPnl} /></TableCell>
-                  <TableCell className={`text-right text-sm pr-4 ${plColor(pensionTotalPnlPct)}`}>{fmtPct(pensionTotalPnlPct)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+            <LabelRow label="Balance (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Deposit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.education.deposit)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Stock" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.education.stockBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.education.balance)}
+            />
 
-      {/* ── Section 4 & 5: 캐나다 연금 + 2805 중기 계좌 나란히 ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* RESP/RRSP Canada */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">RESP/RRSP Canada</CardTitle>
-              {!isConfirmed && (
-                <Button variant="ghost" size="sm" onClick={() => setShowEdit(true)}>
-                  <Edit className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-3">
-            <div>
-              <p className="text-xs text-muted-foreground">월말 잔액 (CAD)</p>
-              <p className="text-2xl font-bold">
-                {canadianBalanceCad.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} CAD
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span>≈</span>
-              <span className="font-mono font-semibold text-foreground">{fmtKrw(canadianBalanceKrw)}</span>
-              <span className="text-xs">× {cadKrw.toLocaleString()}</span>
-            </div>
-            {snapshot.canadianPension.monthlyFeeCad > 0 && (
-              <p className="text-xs text-muted-foreground">
-                이번 달 수수료: {snapshot.canadianPension.monthlyFeeCad} CAD
-              </p>
-            )}
-            {snapshot.canadianPension.note && (
-              <p className="text-xs text-muted-foreground">{snapshot.canadianPension.note}</p>
-            )}
-          </CardContent>
-        </Card>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="P/L (KRW)" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.education.pnl)}
+                  className={pnlClass(col.education.pnl)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/40">
+              <LabelCell label="P/L %" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtPct(col.education.pnlPct)}
+                  className={pnlClass(col.education.pnlPct)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
 
-        {/* 2805 Mid-term Account */}
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm">2805 중기 계좌</CardTitle>
-              {!isConfirmed && (
-                <Button variant="ghost" size="sm" onClick={() => setShowEdit(true)}>
-                  <Edit className="w-3 h-3" />
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <div>
-                <p className="text-xs text-muted-foreground">누적 납입액</p>
-                <p className="font-mono font-semibold">{fmtKrw(midterm2805.cumInstallment)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">누적 사용액</p>
-                <p className="font-mono font-semibold text-red-600">−{fmtKrw(midterm2805.cumSpent)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">순 납입액</p>
-                <p className="font-mono font-semibold">{fmtKrw(netInstallment)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">현재 잔액</p>
-                <p className="font-mono font-semibold">{fmtKrw(midterm2805.balance)}</p>
-              </div>
-            </div>
-            <div className={`flex items-center justify-between pt-2 border-t border-border/40 font-semibold text-sm ${plColor(estimatedPnl)}`}>
-              <span>추정 손익</span>
-              <span className="font-mono">{estimatedPnl >= 0 ? "+" : ""}{fmtKrw(estimatedPnl)}</span>
-            </div>
-          </CardContent>
-        </Card>
+            {/* ── Pension 섹션 ── */}
+            <SectionHeaderRow label="Pension" colCount={columns.length} />
+
+            {/* Principal */}
+            <LabelRow label="Principal (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundPrincipal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 연금저축 (Pension Deposit)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositPrincipal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· IRP" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.irpPrincipal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Principal"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.pension.totalPrincipal)}
+            />
+
+            {/* Balance */}
+            <LabelRow label="Balance (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 연금저축 (Pension Deposit)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· IRP" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.pension.irpBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.pension.totalBalance)}
+            />
+
+            {/* P/L */}
+            <LabelRow label="P/L (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 퇴직연금" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.pension.pensionFundPnl)}
+                  className={pnlClass(col.pension.pensionFundPnl)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· 연금저축" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.pension.pensionDepositPnl)}
+                  className={pnlClass(col.pension.pensionDepositPnl)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· IRP" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.pension.irpPnl)}
+                  className={pnlClass(col.pension.irpPnl)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total P/L"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.pension.totalPnl)}
+              getPnl={(col) => col.pension.totalPnl}
+            />
+            <tr className="hover:bg-muted/20 border-b border-border/40">
+              <LabelCell label="P/L %" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtPct(col.pension.totalPnlPct)}
+                  className={pnlClass(col.pension.totalPnlPct)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+
+            {/* ── RESP/RRSP 섹션 ── */}
+            <SectionHeaderRow label="RESP/RRSP" colCount={columns.length} />
+
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Balance (CAD)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtCad(col.respRrsp.balanceCad)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/40">
+              <LabelCell label="Balance (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.respRrsp.balanceKrw)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+
+            {/* ── Short-term Account 섹션 ── */}
+            <SectionHeaderRow label="Short-term Account (2805)" colCount={columns.length} />
+
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Principal (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.shortterm.principal)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+
+            <LabelRow label="Balance (KRW)" indent={0} />
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Deposit" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.shortterm.deposit)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <SubLabelCell label="· Stock" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.shortterm.stockBalance)} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.shortterm.balance)}
+            />
+
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="P/L (KRW)" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtKrw(col.shortterm.pnl)}
+                  className={pnlClass(col.shortterm.pnl)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/40">
+              <LabelCell label="P/L %" />
+              {columns.map((col) => (
+                <Cell
+                  key={col.month}
+                  value={fmtPct(col.shortterm.pnlPct)}
+                  className={pnlClass(col.shortterm.pnlPct)}
+                  isBaseline={col.isBaseline}
+                />
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
 
-      {/* 스냅샷 수정 다이얼로그 */}
-      {!isConfirmed && (
-        <SnapshotEditDialog
-          open={showEdit}
-          snapshot={snapshot}
-          onClose={() => setShowEdit(false)}
-          onSave={handleSaveSnapshot}
-        />
-      )}
+      {/* 입력 다이얼로그 */}
+      <AssetManagementIIInputDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        state={dialogState}
+        onChange={setDialogState}
+        onSave={handleSave}
+        onCopyPrev={handleCopyPrev}
+        hasPrev={hasPrevData()}
+        saving={saving}
+      />
     </div>
+  );
+}
+
+// ─────────────────────────────────────────
+// 보조 행 컴포넌트
+// ─────────────────────────────────────────
+
+/** 섹션 구분 헤더 행 (회색 배경) */
+function SectionHeaderRow({ label, colCount }: { label: string; colCount: number }) {
+  return (
+    <tr className="bg-muted/30 border-y border-border/60">
+      <td
+        colSpan={colCount + 1}
+        className="sticky left-0 z-10 bg-muted/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-foreground"
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+/** 일반 레이블 행 — 데이터 없이 레이블만 표시 (행 높이 축소) */
+function LabelRow({ label, indent }: { label: string; indent: number }) {
+  return (
+    <tr className="border-b border-border/20 bg-muted/10">
+      <td
+        className="sticky left-0 z-10 bg-muted/20 px-3 py-1 text-xs text-muted-foreground border-r border-border"
+        style={{ paddingLeft: `${12 + indent * 12}px` }}
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
+/** 고정 레이블 셀 (일반 행용) */
+function LabelCell({ label }: { label: string }) {
+  return (
+    <td className="sticky left-0 z-10 bg-background border-r border-border px-3 py-1 text-xs text-foreground font-medium">
+      {label}
+    </td>
+  );
+}
+
+/** 들여쓰기 적용 서브 레이블 셀 */
+function SubLabelCell({ label }: { label: string }) {
+  return (
+    <td className="sticky left-0 z-10 bg-background border-r border-border pl-6 pr-2 py-1 text-xs text-muted-foreground">
+      {label}
+    </td>
+  );
+}
+
+/** 합계 행 (볼드체) */
+function TotalRow({
+  label,
+  columns,
+  getValue,
+  getPnl,
+}: {
+  label: string;
+  columns: AssetManagementIIColumnData[];
+  getValue: (col: AssetManagementIIColumnData) => string;
+  getPnl?: (col: AssetManagementIIColumnData) => number;
+}) {
+  return (
+    <tr className="font-semibold border-b border-border/50 bg-muted/5">
+      <td className="sticky left-0 z-10 bg-muted/10 border-r border-border px-3 py-1 text-xs text-foreground">
+        {label}
+      </td>
+      {columns.map((col) => {
+        // hasData=false 컬럼: 자산관리 탭과 동일하게 en-dash + 흐린 색상
+        if (!col.hasData) {
+          return (
+            <td key={col.month} className="tabular-nums text-right px-2 py-1 text-xs border-l border-border/50 text-muted-foreground/40 font-semibold">
+              –
+            </td>
+          );
+        }
+        const pnlVal = getPnl ? getPnl(col) : undefined;
+        const cellVal = getValue(col);
+        return (
+          <td
+            key={col.month}
+            className={[
+              "tabular-nums text-right px-2 py-1 text-xs border-l border-border/50",
+              col.isBaseline ? "bg-muted/40 text-muted-foreground" : "",
+              pnlVal !== undefined ? pnlClass(pnlVal) : "",
+              // 값이 "–"이면 (0) 흐리게 표시
+              cellVal === "–" && pnlVal === undefined ? "text-muted-foreground/40" : "",
+            ].join(" ")}
+          >
+            {cellVal}
+          </td>
+        );
+      })}
+    </tr>
   );
 }

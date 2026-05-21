@@ -19,20 +19,20 @@
     "otherAssets": [],
     "crypto": {
       "upbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 82874284,
+        "principal": 88352159
       },
       "korbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 253610,
+        "principal": 168793
       },
       "binance": {
-        "balance": 0,
-        "principal": 0
+        "balance": 2403.16,
+        "principal": 2518.09
       }
     },
     "canadianPension": {
-      "balanceCad": 0,
+      "balanceCad": 44536.68,
       "monthlyFeeCad": 0
     },
     "midterm2805": {
@@ -72,19 +72,28 @@
       "usStocksCumFixedPnlUsd": 2052.403793103448,
       "stockDepositKrw": 455909,
       "stockDepositUsd": 251.16,
-      "pensionFundBalance": 133292957,
-      "pensionFundPrincipal": 0,
-      "pensionDepositBalance": 0,
-      "pensionDepositPrincipal": 0,
-      "irpBalance": 0,
-      "irpPrincipal": 0,
-      "education1470Deposit": 0,
-      "education1470Stock": 114442193,
-      "education1470Principal": 0,
-      "canadianPensionKrw": 0
+      "pensionFundBalance": 71306756,
+      "pensionFundPrincipal": 54066018,
+      "pensionDepositBalance": 14003792,
+      "pensionDepositPrincipal": 12000000,
+      "irpBalance": 1217114,
+      "irpPrincipal": 1200000,
+      "education1470Deposit": 4928627,
+      "education1470Stock": 22922550,
+      "education1470Principal": 27419470,
+      "canadianPensionKrw": 0,
+      "shorttermStockBalance": 9766802,
+      "shorttermPrincipal": 6700000,
+      "shorttermDeposit": 0
     },
     "confirmedAt": "2025-12-31T15:00:00.000Z",
-    "updatedAt": "2025-12-31T15:00:00.000Z"
+    "updatedAt": "2025-12-31T15:00:00.000Z",
+    "educationMonthly": {
+      "deposit": 4928627
+    },
+    "shorttermMonthly": {
+      "deposit": 0
+    }
   },
   {
     "id": "884f495f-0c8e-4181-88c0-f434c7411716",
@@ -106,20 +115,20 @@
     "otherAssets": [],
     "crypto": {
       "upbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 71360271,
+        "principal": 88324149
       },
       "korbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 239691,
+        "principal": 168793
       },
       "binance": {
-        "balance": 0,
-        "principal": 0
+        "balance": 2212.84,
+        "principal": 2518.09
       }
     },
     "canadianPension": {
-      "balanceCad": 0,
+      "balanceCad": 44790.57,
       "monthlyFeeCad": 0
     },
     "midterm2805": {
@@ -159,19 +168,28 @@
       "usStocksCumFixedPnlUsd": 0,
       "stockDepositKrw": 201042544,
       "stockDepositUsd": 37.61,
-      "pensionFundBalance": 145290870,
-      "pensionFundPrincipal": 0,
-      "pensionDepositBalance": 0,
-      "pensionDepositPrincipal": 0,
-      "irpBalance": 0,
-      "irpPrincipal": 0,
-      "education1470Deposit": 0,
-      "education1470Stock": 105447749,
-      "education1470Principal": 0,
-      "canadianPensionKrw": 0
+      "pensionFundBalance": 80069794,
+      "pensionFundPrincipal": 54591171,
+      "pensionDepositBalance": 16278763,
+      "pensionDepositPrincipal": 12000000,
+      "irpBalance": 1219304,
+      "irpPrincipal": 1200000,
+      "education1470Deposit": 10818599,
+      "education1470Stock": 19818800,
+      "education1470Principal": 27386999,
+      "canadianPensionKrw": 0,
+      "shorttermStockBalance": 13220933,
+      "shorttermPrincipal": 7700000,
+      "shorttermDeposit": 0
     },
     "confirmedAt": "2026-01-31T15:00:00.000Z",
-    "updatedAt": "2026-01-31T15:00:00.000Z"
+    "updatedAt": "2026-01-31T15:00:00.000Z",
+    "educationMonthly": {
+      "deposit": 10818599
+    },
+    "shorttermMonthly": {
+      "deposit": 0
+    }
   },
   {
     "id": "183f736a-dbb0-4b38-b9a1-3f4a0f10744c",
@@ -193,20 +211,20 @@
     "otherAssets": [],
     "crypto": {
       "upbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 26188248,
+        "principal": 88319166
       },
       "korbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 189681,
+        "principal": 168793
       },
       "binance": {
-        "balance": 0,
-        "principal": 0
+        "balance": 1642.05,
+        "principal": 2518.09
       }
     },
     "canadianPension": {
-      "balanceCad": 0,
+      "balanceCad": 45005.89,
       "monthlyFeeCad": 0
     },
     "midterm2805": {
@@ -246,19 +264,28 @@
       "usStocksCumFixedPnlUsd": 60.479999999999905,
       "stockDepositKrw": 177495166,
       "stockDepositUsd": 37.61,
-      "pensionFundBalance": 156111979,
-      "pensionFundPrincipal": 0,
-      "pensionDepositBalance": 0,
-      "pensionDepositPrincipal": 0,
-      "irpBalance": 0,
-      "irpPrincipal": 0,
-      "education1470Deposit": 0,
-      "education1470Stock": 69682713,
-      "education1470Principal": 0,
-      "canadianPensionKrw": 0
+      "pensionFundBalance": 89386779,
+      "pensionFundPrincipal": 56468351,
+      "pensionDepositBalance": 17966783,
+      "pensionDepositPrincipal": 12000000,
+      "irpBalance": 1221396,
+      "irpPrincipal": 1200000,
+      "education1470Deposit": 10850739,
+      "education1470Stock": 30087621,
+      "education1470Principal": 33386999,
+      "canadianPensionKrw": 0,
+      "shorttermStockBalance": 33015122,
+      "shorttermPrincipal": 26700000,
+      "shorttermDeposit": 0
     },
     "confirmedAt": "2026-02-28T15:00:00.000Z",
-    "updatedAt": "2026-02-28T15:00:00.000Z"
+    "updatedAt": "2026-02-28T15:00:00.000Z",
+    "educationMonthly": {
+      "deposit": 10850739
+    },
+    "shorttermMonthly": {
+      "deposit": 0
+    }
   },
   {
     "id": "d76d994a-f8f0-45f3-b3e0-eaceacd72fb7",
@@ -280,20 +307,20 @@
     "otherAssets": [],
     "crypto": {
       "upbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 35630763,
+        "principal": 88319166
       },
       "korbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 197747,
+        "principal": 168793
       },
       "binance": {
-        "balance": 0,
-        "principal": 0
+        "balance": 1691.74,
+        "principal": 2518.09
       }
     },
     "canadianPension": {
-      "balanceCad": 0,
+      "balanceCad": 44452,
       "monthlyFeeCad": 0
     },
     "midterm2805": {
@@ -333,19 +360,28 @@
       "usStocksCumFixedPnlUsd": 60.479999999999905,
       "stockDepositKrw": 127855220,
       "stockDepositUsd": 194.79999999999998,
-      "pensionFundBalance": 147030150,
-      "pensionFundPrincipal": 0,
-      "pensionDepositBalance": 0,
-      "pensionDepositPrincipal": 0,
-      "irpBalance": 0,
-      "irpPrincipal": 0,
-      "education1470Deposit": 0,
-      "education1470Stock": 67441559,
-      "education1470Principal": 0,
-      "canadianPensionKrw": 0
+      "pensionFundBalance": 82066950,
+      "pensionFundPrincipal": 56868351,
+      "pensionDepositBalance": 15693468,
+      "pensionDepositPrincipal": 12000000,
+      "irpBalance": 1223788,
+      "irpPrincipal": 1200000,
+      "education1470Deposit": 29018714,
+      "education1470Stock": 49400,
+      "education1470Principal": 25726999,
+      "canadianPensionKrw": 0,
+      "shorttermStockBalance": 28324183,
+      "shorttermPrincipal": 28300000,
+      "shorttermDeposit": 0
     },
     "confirmedAt": "2026-03-31T15:00:00.000Z",
-    "updatedAt": "2026-03-31T15:00:00.000Z"
+    "updatedAt": "2026-03-31T15:00:00.000Z",
+    "educationMonthly": {
+      "deposit": 29018714
+    },
+    "shorttermMonthly": {
+      "deposit": 0
+    }
   },
   {
     "id": "2ac6cb6a-9e42-41f7-9fb1-e2d234dc31ac",
@@ -367,20 +403,20 @@
     "otherAssets": [],
     "crypto": {
       "upbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 50985846,
+        "principal": 88319166
       },
       "korbit": {
-        "balance": 0,
-        "principal": 0
+        "balance": 212886,
+        "principal": 168793
       },
       "binance": {
-        "balance": 0,
-        "principal": 0
+        "balance": 1881.31,
+        "principal": 2518.09
       }
     },
     "canadianPension": {
-      "balanceCad": 0,
+      "balanceCad": 44830.52,
       "monthlyFeeCad": 0
     },
     "midterm2805": {
@@ -420,27 +456,36 @@
       "usStocksCumFixedPnlUsd": 60.479999999999905,
       "stockDepositKrw": 114114281,
       "stockDepositUsd": 217.32999999999998,
-      "pensionFundBalance": 167340424,
-      "pensionFundPrincipal": 0,
-      "pensionDepositBalance": 0,
-      "pensionDepositPrincipal": 0,
-      "irpBalance": 0,
-      "irpPrincipal": 0,
-      "education1470Deposit": 0,
-      "education1470Stock": 87287123,
-      "education1470Principal": 0,
-      "canadianPensionKrw": 0
+      "pensionFundBalance": 98443165,
+      "pensionFundPrincipal": 57268351,
+      "pensionDepositBalance": 18958783,
+      "pensionDepositPrincipal": 12000000,
+      "irpBalance": 1226081,
+      "irpPrincipal": 1200000,
+      "education1470Deposit": 772951,
+      "education1470Stock": 32540000,
+      "education1470Principal": 25676999,
+      "canadianPensionKrw": 0,
+      "shorttermStockBalance": 33909411,
+      "shorttermPrincipal": 27064050,
+      "shorttermDeposit": 0
     },
     "confirmedAt": "2026-04-30T15:00:00.000Z",
-    "updatedAt": "2026-04-30T15:00:00.000Z"
+    "updatedAt": "2026-04-30T15:00:00.000Z",
+    "educationMonthly": {
+      "deposit": 772951
+    },
+    "shorttermMonthly": {
+      "deposit": 0
+    }
   },
   {
     "id": "da28ad52-c704-4098-bdf5-bb52c71f7699",
     "month": "2026-05",
     "status": "DRAFT",
     "exchangeRates": {
-      "usdKrw": 1504.23,
-      "cadKrw": 1092.5,
+      "usdKrw": 1507.03,
+      "cadKrw": 1095.29,
       "fetchedAt": "2026-05-21T07:12:27.471Z"
     },
     "fixedDepositKrw": 550000000,
@@ -453,15 +498,15 @@
     "crypto": {
       "upbit": {
         "balance": 0,
-        "principal": 0
+        "principal": 88319166
       },
       "korbit": {
         "balance": 0,
-        "principal": 0
+        "principal": 168793
       },
       "binance": {
         "balance": 0,
-        "principal": 0
+        "principal": 2518.09
       }
     },
     "canadianPension": {
@@ -473,7 +518,7 @@
       "cumSpent": 0,
       "balance": 0
     },
-    "updatedAt": "2026-05-21T08:00:30.580Z",
+    "updatedAt": "2026-05-21T11:32:34.079Z",
     "cashForeignUsd": 0,
     "cashForeignCad": 0,
     "stockDepositByAccount": {
@@ -489,6 +534,13 @@
         "krw": 53854415,
         "usd": 19
       }
-    }
+    },
+    "educationMonthly": {
+      "deposit": 0
+    },
+    "shorttermMonthly": {
+      "deposit": 4892482
+    },
+    "pensionMonthly": {}
   }
 ]

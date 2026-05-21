@@ -170,6 +170,29 @@ export interface FinancialSnapshot {
     balance: number;         // 현재 잔액
   };
 
+  // ── 자산관리 II 월별 직접입력 ─────────────────────────
+  /** 교육 계좌(1470) 예수금 · 주식잔액 월별 직접입력 */
+  educationMonthly?: {
+    deposit: number;
+    stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 21)
+  };
+
+  /** Short-term 계좌(2805) 예수금 · 주식잔액 월별 직접입력 */
+  shorttermMonthly?: {
+    deposit: number;
+    stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 53)
+  };
+
+  /** 연금 계좌 월별 직접입력 — 자동계산 대신 실제 잔액 입력 시 사용 */
+  pensionMonthly?: {
+    fundBalance?: number;       // 퇴직연금 잔액 (엑셀 Row 28)
+    fundPrincipal?: number;     // 퇴직연금 원금 (엑셀 Row 33)
+    depositBalance?: number;    // 연금저축 잔액 (엑셀 Row 29)
+    depositPrincipal?: number;  // 연금저축 원금 (엑셀 Row 34)
+    irpBalance?: number;        // IRP 잔액 (엑셀 Row 30)
+    irpPrincipal?: number;      // IRP 원금 (엑셀 Row 35)
+  };
+
   /**
    * 확정 시 고정 저장되는 포트폴리오 스냅샷 (KRW 환산)
    * CONFIRMED 상태에서만 채워짐 — 과거 월 재무제표 재현에 사용
@@ -222,6 +245,10 @@ export interface FinancialSnapshot {
     education1470Deposit: number;     // 1470 교육계좌 예금
     education1470Stock: number;       // 1470 교육계좌 주식
     education1470Principal: number;   // 1470 교육계좌 원금
+    // Short-term Account (2805) — confirm 시 live positions에서 스냅샷
+    shorttermStockBalance?: number;   // 주식 평가액 KRW
+    shorttermPrincipal?: number;      // 원금 KRW
+    shorttermDeposit?: number;        // 해당 월 수동입력 예수금
     // 이전 버전 호환 (합산값)
     canadianPensionKrw: number;       // 캐나다 연금 KRW 환산
   };
@@ -406,6 +433,75 @@ export interface AssetManagementColumnData {
 }
 
 // ─────────────────────────────────────────
+// 자산관리 II 연간 테이블 타입 (Edu, Pension Others 시트)
+// ─────────────────────────────────────────
+
+/**
+ * 자산관리 II 연간 테이블 단일 컬럼 데이터
+ * 엑셀 "Edu, Pension Others" 시트 각 월 컬럼에 대응
+ * 섹션 행 순서: Principal → Balance → P/L (엑셀 동일)
+ */
+export interface AssetManagementIIColumnData {
+  month: string;
+  isBaseline: boolean;
+  isDraft: boolean;
+  hasData: boolean;
+  usdKrw: number;
+  cadKrw: number;
+
+  // (1) Digital Asset — 수동 입력 (snap.crypto)
+  digitalAsset: {
+    upbitBalance: number;         // Upbit 잔액 KRW
+    upbitPrincipal: number;       // Upbit 원금 KRW
+    korbitBalance: number;        // Korbit 잔액 KRW
+    korbitPrincipal: number;      // Korbit 원금 KRW
+    binanceBalanceUsd: number;    // Binance 잔액 USD
+    binancePrincipalUsd: number;  // Binance 원금 USD
+    totalKrw: number;             // 총 잔액 KRW 환산
+    totalPrincipalKrw: number;    // 총 원금 KRW 환산
+    pnlKrw: number;               // 총 손익 KRW
+    pnlPct: number;               // 총 수익률
+  };
+
+  // (2) Education 1470 — stock/principal: live/confirmed, deposit: 수동입력
+  education: {
+    deposit: number;       // 예수금 (educationMonthly.deposit)
+    stockBalance: number;  // 주식 평가액 (live-data / confirmedPortfolio)
+    balance: number;       // 총 잔액 = deposit + stockBalance
+    principal: number;     // 원금
+    pnl: number;           // 손익 = balance - principal
+    pnlPct: number;        // 수익률
+  };
+
+  // (3) Pension — live/confirmed
+  pension: {
+    pensionFundBalance: number;     pensionFundPrincipal: number;    pensionFundPnl: number;
+    pensionDepositBalance: number;  pensionDepositPrincipal: number;  pensionDepositPnl: number;
+    irpBalance: number;             irpPrincipal: number;            irpPnl: number;
+    totalBalance: number;
+    totalPrincipal: number;
+    totalPnl: number;
+    totalPnlPct: number;
+  };
+
+  // (4) RESP/RRSP Canada — snap.canadianPension
+  respRrsp: {
+    balanceCad: number;
+    balanceKrw: number;
+  };
+
+  // (5) Short-term Account (2805) — stock/principal: live/confirmed, deposit: 수동입력
+  shortterm: {
+    deposit: number;       // 예수금 (shorttermMonthly.deposit)
+    stockBalance: number;  // 주식 평가액 (live-data / confirmedPortfolio)
+    balance: number;       // 총 잔액 = deposit + stockBalance
+    principal: number;     // 원금
+    pnl: number;           // 손익 = balance - principal
+    pnlPct: number;        // 수익률
+  };
+}
+
+// ─────────────────────────────────────────
 // Live Portfolio Data (실시간 포트폴리오 데이터)
 // ─────────────────────────────────────────
 
@@ -457,6 +553,18 @@ export interface LivePortfolioData {
     stock: number;
     principal: number;
     pnl: number;
+  };
+
+  // Short-term Account 포지션 집계 (자산관리 II 표시용)
+  shortterm: {
+    stockBalance: number;  // evalAmount 합계 KRW
+    principal: number;     // avgPrice × quantity 합계 KRW
+  };
+
+  /** 조회 시점의 현재 환율 — DRAFT 월 자산관리 II 계산에 사용 (스냅샷 초기화 환율 대체) */
+  currentRates: {
+    usdKrw: number;
+    cadKrw: number;
   };
 
   /**
@@ -596,6 +704,17 @@ export interface UpdateSnapshotRequest {
     cumInstallment: number;
     cumSpent: number;
     balance: number;
+  };
+  // 자산관리 II 월별 직접입력
+  educationMonthly?: { deposit: number; stockBalance?: number };
+  shorttermMonthly?: { deposit: number; stockBalance?: number };
+  pensionMonthly?: {
+    fundBalance?: number;
+    fundPrincipal?: number;
+    depositBalance?: number;
+    depositPrincipal?: number;
+    irpBalance?: number;
+    irpPrincipal?: number;
   };
   otherAssets?: { name: string; amount: number }[];
 }

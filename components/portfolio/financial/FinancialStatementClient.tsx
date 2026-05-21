@@ -275,14 +275,13 @@ export function FinancialStatementClient() {
   const currentSnapshot: FinancialSnapshot =
     snapshots.find((s) => s.month === selectedMonth) ?? createDraftSnapshot(selectedMonth);
 
-  // DRAFT 월이 변경되면 실시간 데이터 재로드
+  // 월 변경 시 실시간 데이터 재로드
+  // 자산관리·자산관리 II 탭은 월 선택과 무관하게 전체 연도를 표시하며
+  // DRAFT 컬럼에서 항상 liveData(포지션 잔액, 현재 환율)가 필요하므로
+  // CONFIRMED 월 선택 시에도 liveData를 유지한다.
+  // CONFIRMED 월의 재무제표는 confirmedPortfolio를 사용하므로 liveData 유무 무관.
   useEffect(() => {
-    if (currentSnapshot.status === "DRAFT") {
-      loadLiveData(currentSnapshot.exchangeRates.usdKrw);
-    } else {
-      // CONFIRMED이면 실시간 데이터 불필요 — confirmedPortfolio 사용
-      setLiveData(null);
-    }
+    loadLiveData(currentSnapshot.exchangeRates.usdKrw);
   }, [selectedMonth, currentSnapshot.status, currentSnapshot.exchangeRates.usdKrw, loadLiveData]);
 
   // ── 재무제표 데이터 조립 ─────────────────────────────
@@ -541,7 +540,7 @@ export function FinancialStatementClient() {
         <TabsList className="grid grid-cols-4 w-full max-w-xl">
           <TabsTrigger value="statement">재무제표</TabsTrigger>
           <TabsTrigger value="assets">자산관리</TabsTrigger>
-          <TabsTrigger value="edu-pension">연금·교육</TabsTrigger>
+          <TabsTrigger value="edu-pension">자산관리 II</TabsTrigger>
           <TabsTrigger value="cf">현금흐름</TabsTrigger>
         </TabsList>
 
@@ -579,10 +578,9 @@ export function FinancialStatementClient() {
         {/* Tab 3: 연금·교육 */}
         <TabsContent value="edu-pension" className="mt-6">
           <EduPensionView
-            snapshot={currentSnapshot}
+            snapshots={snapshots}
             liveData={liveData}
             liveLoading={liveLoading}
-            isConfirmed={currentSnapshot.status === "CONFIRMED"}
             onRefresh={handleRefresh}
           />
         </TabsContent>

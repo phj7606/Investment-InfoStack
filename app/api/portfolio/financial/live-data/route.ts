@@ -24,6 +24,7 @@ import { readAccountData as readEducationData } from "@/lib/portfolio/educationD
 import { readAccountData as readShorttermData } from "@/lib/portfolio/shorttermData";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
 import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
+import { fetchExchangeRates } from "@/lib/fetchers/exchange-rate";
 import { readCache, writeCache } from "@/lib/cache";
 import params from "@/config/params.json";
 import type { LivePortfolioData } from "@/types/financial";
@@ -37,10 +38,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // ── 1. 모든 포트폴리오 데이터 병렬 로드 ─────────────
-    const [educationData, shorttermData] = await Promise.all([
+    // ── 1. 모든 포트폴리오 데이터 + 현재 환율 병렬 로드 ─────
+    const [educationData, shorttermData, liveRates] = await Promise.all([
       readEducationData(),
       readShorttermData(),
+      fetchExchangeRates(),  // 현재 환율 — DRAFT 월 자산관리 II 계산에 사용
     ]);
 
     // Longterm: 거래내역 로드 후 포지션 계산 (가격 없이 먼저 계산하여 종목 목록 추출)
@@ -48,12 +50,24 @@ export async function GET(req: NextRequest) {
     const rawPositions = calcLongtermPositions(longtermTxs, {});
 
     // KR/US 종목 현재가 조회 (캐시 우선)
+    // longterm + education + shortterm 종목을 모두 포함하여 한 번에 Naver 조회
     const krPositions = rawPositions.filter((p) => p.market === "KR" && p.assetType !== "FUND");
     const usPositions = rawPositions.filter((p) => p.market === "US");
     const krStocks = krPositions.map((p) => ({ code: p.stockCode, name: p.stockName }));
     const usSymbols = usPositions.map((p) => p.stockCode);
-    const allSymbols = [...usSymbols.sort(), ...krStocks.map((s) => s.code).sort()];
-    const cacheKey = `financial-live-prices-v1-${allSymbols.join("-")}`;
+
+    // education/shortterm 종목을 longterm과 합산 (중복 제거)
+    const eduShortStocks = [
+      ...educationData.positions.map((p: { stockCode: string; stockName: string }) => ({ code: p.stockCode, name: p.stockName })),
+      ...shorttermData.positions.map((p: { stockCode: string; stockName: string }) => ({ code: p.stockCode, name: p.stockName })),
+    ].filter((s) => !krStocks.some((k) => k.code === s.code));
+    const allKrStocks = [...krStocks, ...eduShortStocks];
+
+    const allSymbols = [...usSymbols.sort(), ...allKrStocks.map((s) => s.code).sort()];
+    // 캐시 키: 종목 목록을 해시로 압축하여 파일명 길이 초과(ENAMETOOLONG) 방지
+    // v2: education/shortterm 종목 추가
+    const symbolsHash = Buffer.from(allSymbols.join(",")).toString("base64url").slice(0, 40);
+    const cacheKey = `financial-live-prices-v2-${symbolsHash}`;
 
     let prices: Record<string, number> = {};
     const cachedPrices = await readCache<{ prices: Record<string, number> }>(cacheKey);
@@ -61,7 +75,7 @@ export async function GET(req: NextRequest) {
       prices = cachedPrices.prices;
     } else if (allSymbols.length > 0) {
       const [krPrices, usPrices] = await Promise.all([
-        fetchNaverCurrentPrices(krStocks),
+        fetchNaverCurrentPrices(allKrStocks),
         fetchYahooCurrentPrices(usSymbols),
       ]);
       prices = { ...krPrices, ...usPrices };
@@ -108,8 +122,19 @@ export async function GET(req: NextRequest) {
 
     // ── 5. Stock Deposit (예수금) ─────────────────────────
     // Shortterm 계좌를 주식계좌 KRW 예수금으로 사용
+    // prices에 실시간 가격이 있으면 사용, 없으면 avgPrice fallback
     const stockDepositKrw = shorttermData.positions.reduce(
-      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
+      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
+      0
+    );
+
+    // ── 5-B. Shortterm 포지션 집계 (자산관리 II 표시용) ──
+    const shorttermStockBalance = shorttermData.positions.reduce(
+      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
+      0
+    );
+    const shorttermPrincipal = shorttermData.positions.reduce(
+      (s, p) => s + p.avgPrice * p.quantity,
       0
     );
 
@@ -133,10 +158,9 @@ export async function GET(req: NextRequest) {
     const irpPnl = irpPositions.reduce((s, p) => s + p.evalPL, 0);
 
     // ── 7. Education 1470 집계 ────────────────────────────
-    // Education 계좌 전체를 1470 계좌로 취급 (deposit + stock 구분은 avgPrice=0 여부로 임시 처리)
-    // 실제로는 EducationPosition이 예금/주식 구분 없이 동일 구조이므로 합산
+    // prices에 실시간 가격이 있으면 사용, 없으면 avgPrice fallback
     const education1470Stock = educationData.positions.reduce(
-      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
+      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
       0
     );
     const education1470Deposit = 0; // 별도 예금 계좌 추적 시 업데이트
@@ -230,6 +254,16 @@ export async function GET(req: NextRequest) {
         stock: Math.round(education1470Stock),
         principal: Math.round(education1470Principal),
         pnl: Math.round(education1470Pnl),
+      },
+      // 자산관리 II 표시용 shortterm 잔액 (stockBalance + principal)
+      shortterm: {
+        stockBalance: Math.round(shorttermStockBalance),
+        principal: Math.round(shorttermPrincipal),
+      },
+      // 조회 시점의 현재 환율 — DRAFT 월 환율 계산에 사용 (스냅샷 초기화 환율 대체)
+      currentRates: {
+        usdKrw: liveRates.usdKrw,
+        cadKrw: liveRates.cadKrw,
       },
       monthlyTxSummary: {
         fund:      { bid: Math.round(fundTxBid), askBv: Math.round(fundTxAskBv), fixedPnl: Math.round(fundTxFixedPnl) },

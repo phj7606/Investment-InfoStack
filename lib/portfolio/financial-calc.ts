@@ -23,6 +23,7 @@ import type {
   AssetLineItem,
   AssetManagementColumnData,
   AssetManagementSectionData,
+  AssetManagementIIColumnData,
   LivePortfolioData,
   TxSummaryByMonth,
 } from "@/types/financial";
@@ -1055,6 +1056,218 @@ export function buildAssetManagementYearlyData(
       col.usStocks.cumPct = (baseUs + col.usStocks.cumBid) > 0
         ? col.usStocks.cumPnl / (baseUs + col.usStocks.cumBid) : 0;
     }
+  }
+
+  return columns;
+}
+
+// ─────────────────────────────────────────
+// 자산관리 II 연간 테이블 (Edu, Pension Others 시트)
+// ─────────────────────────────────────────
+
+/**
+ * 자산관리 II 연도별 컬럼 배열 생성
+ *
+ * 엑셀 "Edu, Pension Others" 시트 구조:
+ * - Dec-{year-1} baseline | Jan~Dec (YTD 없음)
+ * - 섹션: Digital Asset / Education / Pension / RESP-RRSP / Short-term
+ * - DRAFT 월: liveData 기준 / CONFIRMED 월: confirmedPortfolio 기준
+ *
+ * Principal → Balance → P/L 순서 (엑셀과 동일)
+ */
+export function buildAssetManagementIIYearlyData(
+  snapshots: FinancialSnapshot[],
+  liveData: LivePortfolioData | null,
+  year: number
+): AssetManagementIIColumnData[] {
+  const baselineMonth = `${year - 1}-12`;
+  const yearMonths = Array.from({ length: 12 }, (_, i) =>
+    `${year}-${String(i + 1).padStart(2, "0")}`
+  );
+  const allMonths = [baselineMonth, ...yearMonths];
+
+  const snapMap = new Map(snapshots.map((s) => [s.month, s]));
+
+  // 빈 컬럼 생성 헬퍼
+  const emptyCol = (month: string, isBaseline: boolean): AssetManagementIIColumnData => ({
+    month, isBaseline, isDraft: false, hasData: false,
+    usdKrw: 1475.27, cadKrw: 1086.59,
+    digitalAsset: {
+      upbitBalance: 0, upbitPrincipal: 0,
+      korbitBalance: 0, korbitPrincipal: 0,
+      binanceBalanceUsd: 0, binancePrincipalUsd: 0,
+      totalKrw: 0, totalPrincipalKrw: 0, pnlKrw: 0, pnlPct: 0,
+    },
+    education: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 },
+    pension: {
+      pensionFundBalance: 0, pensionFundPrincipal: 0, pensionFundPnl: 0,
+      pensionDepositBalance: 0, pensionDepositPrincipal: 0, pensionDepositPnl: 0,
+      irpBalance: 0, irpPrincipal: 0, irpPnl: 0,
+      totalBalance: 0, totalPrincipal: 0, totalPnl: 0, totalPnlPct: 0,
+    },
+    respRrsp: { balanceCad: 0, balanceKrw: 0 },
+    shortterm: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 },
+  });
+
+  const columns: AssetManagementIIColumnData[] = [];
+
+  for (const month of allMonths) {
+    const isBaseline = month === baselineMonth;
+    const snap = snapMap.get(month);
+
+    if (!snap) {
+      columns.push(emptyCol(month, isBaseline));
+      continue;
+    }
+
+    const isDraft = snap.status === "DRAFT";
+    const cp = snap.confirmedPortfolio;
+    // DRAFT 월: liveData 현재 환율 우선 적용 (스냅샷 초기화 당시 환율은 구식)
+    // CONFIRMED 월: 확정 시 잠긴 환율 사용 (변경 불가)
+    const usdKrw = isDraft
+      ? (liveData?.currentRates?.usdKrw ?? snap.exchangeRates.usdKrw)
+      : snap.exchangeRates.usdKrw;
+    const cadKrw = isDraft
+      ? (liveData?.currentRates?.cadKrw ?? snap.exchangeRates.cadKrw ?? 1086.59)
+      : (snap.exchangeRates.cadKrw ?? 1086.59);
+
+    // ── Digital Asset 집계 ───────────────────────────
+    // crypto 데이터는 DRAFT/CONFIRMED 모두 snap.crypto에 저장됨
+    const crypto = snap.crypto ?? {
+      upbit: { balance: 0, principal: 0 },
+      korbit: { balance: 0, principal: 0 },
+      binance: { balance: 0, principal: 0 },
+    };
+    const upbitBalance = crypto.upbit?.balance ?? 0;
+    const upbitPrincipal = crypto.upbit?.principal ?? 0;
+    const korbitBalance = crypto.korbit?.balance ?? 0;
+    const korbitPrincipal = crypto.korbit?.principal ?? 0;
+    const binanceBalanceUsd = crypto.binance?.balance ?? 0;
+    const binancePrincipalUsd = crypto.binance?.principal ?? 0;
+
+    const totalKrw = upbitBalance + korbitBalance + Math.round(binanceBalanceUsd * usdKrw);
+    const totalPrincipalKrw = upbitPrincipal + korbitPrincipal + Math.round(binancePrincipalUsd * usdKrw);
+    const pnlKrw = totalKrw - totalPrincipalKrw;
+    const pnlPct = totalPrincipalKrw > 0 ? pnlKrw / totalPrincipalKrw : 0;
+
+    const digitalAsset: AssetManagementIIColumnData["digitalAsset"] = {
+      upbitBalance, upbitPrincipal,
+      korbitBalance, korbitPrincipal,
+      binanceBalanceUsd, binancePrincipalUsd,
+      totalKrw, totalPrincipalKrw, pnlKrw, pnlPct,
+    };
+
+    // ── Education 집계 ───────────────────────────────
+    let education: AssetManagementIIColumnData["education"];
+    if (isDraft) {
+      const deposit = snap.educationMonthly?.deposit ?? 0;
+      // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
+      const stockBalance = snap.educationMonthly?.stockBalance || (liveData?.education1470.stock ?? 0);
+      const principal = liveData?.education1470.principal ?? 0;
+      const balance = deposit + stockBalance;
+      const pnl = balance - principal;
+      const pnlPct = principal > 0 ? pnl / principal : 0;
+      education = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+    } else if (cp) {
+      const deposit = cp.education1470Deposit ?? 0;
+      const stockBalance = cp.education1470Stock ?? 0;
+      const principal = cp.education1470Principal ?? 0;
+      const balance = deposit + stockBalance;
+      const pnl = balance - principal;
+      const pnlPct = principal > 0 ? pnl / principal : 0;
+      education = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+    } else {
+      education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 };
+    }
+
+    // ── Pension 집계 (계좌별 분리) ───────────────────
+    let pension: AssetManagementIIColumnData["pension"];
+    if (isDraft) {
+      // 수동 입력값 우선 (pensionMonthly), 없으면 live-data 자동 계산
+      const pm = snap.pensionMonthly;
+      const pensionFundBalance = pm?.fundBalance ?? liveData?.pensionFund.balance ?? 0;
+      const pensionFundPrincipal = pm?.fundPrincipal ?? liveData?.pensionFund.principal ?? 0;
+      const pensionFundPnl = pensionFundBalance - pensionFundPrincipal;
+      const pensionDepositBalance = pm?.depositBalance ?? liveData?.pensionDeposit.balance ?? 0;
+      const pensionDepositPrincipal = pm?.depositPrincipal ?? liveData?.pensionDeposit.principal ?? 0;
+      const pensionDepositPnl = pensionDepositBalance - pensionDepositPrincipal;
+      const irpBalance = pm?.irpBalance ?? liveData?.irp.balance ?? 0;
+      const irpPrincipal = pm?.irpPrincipal ?? liveData?.irp.principal ?? 0;
+      const irpPnl = irpBalance - irpPrincipal;
+      const totalBalance = pensionFundBalance + pensionDepositBalance + irpBalance;
+      const totalPrincipal = pensionFundPrincipal + pensionDepositPrincipal + irpPrincipal;
+      const totalPnl = totalBalance - totalPrincipal;
+      const totalPnlPct = totalPrincipal > 0 ? totalPnl / totalPrincipal : 0;
+      pension = {
+        pensionFundBalance, pensionFundPrincipal, pensionFundPnl,
+        pensionDepositBalance, pensionDepositPrincipal, pensionDepositPnl,
+        irpBalance, irpPrincipal, irpPnl,
+        totalBalance, totalPrincipal, totalPnl, totalPnlPct,
+      };
+    } else if (cp) {
+      const pensionFundBalance = cp.pensionFundBalance ?? 0;
+      const pensionFundPrincipal = cp.pensionFundPrincipal ?? 0;
+      const pensionFundPnl = pensionFundBalance - pensionFundPrincipal;
+      const pensionDepositBalance = cp.pensionDepositBalance ?? 0;
+      const pensionDepositPrincipal = cp.pensionDepositPrincipal ?? 0;
+      const pensionDepositPnl = pensionDepositBalance - pensionDepositPrincipal;
+      const irpBalance = cp.irpBalance ?? 0;
+      const irpPrincipal = cp.irpPrincipal ?? 0;
+      const irpPnl = irpBalance - irpPrincipal;
+      const totalBalance = pensionFundBalance + pensionDepositBalance + irpBalance;
+      const totalPrincipal = pensionFundPrincipal + pensionDepositPrincipal + irpPrincipal;
+      const totalPnl = totalBalance - totalPrincipal;
+      const totalPnlPct = totalPrincipal > 0 ? totalPnl / totalPrincipal : 0;
+      pension = {
+        pensionFundBalance, pensionFundPrincipal, pensionFundPnl,
+        pensionDepositBalance, pensionDepositPrincipal, pensionDepositPnl,
+        irpBalance, irpPrincipal, irpPnl,
+        totalBalance, totalPrincipal, totalPnl, totalPnlPct,
+      };
+    } else {
+      pension = {
+        pensionFundBalance: 0, pensionFundPrincipal: 0, pensionFundPnl: 0,
+        pensionDepositBalance: 0, pensionDepositPrincipal: 0, pensionDepositPnl: 0,
+        irpBalance: 0, irpPrincipal: 0, irpPnl: 0,
+        totalBalance: 0, totalPrincipal: 0, totalPnl: 0, totalPnlPct: 0,
+      };
+    }
+
+    // ── RESP/RRSP 집계 ───────────────────────────────
+    const balanceCad = snap.canadianPension?.balanceCad ?? 0;
+    const respRrsp: AssetManagementIIColumnData["respRrsp"] = {
+      balanceCad,
+      balanceKrw: Math.round(balanceCad * cadKrw),
+    };
+
+    // ── Short-term 집계 ──────────────────────────────
+    let shortterm: AssetManagementIIColumnData["shortterm"];
+    if (isDraft) {
+      const deposit = snap.shorttermMonthly?.deposit ?? 0;
+      // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
+      const stockBalance = snap.shorttermMonthly?.stockBalance || (liveData?.shortterm.stockBalance ?? 0);
+      const principal = liveData?.shortterm.principal ?? 0;
+      const balance = deposit + stockBalance;
+      const pnl = balance - principal;
+      const pnlPct = principal > 0 ? pnl / principal : 0;
+      shortterm = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+    } else if (cp) {
+      const deposit = cp.shorttermDeposit ?? 0;
+      const stockBalance = cp.shorttermStockBalance ?? 0;
+      const principal = cp.shorttermPrincipal ?? 0;
+      const balance = deposit + stockBalance;
+      const pnl = balance - principal;
+      const pnlPct = principal > 0 ? pnl / principal : 0;
+      shortterm = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+    } else {
+      shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 };
+    }
+
+    columns.push({
+      month, isBaseline, isDraft, hasData: true,
+      usdKrw, cadKrw,
+      digitalAsset, education, pension, respRrsp, shortterm,
+    });
   }
 
   return columns;
