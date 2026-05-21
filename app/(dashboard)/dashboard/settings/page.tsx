@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CATEGORY_LABELS } from "@/lib/constants/categories";
+import { BackupRestorePanel } from "@/components/settings/BackupRestorePanel";
 import type { KrTicker, UsTicker } from "@/types";
 
 // ────────────────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ export default function SettingsPage() {
           <TabsTrigger value="kr">한국 ETF ({krTickers.length}종)</TabsTrigger>
           <TabsTrigger value="us">미국 ETF ({usTickers.length}종)</TabsTrigger>
           <TabsTrigger value="params">파라미터</TabsTrigger>
+          <TabsTrigger value="backup">백업/복원</TabsTrigger>
         </TabsList>
 
         {/* ── 한국 ETF 탭 ────────────────────────────────────────── */}
@@ -259,6 +261,11 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* ── 백업/복원 탭 ────────────────────────────────────── */}
+        <TabsContent value="backup">
+          <BackupRestorePanel />
         </TabsContent>
       </Tabs>
     </div>
