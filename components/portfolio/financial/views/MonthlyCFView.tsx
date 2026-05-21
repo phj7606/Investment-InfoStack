@@ -29,7 +29,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, X, Upload, RefreshCw } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { MonthlyCFSubItemDialog } from "../MonthlyCFSubItemDialog";
 import type { MonthlyCFEntry, MonthlyCFBalance, CFCategoryType } from "@/types/financial";
 import { CF_TABLE_ROWS, type CFTableRowDef } from "@/lib/portfolio/cf-table-config";
@@ -132,10 +132,6 @@ export function MonthlyCFView({
   // ── Balance 인라인 편집 ────────────────────────────────────────
   const [balEdit, setBalEdit] = useState<BalanceEdit | null>(null);
   const [balSaving, setBalSaving] = useState(false);
-
-  // ── Import 상태 ────────────────────────────────────────────────
-  const [importing, setImporting] = useState(false);
-  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   // ── entry 맵 { "CAT|name|month": MonthlyCFEntry[] } ───────────
   const entryMap = useMemo(() => {
@@ -309,30 +305,6 @@ export function MonthlyCFView({
       }
     }
     setBalEdit(null);
-  };
-
-  // ── Excel Import ──────────────────────────────────────────────
-
-  const handleImport = async () => {
-    setImporting(true);
-    setImportMsg(null);
-    try {
-      const res = await fetch(
-        "/api/portfolio/financial/monthly-cf/import-excel?overwrite=false",
-        { method: "POST" }
-      );
-      const data = await res.json();
-      setImportMsg(
-        res.ok
-          ? `완료 — 신규: ${data.imported}건, 스킵: ${data.skipped}건`
-          : `오류: ${data.error}`
-      );
-      if (res.ok) onRefresh();
-    } catch (e) {
-      setImportMsg(`요청 실패: ${String(e)}`);
-    } finally {
-      setImporting(false);
-    }
   };
 
   // ── 포맷 ─────────────────────────────────────────────────────
@@ -534,25 +506,6 @@ export function MonthlyCFView({
                   </Button>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {importMsg && (
-                <span className="text-xs text-muted-foreground">{importMsg}</span>
-              )}
-              <Button variant="ghost" size="sm" onClick={onRefresh} className="h-7 gap-1 text-xs">
-                <RefreshCw className="w-3.5 h-3.5" />
-                Refresh
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleImport}
-                disabled={importing}
-                className="h-7 gap-1 text-xs"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                {importing ? "Importing..." : "Import Jan–Apr"}
-              </Button>
             </div>
           </div>
         </CardHeader>
