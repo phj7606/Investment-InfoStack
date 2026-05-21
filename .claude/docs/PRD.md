@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v5.0 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.20 | **상태**: Living Document
+> **버전**: v5.1 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
 
 ---
 
@@ -80,6 +80,7 @@ Step 5: 매수 결정
 | `/dashboard/portfolio/education` | A2 | 교육 계좌 대시보드 (포지션/거래내역/리스크 관리 3탭) | ✅ |
 | `/dashboard/portfolio/pension` | A2 | 연금 계좌 대시보드 (퇴직연금/연금저축/IRP, 거래내역·리밸런싱·종목별 3탭) | ✅ |
 | `/dashboard/portfolio/performance` | A2 | 포트폴리오 성과 분석 (KR/US 월별 수익률·누적수익률·벤치마크 비교) | ✅ |
+| `/dashboard/portfolio/financial` | A2 | 재무제표 통합 대시보드 (재무제표/자산관리/연금·교육/현금흐름 4탭) | ✅ |
 | `/dashboard/settings` | 기타 | 앱 설정 | ✅ |
 
 ---
@@ -221,6 +222,25 @@ Step 5: 매수 결정
 | ID | 기능 | 설명 | 상태 |
 |----|------|------|------|
 | D3-01 | 대시보드 인프라 | `/api/portfolio/shortterm/*` API 라우트(positions/sell/trades/backup) + `ShorttermAccountDashboardClient.tsx` + `data/shortterm-account.json` + `lib/portfolio/shorttermData.ts`. 교육 계좌와 동일 구조(파일 기반 3탭). 페이지 미구현 | 🔄 |
+
+#### 재무제표 통합 대시보드 (`/dashboard/portfolio/financial`)
+
+> 전체 포트폴리오의 월별 재무 현황을 엑셀 Asset Management 시트와 동일한 구조로 추적·관리하는 통합 대시보드. DRAFT(실시간 집계)/CONFIRMED(고정 저장) 상태 관리로 월말 확정 워크플로우 지원.
+
+| ID | 기능 | 설명 | 상태 |
+|----|------|------|------|
+| F-01 | 재무 타입 시스템 | `types/financial.ts` — FinancialSnapshot(DRAFT/CONFIRMED 상태), ExchangeRates, MonthlyCFEntry, FinancialStatementData, AssetManagementSectionData(cumBid/cumAskBv YTD 누적 필드 포함) | ✅ |
+| F-02 | 월별 스냅샷 관리 API | GET/POST(`/api/portfolio/financial/snapshot`) — 스냅샷 목록·생성. PUT/GET 단일월(`[month]`) — 조회·수정. POST 확정(`[month]/confirm`) — DRAFT→CONFIRMED 전환 시 포트폴리오·연금·교육 포지션 자동 집계 | ✅ |
+| F-03 | 실시간 집계 API | `/api/portfolio/financial/live-data` — DRAFT 상태 실시간 포지션 집계. `/api/portfolio/financial/tx-summary` — 거래내역 월별 bid/askBv/fixedPnl 집계. `/api/portfolio/financial/monthly-cf` — 월별 현금흐름 CRUD | ✅ |
+| F-04 | 환율 실시간 조회 | `/api/exchange-rates` — yfinance 기반 USD/KRW·CAD/KRW 실시간 환율 조회. `lib/fetchers/exchange-rate.ts` 환율 페처 | ✅ |
+| F-05 | 재무 계산 모듈 | `lib/portfolio/financial-calc.ts` — buildConfirmedStatementData(재무제표 집계), buildAssetManagementYearlyData(연간 테이블·YTD 계산), calcMonthlyCFSummary/History(현금흐름 집계). 엑셀 Asset Management 시트 수식 동일 구현 | ✅ |
+| F-06 | 재무제표 탭 | 대차대조표(CURRENT/NON-CURRENT/INVESTMENT 섹션) + 부채 + 순자산. Net Worth 추세 차트(recharts). 월별 스냅샷 선택기 + DRAFT/CONFIRMED 상태 배지 표시 | ✅ |
+| F-07 | 자산관리 탭 | 엑셀 Asset Management 시트 구조 동일 연간 테이블. FUND/KOR Stocks/US Stocks/KRW Total 4개 섹션. Baseline(Dec) + Jan~Dec 월별 컬럼. YTD 컬럼: Bid/Ask(BV)/Fixed P/L/Principal은 cumBid/cumAskBv 누적값, Cum P/L % 분모=DecBalance+cumBid(엑셀 Q21 수식 동일). Stock Deposit/Cash/Summary YTD는 `-` 공란 처리. 연도 전환 자동화(매년 12월을 신년 baseline으로). 엑셀 Dec-25~Apr-26 데이터 복원 완료(35개 수치 100% 일치 검증) | ✅ |
+| F-08 | 연금·교육 탭 | 월별 스냅샷 기준 연금 계좌(퇴직연금/연금저축) + 교육 계좌 포지션 현황 요약 | ✅ |
+| F-09 | 현금흐름 탭 | `MonthlyCFView` — 월별 현금흐름 입력폼(`MonthlyCFForm`) + 집계 요약. `data/monthly-cf.json` 파일 기반 저장 | ✅ |
+| F-10 | 월말 확정 다이얼로그 | `MonthEndConfirmDialog` — DRAFT→CONFIRMED 전환 전 확인 UI. 포지션 집계 결과 미리보기 | ✅ |
+| F-11 | 스냅샷 수정 다이얼로그 | `SnapshotEditDialog` — CONFIRMED 스냅샷 수동 수정. 항목별 인라인 편집 | ✅ |
+| F-12 | JSON 백업/복원 | `/api/portfolio/financial/backup` — GET 다운로드 + POST overwrite/merge 복원(중복 기준: month 필드). `data/financial-snapshots.json` git 추적 등록(재발 방지) | ✅ |
 
 ---
 
@@ -426,6 +446,22 @@ Step 5: 매수 결정
   └── lib/company-analysis/prompts.ts → /api/company-analysis → CompanyAnalysisClient
 ```
 
+### ACTION 2 재무제표 대시보드 데이터 흐름
+
+```
+/dashboard/portfolio/financial (재무 통합 대시보드)
+  ├── [재무제표 탭] /api/portfolio/financial/snapshot (GET) → FinancialStatementView
+  │   └── lib/portfolio/financial-calc.ts buildConfirmedStatementData → 대차대조표·순자산 집계
+  ├── [자산관리 탭] /api/portfolio/financial/snapshot + /api/portfolio/financial/tx-summary
+  │   └── lib/portfolio/financial-calc.ts buildAssetManagementYearlyData → YTD 연간 테이블 렌더링
+  ├── [연금·교육 탭] /api/portfolio/financial/live-data (DRAFT) / /api/portfolio/financial/snapshot[month] (CONFIRMED)
+  │   └── EduPensionView → 연금·교육 계좌 포지션 요약
+  ├── [현금흐름 탭] /api/portfolio/financial/monthly-cf → MonthlyCFView + MonthlyCFForm
+  ├── [환율] /api/exchange-rates → lib/fetchers/exchange-rate.ts (yfinance) → RateCell
+  ├── [확정] /api/portfolio/financial/snapshot/[month]/confirm → DRAFT→CONFIRMED 전환·집계
+  └── [백업] /api/portfolio/financial/backup (GET/POST) → data/financial-snapshots.json
+```
+
 ---
 
 ## 8. 미결 결정사항
@@ -473,7 +509,8 @@ Step 5: 매수 결정
 | v4.8 | 2026.05.19 | 장기투자 계좌 보유 종목별 성과 분석(D1-10) 추가 — TWR/Alpha/연환산Alpha/MDR(Modified Dietz)/Hit Rate/MDD/Up·Down Capture 7대 지표 테이블(KRW/USD 분리). Alpha vs 벤치마크 수평 바 차트(HoldingsAlphaBarChart). MDR(Modified Dietz Return) 도입(XIRR 대체, 반복 수렴 불필요·수치 안정성 향상). Performance Analysis 탭 "실현손익 성과 분석" 섹션 제거 및 탭명 "Portfolio Analysis" → "Performance Analysis" 변경 |
 | v4.9 | 2026.05.20 | 교육 계좌 대시보드(D2-01~D2-04) — 파일 기반 포지션/거래내역/리스크 관리 3탭, PositionRiskTable(손절가·nR 자동 계산), 공유 다이얼로그(EditPosition/EditTrade). 단중기 계좌(D3-01) 인프라 준비(API+컴포넌트, 페이지 미구현). 페이지 맵 education 추가. 사이드바 계좌명 변경 반영 |
 | v5.0 | 2026.05.20 | 연금 계좌 대시보드(D4-01~D4-07) — 거래 기반 포지션 계산, 3탭(리밸런싱/거래내역/종목별), 퇴직연금·연금저축 계좌별 독립 리밸런싱(채권/주식 비중·현금 포함·현재가 기반), 월평균 기하수익률 컬럼, JSON 백업/복원. `/api/portfolio/risk/prices` KRX 알파뉴메릭 ETF 코드 지원·개수 제한 제거 |
+| v5.1 | 2026.05.21 | 재무제표 통합 대시보드(F-01~F-12) — `/dashboard/portfolio/financial` 신규 페이지. 4탭(재무제표/자산관리/연금·교육/현금흐름). 월별 스냅샷 DRAFT/CONFIRMED 관리 시스템(DRAFT=실시간 집계, CONFIRMED=고정 저장). 엑셀 Asset Management 시트 동일 YTD 수식(cumBid/cumAskBv 누적, Cum P/L % 분모=DecBalance+cumBid). yfinance 환율 실시간 조회(USD/KRW·CAD/KRW). 재무 데이터 JSON 백업/복원 및 git 추적 등록. 페이지 맵·데이터 흐름도 업데이트 |
 
 ---
 
-*v5.0 | 2026.05.20 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v5.1 | 2026.05.21 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
