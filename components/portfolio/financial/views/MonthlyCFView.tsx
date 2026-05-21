@@ -196,22 +196,16 @@ export function MonthlyCFView({
   );
 
   /**
-   * Expenses Total — 지출 카테고리 합산 (음수로 저장된 값의 합)
+   * Expenses Total = Fixed Expense + Credit Card + Cash + Tax 각 섹션 합계
+   * getCatTotal을 직접 합산 → 섹션 헤더 값의 합과 동일
    * 결과는 음수 (내부 표현), 표시 시 절대값으로 변환
    */
   const getExpensesTotal = useCallback(
     (month: string): number => {
       const expCats = ["FIXED_EXPENSE", "CREDIT_CARD", "CASH_EXPENSE", "TAX"] as const;
-      return expCats.reduce(
-        (sum, cat) =>
-          sum +
-          CF_TABLE_ROWS.filter(
-            (r) => r.category === cat && r.rowType === "input" && r.includeInCatTotal
-          ).reduce((s, r) => s + getAmount(cat, r.name, month), 0),
-        0
-      );
+      return expCats.reduce((sum, cat) => sum + getCatTotal(cat, month), 0);
     },
-    [getAmount]
+    [getCatTotal]
   );
 
   /**
@@ -398,21 +392,19 @@ export function MonthlyCFView({
                 ${isInput && rowDef.category ? "cursor-pointer hover:bg-muted/60" : ""}
               `}
             >
-              {/* Income/Transfer: 부호 포함, 나머지: 절대값 */}
-              {incomeStyled || isHeader
-                ? fmtSigned(val)
-                : fmtAbs(val)}
+              {/* Income/Account Transfer: 부호 포함, 지출 섹션(헤더 포함): 절대값 (부호 없음) */}
+              {incomeStyled ? fmtSigned(val) : fmtAbs(val)}
             </td>
           );
         })}
 
         {/* Total 컬럼 */}
         <td className={`px-3 py-1.5 text-right tabular-nums text-sm ${
-          incomeStyled || isHeader
-            ? totalVal === 0 ? "text-muted-foreground" : incomeStyled ? incomeColor(totalVal) : "text-muted-foreground"
+          incomeStyled
+            ? totalVal === 0 ? "text-muted-foreground" : incomeColor(totalVal)
             : totalVal === 0 ? "text-muted-foreground" : "text-foreground"
         }`}>
-          {incomeStyled || isHeader ? fmtSigned(totalVal) : fmtAbs(totalVal)}
+          {incomeStyled ? fmtSigned(totalVal) : fmtAbs(totalVal)}
         </td>
       </tr>
     );
