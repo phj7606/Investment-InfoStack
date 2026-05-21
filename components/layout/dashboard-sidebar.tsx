@@ -24,6 +24,7 @@ import {
   Globe,
   BarChart3,
   PiggyBank,
+  Landmark,
 } from "lucide-react";
 import {
   Sidebar,
@@ -105,6 +106,11 @@ const ACTION2_ITEMS = [
     title: "Performance Analysis",
     href: "/dashboard/portfolio/performance",
     icon: BarChart3,
+  },
+  {
+    title: "재무현황",
+    href: "/dashboard/portfolio/financial",
+    icon: Landmark,
   },
 ];
 
