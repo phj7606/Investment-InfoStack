@@ -1,0 +1,480 @@
+[
+  {
+    "id": "a67a7d7a-19d1-483b-b46f-fec8cd459eb5",
+    "month": "2025-12",
+    "status": "CONFIRMED",
+    "exchangeRates": {
+      "usdKrw": 1441.07,
+      "cadKrw": 1050.04,
+      "recordedAt": "2025-12-31T15:00:00.000Z"
+    },
+    "fixedDepositKrw": 902500000,
+    "fixedDepositUsd": 0,
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "fundMonthly": {
+      "principal": 78081375,
+      "bid": 1600000,
+      "askBv": 2000000,
+      "fixedPnl": 42193,
+      "balance": 104360787
+    },
+    "confirmedPortfolio": {
+      "fundBalance": 104360787,
+      "fundPrincipal": 78081375,
+      "fundCumPnl": 26321605,
+      "fundBid": 1600000,
+      "fundAskBv": 2000000,
+      "fundFixedPnl": 42193,
+      "fundCumFixedPnl": 0,
+      "korStocksBalance": 285289430,
+      "korStocksPrincipal": 147330721,
+      "korStocksCumPnl": 122849446,
+      "korStocksBid": 108101021,
+      "korStocksAskBv": 89337820,
+      "korStocksFixedPnl": -15109263,
+      "korStocksCumFixedPnl": -15109263,
+      "usStocksBalanceUsd": 131425.58000000002,
+      "usStocksPrincipalUsd": 101354.35379310344,
+      "usStocksCumPnlUsd": 32123.630000000026,
+      "usStocksBalanceKrw": 189393461,
+      "usStocksBidUsd": 46011.54,
+      "usStocksAskBvUsd": 17354.72620689655,
+      "usStocksFixedPnlUsd": 2052.403793103448,
+      "usStocksCumFixedPnlUsd": 2052.403793103448,
+      "stockDepositKrw": 455909,
+      "stockDepositUsd": 251.16,
+      "pensionFundBalance": 133292957,
+      "pensionFundPrincipal": 0,
+      "pensionDepositBalance": 0,
+      "pensionDepositPrincipal": 0,
+      "irpBalance": 0,
+      "irpPrincipal": 0,
+      "education1470Deposit": 0,
+      "education1470Stock": 114442193,
+      "education1470Principal": 0,
+      "canadianPensionKrw": 0
+    },
+    "confirmedAt": "2025-12-31T15:00:00.000Z",
+    "updatedAt": "2025-12-31T15:00:00.000Z"
+  },
+  {
+    "id": "884f495f-0c8e-4181-88c0-f434c7411716",
+    "month": "2026-01",
+    "status": "CONFIRMED",
+    "exchangeRates": {
+      "usdKrw": 1450.8,
+      "cadKrw": 1065.47,
+      "recordedAt": "2026-01-31T15:00:00.000Z"
+    },
+    "fixedDepositKrw": 550000000,
+    "fixedDepositUsd": 0,
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "fundMonthly": {
+      "principal": 69557887,
+      "bid": 0,
+      "askBv": 34802900,
+      "fixedPnl": 15211764,
+      "balance": 60961833
+    },
+    "confirmedPortfolio": {
+      "fundBalance": 60961833,
+      "fundPrincipal": 69557887,
+      "fundCumPnl": 6615710,
+      "fundBid": 0,
+      "fundAskBv": 34802900,
+      "fundFixedPnl": 15211764,
+      "fundCumFixedPnl": 15211764,
+      "korStocksBalance": 576669440,
+      "korStocksPrincipal": 473533732,
+      "korStocksCumPnl": 104738023,
+      "korStocksBid": 191232677,
+      "korStocksAskBv": 2988375,
+      "korStocksFixedPnl": 1602315,
+      "korStocksCumFixedPnl": 1602315,
+      "usStocksBalanceUsd": 135364.78,
+      "usStocksPrincipalUsd": 132234.1,
+      "usStocksCumPnlUsd": 3130.679999999993,
+      "usStocksBalanceKrw": 196387223,
+      "usStocksBidUsd": 808.52,
+      "usStocksAskBvUsd": 0,
+      "usStocksFixedPnlUsd": 0,
+      "usStocksCumFixedPnlUsd": 0,
+      "stockDepositKrw": 201042544,
+      "stockDepositUsd": 37.61,
+      "pensionFundBalance": 145290870,
+      "pensionFundPrincipal": 0,
+      "pensionDepositBalance": 0,
+      "pensionDepositPrincipal": 0,
+      "irpBalance": 0,
+      "irpPrincipal": 0,
+      "education1470Deposit": 0,
+      "education1470Stock": 105447749,
+      "education1470Principal": 0,
+      "canadianPensionKrw": 0
+    },
+    "confirmedAt": "2026-01-31T15:00:00.000Z",
+    "updatedAt": "2026-01-31T15:00:00.000Z"
+  },
+  {
+    "id": "183f736a-dbb0-4b38-b9a1-3f4a0f10744c",
+    "month": "2026-02",
+    "status": "CONFIRMED",
+    "exchangeRates": {
+      "usdKrw": 1441.14,
+      "cadKrw": 1056.24,
+      "recordedAt": "2026-02-28T15:00:00.000Z"
+    },
+    "fixedDepositKrw": 550000000,
+    "fixedDepositUsd": 0,
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "fundMonthly": {
+      "principal": 60961833,
+      "bid": 0,
+      "askBv": 0,
+      "fixedPnl": 0,
+      "balance": 60550814
+    },
+    "confirmedPortfolio": {
+      "fundBalance": 60550814,
+      "fundPrincipal": 60961833,
+      "fundCumPnl": 6204691,
+      "fundBid": 0,
+      "fundAskBv": 0,
+      "fundFixedPnl": 0,
+      "fundCumFixedPnl": 15211764,
+      "korStocksBalance": 703174055,
+      "korStocksPrincipal": 596665240,
+      "korStocksCumPnl": 211246838,
+      "korStocksBid": 19995800,
+      "korStocksAskBv": 0,
+      "korStocksFixedPnl": 0,
+      "korStocksCumFixedPnl": 1602315,
+      "usStocksBalanceUsd": 133397.82,
+      "usStocksPrincipalUsd": 135302.58,
+      "usStocksCumPnlUsd": 1286.4000000000128,
+      "usStocksBalanceKrw": 192244934,
+      "usStocksBidUsd": 2176.0499999999997,
+      "usStocksAskBvUsd": 2238.25,
+      "usStocksFixedPnlUsd": 60.479999999999905,
+      "usStocksCumFixedPnlUsd": 60.479999999999905,
+      "stockDepositKrw": 177495166,
+      "stockDepositUsd": 37.61,
+      "pensionFundBalance": 156111979,
+      "pensionFundPrincipal": 0,
+      "pensionDepositBalance": 0,
+      "pensionDepositPrincipal": 0,
+      "irpBalance": 0,
+      "irpPrincipal": 0,
+      "education1470Deposit": 0,
+      "education1470Stock": 69682713,
+      "education1470Principal": 0,
+      "canadianPensionKrw": 0
+    },
+    "confirmedAt": "2026-02-28T15:00:00.000Z",
+    "updatedAt": "2026-02-28T15:00:00.000Z"
+  },
+  {
+    "id": "d76d994a-f8f0-45f3-b3e0-eaceacd72fb7",
+    "month": "2026-03",
+    "status": "CONFIRMED",
+    "exchangeRates": {
+      "usdKrw": 1504.33,
+      "cadKrw": 1080.85,
+      "recordedAt": "2026-03-31T15:00:00.000Z"
+    },
+    "fixedDepositKrw": 550000000,
+    "fixedDepositUsd": 0,
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "fundMonthly": {
+      "principal": 60550814,
+      "bid": 0,
+      "askBv": 0,
+      "fixedPnl": 0,
+      "balance": 56490069
+    },
+    "confirmedPortfolio": {
+      "fundBalance": 56490069,
+      "fundPrincipal": 60550814,
+      "fundCumPnl": 2143946,
+      "fundBid": 0,
+      "fundAskBv": 0,
+      "fundFixedPnl": 0,
+      "fundCumFixedPnl": 15211764,
+      "korStocksBalance": 611997905,
+      "korStocksPrincipal": 761125145,
+      "korStocksCumPnl": 70340886,
+      "korStocksBid": 83028585,
+      "korStocksAskBv": 25077494.83881688,
+      "korStocksFixedPnl": 8221288.161183119,
+      "korStocksCumFixedPnl": 9823603.161183119,
+      "usStocksBalanceUsd": 125964.38,
+      "usStocksPrincipalUsd": 133397.82,
+      "usStocksCumPnlUsd": -6147.03999999999,
+      "usStocksBalanceKrw": 189491996,
+      "usStocksBidUsd": 0,
+      "usStocksAskBvUsd": 0,
+      "usStocksFixedPnlUsd": 0,
+      "usStocksCumFixedPnlUsd": 60.479999999999905,
+      "stockDepositKrw": 127855220,
+      "stockDepositUsd": 194.79999999999998,
+      "pensionFundBalance": 147030150,
+      "pensionFundPrincipal": 0,
+      "pensionDepositBalance": 0,
+      "pensionDepositPrincipal": 0,
+      "irpBalance": 0,
+      "irpPrincipal": 0,
+      "education1470Deposit": 0,
+      "education1470Stock": 67441559,
+      "education1470Principal": 0,
+      "canadianPensionKrw": 0
+    },
+    "confirmedAt": "2026-03-31T15:00:00.000Z",
+    "updatedAt": "2026-03-31T15:00:00.000Z"
+  },
+  {
+    "id": "2ac6cb6a-9e42-41f7-9fb1-e2d234dc31ac",
+    "month": "2026-04",
+    "status": "CONFIRMED",
+    "exchangeRates": {
+      "usdKrw": 1475.27,
+      "cadKrw": 1086.59,
+      "recordedAt": "2026-04-30T15:00:00.000Z"
+    },
+    "fixedDepositKrw": 550000000,
+    "fixedDepositUsd": 0,
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "fundMonthly": {
+      "principal": 56690069,
+      "bid": 200000,
+      "askBv": 0,
+      "fixedPnl": 0,
+      "balance": 60523732
+    },
+    "confirmedPortfolio": {
+      "fundBalance": 60523732,
+      "fundPrincipal": 56690069,
+      "fundCumPnl": 5977609,
+      "fundBid": 200000,
+      "fundAskBv": 0,
+      "fundFixedPnl": 0,
+      "fundCumFixedPnl": 15211764,
+      "korStocksBalance": 844548505,
+      "korStocksPrincipal": 644114905,
+      "korStocksCumPnl": 299272088,
+      "korStocksBid": 50109960,
+      "korStocksAskBv": 17992960,
+      "korStocksFixedPnl": 28497602,
+      "korStocksCumFixedPnl": 38321205.16118312,
+      "usStocksBalanceUsd": 150535.97,
+      "usStocksPrincipalUsd": 125964.38,
+      "usStocksCumPnlUsd": 18424.550000000007,
+      "usStocksBalanceKrw": 222081200,
+      "usStocksBidUsd": 0,
+      "usStocksAskBvUsd": 0,
+      "usStocksFixedPnlUsd": 0,
+      "usStocksCumFixedPnlUsd": 60.479999999999905,
+      "stockDepositKrw": 114114281,
+      "stockDepositUsd": 217.32999999999998,
+      "pensionFundBalance": 167340424,
+      "pensionFundPrincipal": 0,
+      "pensionDepositBalance": 0,
+      "pensionDepositPrincipal": 0,
+      "irpBalance": 0,
+      "irpPrincipal": 0,
+      "education1470Deposit": 0,
+      "education1470Stock": 87287123,
+      "education1470Principal": 0,
+      "canadianPensionKrw": 0
+    },
+    "confirmedAt": "2026-04-30T15:00:00.000Z",
+    "updatedAt": "2026-04-30T15:00:00.000Z"
+  },
+  {
+    "id": "da28ad52-c704-4098-bdf5-bb52c71f7699",
+    "month": "2026-05",
+    "status": "DRAFT",
+    "exchangeRates": {
+      "usdKrw": 1505.24,
+      "cadKrw": 1093.68,
+      "fetchedAt": "2026-05-21T07:12:27.471Z"
+    },
+    "fixedDepositKrw": 550000000,
+    "fixedDepositUsd": 0,
+    "leaseDeposit": 1300000000,
+    "privateLoan": 146930000,
+    "mortgageLoan": 0,
+    "realEstate": 1668000000,
+    "otherAssets": [],
+    "crypto": {
+      "upbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "korbit": {
+        "balance": 0,
+        "principal": 0
+      },
+      "binance": {
+        "balance": 0,
+        "principal": 0
+      }
+    },
+    "canadianPension": {
+      "balanceCad": 0,
+      "monthlyFeeCad": 0
+    },
+    "midterm2805": {
+      "cumInstallment": 0,
+      "cumSpent": 0,
+      "balance": 0
+    },
+    "updatedAt": "2026-05-21T07:48:22.295Z",
+    "cashForeignUsd": 0,
+    "cashForeignCad": 0
+  }
+]
