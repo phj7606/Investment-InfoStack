@@ -1,10 +1,11 @@
 /**
  * Monthly CF API — 월별 현금흐름 항목 CRUD
  *
- * GET  /api/portfolio/financial/monthly-cf?month=2026-05  → 해당 월 항목 목록
- * GET  /api/portfolio/financial/monthly-cf                → 전체 목록
- * POST /api/portfolio/financial/monthly-cf                → 항목 추가
- * DELETE /api/portfolio/financial/monthly-cf?id=xxx       → 항목 삭제
+ * GET    /api/portfolio/financial/monthly-cf?month=2026-05  → 해당 월 항목 목록
+ * GET    /api/portfolio/financial/monthly-cf                → 전체 목록
+ * POST   /api/portfolio/financial/monthly-cf                → 항목 추가
+ * PUT    /api/portfolio/financial/monthly-cf?id=xxx         → 항목 금액·메모 수정
+ * DELETE /api/portfolio/financial/monthly-cf?id=xxx         → 항목 삭제
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -66,6 +67,35 @@ export async function POST(req: NextRequest) {
   await writeEntries(entries);
 
   return NextResponse.json({ entry: newEntry }, { status: 201 });
+}
+
+// PUT — 항목 금액·메모 수정 (인라인 셀 편집 확정 시 호출)
+export async function PUT(req: NextRequest) {
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ error: "id 파라미터 필요" }, { status: 400 });
+  }
+
+  const body = (await req.json()) as { amount?: number; note?: string };
+
+  if (body.amount === undefined || isNaN(body.amount)) {
+    return NextResponse.json({ error: "amount(number) 필수" }, { status: 400 });
+  }
+
+  const entries = await readEntries();
+  const idx = entries.findIndex((e) => e.id === id);
+  if (idx === -1) {
+    return NextResponse.json({ error: "항목을 찾을 수 없습니다" }, { status: 404 });
+  }
+
+  entries[idx] = {
+    ...entries[idx],
+    amount: body.amount,
+    note: body.note?.trim() || entries[idx].note,
+  };
+  await writeEntries(entries);
+
+  return NextResponse.json({ entry: entries[idx] });
 }
 
 // DELETE — 항목 삭제

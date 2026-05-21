@@ -1,1 +1,354 @@
-[]
+[
+  {
+    "id": "d1ed58a6-38fb-4a91-9696-22af88113c1c",
+    "category": "INCOME",
+    "name": "Salary",
+    "month": "2026-01",
+    "amount": 7652747,
+    "createdAt": "2026-05-21T13:00:45.960Z"
+  },
+  {
+    "id": "ab6e10ea-844b-43b4-a94d-4ea4364e5d1a",
+    "category": "INCOME",
+    "name": "Salary",
+    "month": "2026-02",
+    "amount": 6091991,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "f7fef0e1-59bc-4214-a45a-87543c49b16b",
+    "category": "INCOME",
+    "name": "Salary",
+    "month": "2026-03",
+    "amount": 4238925,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "abfd21f8-eee1-48a9-b245-1d1d7dced91a",
+    "category": "INCOME",
+    "name": "Salary",
+    "month": "2026-04",
+    "amount": 6023306,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "067e8e17-6d47-4fdd-9e00-a84ce16d54e3",
+    "category": "INCOME",
+    "name": "Interest/dividend income",
+    "month": "2026-01",
+    "amount": 44120,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "d0392259-c718-4a1c-8603-58a69b0788a8",
+    "category": "INCOME",
+    "name": "Others",
+    "month": "2026-01",
+    "amount": 1182241,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "9b75999f-5253-4598-ba13-ed8d6fe5ded0",
+    "category": "INCOME",
+    "name": "Others",
+    "month": "2026-02",
+    "amount": 23421337,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "90c0128e-7efa-4b8c-93ba-151ed180ca1c",
+    "category": "INCOME",
+    "name": "Others",
+    "month": "2026-03",
+    "amount": 785,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "e60f4969-6a48-4b72-af9d-b25e314c5182",
+    "category": "INCOME",
+    "name": "Others",
+    "month": "2026-04",
+    "amount": 3050000,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "34750a12-b6a7-41a7-807a-07e27c701afb",
+    "category": "FIXED_EXPENSE",
+    "name": "Insurance",
+    "month": "2026-01",
+    "amount": -213749,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "03f601ef-562e-4ec5-859c-57928f62c11b",
+    "category": "FIXED_EXPENSE",
+    "name": "Insurance",
+    "month": "2026-02",
+    "amount": -213749,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "5e3c6523-c6d8-437a-b3ca-7cf1a5fc9047",
+    "category": "FIXED_EXPENSE",
+    "name": "Insurance",
+    "month": "2026-03",
+    "amount": -213749,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "b92ab0e8-8b89-4a32-8c22-a76d9e41362c",
+    "category": "FIXED_EXPENSE",
+    "name": "Insurance",
+    "month": "2026-04",
+    "amount": -213749,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "488f7033-6cad-49b9-9f69-e81ffa9ec48a",
+    "category": "FIXED_EXPENSE",
+    "name": "Telecommunication",
+    "month": "2026-01",
+    "amount": -7540,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "b286e72d-01c1-47d4-8afe-ff8fe6cec941",
+    "category": "FIXED_EXPENSE",
+    "name": "Telecommunication",
+    "month": "2026-02",
+    "amount": -14680,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "d68b8c53-5522-4f9b-9ffa-a4ce85d688c0",
+    "category": "FIXED_EXPENSE",
+    "name": "Telecommunication",
+    "month": "2026-03",
+    "amount": -8090,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "199dd507-4514-4aa9-b6c3-f9242ba22fd5",
+    "category": "FIXED_EXPENSE",
+    "name": "Telecommunication",
+    "month": "2026-04",
+    "amount": -5500,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "826d09aa-ad41-4bb3-8ba2-3739f7a38554",
+    "category": "FIXED_EXPENSE",
+    "name": "Monthly Installment",
+    "month": "2026-01",
+    "amount": -1000000,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "44e5c1e9-1f09-4b4a-bfd5-749857230437",
+    "category": "FIXED_EXPENSE",
+    "name": "Monthly Installment",
+    "month": "2026-02",
+    "amount": -19000000,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "4e18f586-8798-49d5-9c71-3455a65dcd8a",
+    "category": "FIXED_EXPENSE",
+    "name": "Monthly Installment",
+    "month": "2026-03",
+    "amount": -1600000,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "f078933a-383b-4971-8693-a3ee4079f851",
+    "category": "FIXED_EXPENSE",
+    "name": "Monthly Installment Spent",
+    "month": "2026-01",
+    "amount": -6300000,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "b27471ee-82d2-4797-91f4-8205160f4200",
+    "category": "FIXED_EXPENSE",
+    "name": "Monthly Installment Spent",
+    "month": "2026-04",
+    "amount": -1235950,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "46d93a86-03ea-4ac5-9486-2dcb559a9766",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-01",
+    "amount": -720693,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "d3cfa581-b9a8-4a54-b933-1366deb2b0c3",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-02",
+    "amount": -2503397,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "709c7403-6e2b-4751-8a45-5cea3c9d4f26",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-03",
+    "amount": -505273,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "4c23efbf-9876-461c-9740-8ee67029ae57",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-04",
+    "amount": -2590666,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "250b2249-fea1-4dee-b056-f7b609e0ff8f",
+    "category": "CASH_EXPENSE",
+    "name": "CNY Exchange",
+    "month": "2026-01",
+    "amount": -4143692,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "4671566d-efab-40ae-8ff3-69b73646dca5",
+    "category": "CASH_EXPENSE",
+    "name": "CNY Exchange",
+    "month": "2026-02",
+    "amount": -2114900,
+    "createdAt": "2026-05-21T13:00:45.961Z"
+  },
+  {
+    "id": "d899b048-bca6-4dcc-9afe-2d6acc05cf19",
+    "category": "CASH_EXPENSE",
+    "name": "CNY Exchange",
+    "month": "2026-04",
+    "amount": -2852125,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "98863ece-09a1-41b9-86e0-7ee0e9406d7c",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-01",
+    "amount": -2800000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "3948ee99-acd9-4958-a886-99fcf66a5bae",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-02",
+    "amount": -500000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "81ea56f5-b908-4b10-8406-786d143f76a0",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-03",
+    "amount": -300000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "9ecd0b3b-9365-4558-9dd9-5e365934235b",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-01",
+    "amount": -1000000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "c217c605-8eca-457c-bbfe-16cf40d21b05",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-02",
+    "amount": -1610000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "d5f0e5f6-e1b7-49d6-9a9e-7bd21c2a8f57",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-03",
+    "amount": -2960000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "839a93cf-d5b6-498e-bff6-ba9a7a79a6fc",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-04",
+    "amount": -2600000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "271548fa-86a3-4a87-9643-d7c752e22a82",
+    "category": "CASH_EXPENSE",
+    "name": "Others",
+    "month": "2026-01",
+    "amount": -764553,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "ad9850aa-8f10-4b20-bcfd-896284e8b4e4",
+    "category": "CASH_EXPENSE",
+    "name": "Others",
+    "month": "2026-02",
+    "amount": -1518860,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "63a8e8e1-a7af-492f-9755-4bd5f4b273a6",
+    "category": "CASH_EXPENSE",
+    "name": "Others",
+    "month": "2026-03",
+    "amount": -2553500,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "b1010033-9821-4deb-9c0f-0c6675df3be1",
+    "category": "CASH_EXPENSE",
+    "name": "Others",
+    "month": "2026-04",
+    "amount": -1894764,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "7f7cd5ec-cfaf-402a-a6cd-a11d81dcd10f",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-01",
+    "amount": 1042426,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "8505cc85-fdc5-4794-9e77-f60bfed61de1",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-02",
+    "amount": -2390000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "321ef9e5-814e-4af1-8a37-909d1c364a73",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-03",
+    "amount": 4730000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "18eafad0-7771-46b1-a125-60046788163c",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-04",
+    "amount": 1290000,
+    "createdAt": "2026-05-21T13:00:45.962Z"
+  }
+]
