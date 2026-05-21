@@ -33,7 +33,7 @@ import { Download, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-rea
 // 모듈 정의
 // ─────────────────────────────────────────
 
-type ModuleKey = "financial" | "pension" | "longterm" | "education" | "shortterm" | "monthly-cf";
+type ModuleKey = "financial" | "pension" | "longterm" | "education" | "shortterm" | "monthly-cf" | "pension-rebalancing" | "performance";
 
 interface ModuleMeta {
   key: ModuleKey;
@@ -78,6 +78,18 @@ const MODULES: ModuleMeta[] = [
     label: "월별 현금흐름",
     description: "월별 수입·지출 항목 및 계좌 잔액",
     backupEndpoint: "/api/portfolio/financial/monthly-cf/backup",
+  },
+  {
+    key: "pension-rebalancing",
+    label: "연금 리밸런싱 설정",
+    description: "리밸런싱 목표 비중 설정 (채권·주식 비율)",
+    backupEndpoint: "/api/portfolio/pension/rebalancing/backup",
+  },
+  {
+    key: "performance",
+    label: "성과 기준 데이터",
+    description: "Jan-Apr 2026 성과 부트스트랩 + 기준선",
+    backupEndpoint: "/api/portfolio/performance/backup",
   },
 ];
 
@@ -471,6 +483,12 @@ function buildRestoreBody(
       return { positions: data.positions, trades: data.trades, mode };
     case "monthly-cf":
       return { entries: data.entries, balances: data.balances, mode };
+    case "pension-rebalancing":
+      // 단일 config 객체 — merge 개념 없이 항상 overwrite
+      return { config: data.config, mode: "overwrite" as const };
+    case "performance":
+      // bootstrap·baseline 파일 — merge 개념 없이 항상 overwrite
+      return { bootstrap: data.bootstrap, baseline: data.baseline, mode: "overwrite" as const };
   }
 }
 
