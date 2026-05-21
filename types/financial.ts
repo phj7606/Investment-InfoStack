@@ -43,6 +43,29 @@ export const CF_CATEGORY_LABELS: Record<CFCategoryType, string> = {
   ACCOUNT_TRANSFER: "계좌이체",
 };
 
+/**
+ * 카테고리별 predefined 세부항목 이름 목록
+ * 엑셀 Monthly CF 시트의 sub-row 이름에서 가져옴
+ * ACCOUNT_TRANSFER는 자유입력이므로 빈 배열
+ */
+export const CF_PREDEFINED_ITEMS: Record<CFCategoryType, string[]> = {
+  INCOME:           ["Salary", "Interest/dividend income", "Rental/lease income", "Others"],
+  FIXED_EXPENSE:    ["Insurance", "Telecommunication", "Monthly Installment", "Others"],
+  CREDIT_CARD:      ["Samsung", "Hana", "Citi", "Others"],
+  CASH_EXPENSE:     ["CNY Exchange", "Cash-gift/Condolence", "Tuition", "Others"],
+  TAX:              ["Real estate - rent", "Real estate", "Investment", "Others"],
+  ACCOUNT_TRANSFER: [],
+};
+
+/**
+ * 월별 계좌 잔액 — opening balance per month
+ * 키: "2026-01" (YYYY-MM), 값: 해당 월 시작 시점 잔액 (KRW)
+ * 최초 월은 사용자 직접 입력, 이후 월은 전월 closing balance에서 자동 계산
+ */
+export interface MonthlyCFBalance {
+  [month: string]: number;
+}
+
 /** 월별 현금흐름 항목 1건 — monthly-cf.json 배열 원소 */
 export interface MonthlyCFEntry {
   id: string;             // UUID

@@ -20,8 +20,6 @@ import { EduPensionView } from "./views/EduPensionView";
 import { MonthlyCFView } from "./views/MonthlyCFView";
 import {
   buildConfirmedStatementData,
-  calcMonthlyCFSummary,
-  calcMonthlyCFHistory,
   getRecentMonths,
   currentMonth,
   createDraftSnapshot,
@@ -29,6 +27,7 @@ import {
 import type {
   FinancialSnapshot,
   MonthlyCFEntry,
+  MonthlyCFBalance,
   FinancialStatementData,
   LivePortfolioData,
   TxSummaryByMonth,
@@ -209,6 +208,7 @@ export function FinancialStatementClient() {
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth());
   const [snapshots, setSnapshots] = useState<FinancialSnapshot[]>([]);
   const [cfEntries, setCfEntries] = useState<MonthlyCFEntry[]>([]);
+  const [cfBalances, setCfBalances] = useState<MonthlyCFBalance>({});
   const [liveData, setLiveData] = useState<LivePortfolioData | null>(null);
   const [liveLoading, setLiveLoading] = useState(false);
   const [txSummaries, setTxSummaries] = useState<TxSummaryByMonth>({});
@@ -227,22 +227,25 @@ export function FinancialStatementClient() {
     setLoading(true);
     setError("");
     try {
-      const [snapshotRes, cfRes, txSummaryRes] = await Promise.all([
+      const [snapshotRes, cfRes, txSummaryRes, cfBalanceRes] = await Promise.all([
         fetch("/api/portfolio/financial/snapshot"),
         fetch("/api/portfolio/financial/monthly-cf"),
         fetch("/api/portfolio/financial/tx-summary"),
+        fetch("/api/portfolio/financial/monthly-cf/balance"),
       ]);
 
       if (!snapshotRes.ok || !cfRes.ok) throw new Error("데이터 로드 실패");
 
       const snapshotData = await snapshotRes.json();
       const cfData = await cfRes.json();
-      // tx-summary는 실패해도 빈 객체로 fallback (선택적 데이터)
+      // tx-summary / balance는 실패해도 빈 객체로 fallback (선택적 데이터)
       const txSummaryData = txSummaryRes.ok ? await txSummaryRes.json() : {};
+      const cfBalanceData = cfBalanceRes.ok ? await cfBalanceRes.json() : {};
 
       setSnapshots(snapshotData.snapshots ?? []);
       setCfEntries(cfData.entries ?? []);
       setTxSummaries(txSummaryData ?? {});
+      setCfBalances(cfBalanceData.balances ?? {});
     } catch (e) {
       setError(e instanceof Error ? e.message : "알 수 없는 오류");
     } finally {
@@ -311,11 +314,8 @@ export function FinancialStatementClient() {
     })
     .filter((d): d is NetWorthPoint => d !== null);
 
-  // ── Monthly CF 요약 ──────────────────────────────────
-  const cfSummary = calcMonthlyCFSummary(cfEntries, selectedMonth);
-  const cfHistoryMonths = getRecentMonths(6).reverse();
-  const cfHistorySummaries = calcMonthlyCFHistory(cfEntries, cfHistoryMonths);
-  const cfMonthEntries = cfEntries.filter((e) => e.month === selectedMonth);
+  // ── 현금흐름 연도 (현재 연도 기준) ──────────────────────
+  const cfYear = new Date().getFullYear();
 
   // ── 월 선택 옵션 ─────────────────────────────────────
   const availableMonths = Array.from(
@@ -329,6 +329,28 @@ export function FinancialStatementClient() {
       loadLiveData(currentSnapshot.exchangeRates.usdKrw);
     }
   }, [loadData, loadLiveData, currentSnapshot.status, currentSnapshot.exchangeRates.usdKrw]);
+
+  // ── 계좌잔액 PUT/DELETE 콜백 (MonthlyCFView에서 호출) ──
+  const handleCFBalanceUpdate = useCallback(async (month: string, amount: number) => {
+    const res = await fetch("/api/portfolio/financial/monthly-cf/balance", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, amount }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    setCfBalances(data.balances ?? {});
+  }, []);
+
+  const handleCFBalanceDelete = useCallback(async (month: string) => {
+    const res = await fetch(
+      `/api/portfolio/financial/monthly-cf/balance?month=${month}`,
+      { method: "DELETE" }
+    );
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    setCfBalances(data.balances ?? {});
+  }, []);
 
   // ── 백업 다운로드 ────────────────────────────────────────
   async function handleJsonBackup() {
@@ -588,11 +610,12 @@ export function FinancialStatementClient() {
         {/* Tab 4: 현금흐름 */}
         <TabsContent value="cf" className="mt-6">
           <MonthlyCFView
-            month={selectedMonth}
-            entries={cfMonthEntries}
-            summary={cfSummary}
-            historySummaries={cfHistorySummaries}
+            entries={cfEntries}
+            balances={cfBalances}
+            year={cfYear}
             onRefresh={handleRefresh}
+            onBalanceUpdate={handleCFBalanceUpdate}
+            onBalanceDelete={handleCFBalanceDelete}
           />
         </TabsContent>
       </Tabs>

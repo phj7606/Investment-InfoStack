@@ -350,5 +350,174 @@
     "month": "2026-04",
     "amount": 1290000,
     "createdAt": "2026-05-21T13:00:45.962Z"
+  },
+  {
+    "id": "5e6ff6c4-262b-4de0-a656-466d57d52f8e",
+    "category": "INCOME",
+    "name": "Salary",
+    "month": "2026-05",
+    "amount": 5715598,
+    "createdAt": "2026-05-21T14:21:21.780Z"
+  },
+  {
+    "id": "146376c6-376a-4ae8-bd0d-1a7c2512db72",
+    "category": "INCOME",
+    "name": "Others",
+    "month": "2026-05",
+    "amount": 183480,
+    "note": "건강보험/장기요양 환급",
+    "createdAt": "2026-05-21T14:22:33.156Z"
+  },
+  {
+    "id": "be8092b6-2b7c-4cba-8369-f8e12e688a5b",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-05",
+    "amount": 16809361,
+    "note": "증권계좌 이체",
+    "createdAt": "2026-05-21T14:23:27.868Z"
+  },
+  {
+    "id": "60cdb73c-452e-4eb4-9326-c6c0689271a3",
+    "category": "FIXED_EXPENSE",
+    "name": "Insurance",
+    "month": "2026-05",
+    "amount": -20680,
+    "note": "5/21 메리츠",
+    "createdAt": "2026-05-21T14:25:23.303Z"
+  },
+  {
+    "id": "b26c571c-6617-4cb4-9357-a62e8460da5f",
+    "category": "FIXED_EXPENSE",
+    "name": "Telecommunication",
+    "month": "2026-05",
+    "amount": -5500,
+    "note": "5/21 SKT",
+    "createdAt": "2026-05-21T14:25:43.772Z"
+  },
+  {
+    "id": "89b5f470-641e-499c-8041-6c7c57e3da61",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-05",
+    "amount": -1357687,
+    "note": "5/21 하나카드",
+    "createdAt": "2026-05-21T14:26:07.908Z"
+  },
+  {
+    "id": "b188330c-8ff2-49f9-ab25-0c095bc0657a",
+    "category": "CREDIT_CARD",
+    "name": "Hana",
+    "month": "2026-05",
+    "amount": -163,
+    "note": "5/21 하나카드",
+    "createdAt": "2026-05-21T14:26:25.665Z"
+  },
+  {
+    "id": "35843252-ca9f-4d2f-b5b4-8de2251edb51",
+    "category": "CASH_EXPENSE",
+    "name": "CNY Exchange",
+    "month": "2026-05",
+    "amount": -409488,
+    "createdAt": "2026-05-21T14:26:52.272Z"
+  },
+  {
+    "id": "a3c193d5-7967-4d44-8844-aa585e20a044",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-05",
+    "amount": -100000,
+    "note": "5/6 부산 부의금",
+    "createdAt": "2026-05-21T14:29:02.926Z"
+  },
+  {
+    "id": "bd688298-2c38-460a-a7c8-9e6545ab20e0",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-05",
+    "amount": -1000000,
+    "note": "5/8 어버이날",
+    "createdAt": "2026-05-21T14:29:17.721Z"
+  },
+  {
+    "id": "ec54b45b-7333-4c60-a0d3-270c2b1ebd79",
+    "category": "CASH_EXPENSE",
+    "name": "Cash-gift/Condolence",
+    "month": "2026-05",
+    "amount": -100000,
+    "note": "5/15 김유영 부친상",
+    "createdAt": "2026-05-21T14:29:41.566Z"
+  },
+  {
+    "id": "e34049bd-d8bf-491a-93c6-fa160da6f942",
+    "category": "ACCOUNT_TRANSFER",
+    "name": "Account Transfer",
+    "month": "2026-05",
+    "amount": 442680,
+    "note": "5/19 증권계좌 이체",
+    "createdAt": "2026-05-21T14:30:30.592Z"
+  },
+  {
+    "id": "150c272b-69b0-4d68-8510-7e9a73931e4f",
+    "category": "CASH_EXPENSE",
+    "name": "CNY Exchange",
+    "month": "2026-05",
+    "amount": -442680,
+    "note": "5/19 계좌이체",
+    "createdAt": "2026-05-21T14:30:49.436Z"
+  },
+  {
+    "id": "4761ddfa-c91c-421e-9fa3-7a4f5fd7ed29",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-05",
+    "amount": -2330000,
+    "note": "과외비",
+    "createdAt": "2026-05-21T14:31:30.164Z"
+  },
+  {
+    "id": "7e9cf954-a921-44c7-bb0d-542db91e9374",
+    "category": "CASH_EXPENSE",
+    "name": "Others",
+    "month": "2026-05",
+    "amount": -301000,
+    "note": "곗돈, 네이버페이",
+    "createdAt": "2026-05-21T14:32:05.506Z"
+  },
+  {
+    "id": "dfa8ff01-03c3-41ca-85b1-909ca32deb3a",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-05",
+    "amount": -1400000,
+    "note": "5/21 재민 방학수학",
+    "createdAt": "2026-05-21T14:33:15.421Z"
+  },
+  {
+    "id": "fd20d737-d4fd-4c97-899e-5e86259bfd56",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-05",
+    "amount": -1570000,
+    "note": "5/21 재민 방학 화학",
+    "createdAt": "2026-05-21T14:33:36.836Z"
+  },
+  {
+    "id": "3576384c-1989-4905-8b1a-31b4ffa4e209",
+    "category": "TAX",
+    "name": "Real estate",
+    "month": "2026-05",
+    "amount": -14179930,
+    "note": "5/11 종합소득세/양도소득세",
+    "createdAt": "2026-05-21T14:37:18.829Z"
+  },
+  {
+    "id": "ba3cb0b8-758c-4c9e-940e-c9b63b84a709",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-05",
+    "amount": -160000,
+    "note": "5/19 연후 독서",
+    "createdAt": "2026-05-21T14:42:19.282Z"
   }
 ]
