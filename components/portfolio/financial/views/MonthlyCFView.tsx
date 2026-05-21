@@ -277,6 +277,18 @@ export function MonthlyCFView({
     [onRefresh]
   );
 
+  const handleUpdate = useCallback(
+    async (id: string, amount: number, note?: string) => {
+      await fetch(`/api/portfolio/financial/monthly-cf?id=${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, note }),
+      });
+      onRefresh();
+    },
+    [onRefresh]
+  );
+
   // ── Account Balance 편집 ──────────────────────────────────────
 
   const startBalEdit = (month: string) => {
@@ -597,6 +609,7 @@ export function MonthlyCFView({
           month={openDialog.month}
           entries={dialogEntries}
           onAdd={handleAdd}
+          onUpdate={handleUpdate}
           onDelete={handleDelete}
         />
       )}
