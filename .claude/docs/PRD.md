@@ -1,6 +1,6 @@
 # PRD — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v5.1 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
+> **버전**: v5.2 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
 
 ---
 
@@ -81,7 +81,7 @@ Step 5: 매수 결정
 | `/dashboard/portfolio/pension` | A2 | 연금 계좌 대시보드 (퇴직연금/연금저축/IRP, 거래내역·리밸런싱·종목별 3탭) | ✅ |
 | `/dashboard/portfolio/performance` | A2 | 포트폴리오 성과 분석 (KR/US 월별 수익률·누적수익률·벤치마크 비교) | ✅ |
 | `/dashboard/portfolio/financial` | A2 | 재무제표 통합 대시보드 (재무제표/자산관리/연금·교육/현금흐름 4탭) | ✅ |
-| `/dashboard/settings` | 기타 | 앱 설정 | ✅ |
+| `/dashboard/settings` | 기타 | 앱 설정 (ETF 티커·파라미터·백업/복원) | ✅ |
 
 ---
 
@@ -241,6 +241,7 @@ Step 5: 매수 결정
 | F-10 | 월말 확정 다이얼로그 | `MonthEndConfirmDialog` — DRAFT→CONFIRMED 전환 전 확인 UI. 포지션 집계 결과 미리보기 | ✅ |
 | F-11 | 스냅샷 수정 다이얼로그 | `SnapshotEditDialog` — CONFIRMED 스냅샷 수동 수정. 항목별 인라인 편집 | ✅ |
 | F-12 | JSON 백업/복원 | `/api/portfolio/financial/backup` — GET 다운로드 + POST overwrite/merge 복원(중복 기준: month 필드). `data/financial-snapshots.json` git 추적 등록(재발 방지) | ✅ |
+| F-13 | 통합 백업/복원 | `/api/backup/full` — 5개 모듈(재무/연금/중장기/교육/단기) 단일 JSON 통합 백업(GET: investment-backup-YYYY-MM-DD.json) + 선택적 복원(POST: modules 배열 + overwrite/merge 모드). `components/settings/BackupRestorePanel.tsx` — `/dashboard/settings` 백업/복원 탭: 전체 통합 다운로드·복원 + 모듈별 개별 백업/복원 카드(기존 개별 API 활용). 덮어쓰기 경고 표시 | ✅ |
 
 ---
 
@@ -510,7 +511,8 @@ Step 5: 매수 결정
 | v4.9 | 2026.05.20 | 교육 계좌 대시보드(D2-01~D2-04) — 파일 기반 포지션/거래내역/리스크 관리 3탭, PositionRiskTable(손절가·nR 자동 계산), 공유 다이얼로그(EditPosition/EditTrade). 단중기 계좌(D3-01) 인프라 준비(API+컴포넌트, 페이지 미구현). 페이지 맵 education 추가. 사이드바 계좌명 변경 반영 |
 | v5.0 | 2026.05.20 | 연금 계좌 대시보드(D4-01~D4-07) — 거래 기반 포지션 계산, 3탭(리밸런싱/거래내역/종목별), 퇴직연금·연금저축 계좌별 독립 리밸런싱(채권/주식 비중·현금 포함·현재가 기반), 월평균 기하수익률 컬럼, JSON 백업/복원. `/api/portfolio/risk/prices` KRX 알파뉴메릭 ETF 코드 지원·개수 제한 제거 |
 | v5.1 | 2026.05.21 | 재무제표 통합 대시보드(F-01~F-12) — `/dashboard/portfolio/financial` 신규 페이지. 4탭(재무제표/자산관리/연금·교육/현금흐름). 월별 스냅샷 DRAFT/CONFIRMED 관리 시스템(DRAFT=실시간 집계, CONFIRMED=고정 저장). 엑셀 Asset Management 시트 동일 YTD 수식(cumBid/cumAskBv 누적, Cum P/L % 분모=DecBalance+cumBid). yfinance 환율 실시간 조회(USD/KRW·CAD/KRW). 재무 데이터 JSON 백업/복원 및 git 추적 등록. 페이지 맵·데이터 흐름도 업데이트 |
+| v5.2 | 2026.05.21 | EduPensionView 자산관리 II 개선 — Education/Shortterm 실시간 잔고 업데이트(Naver 가격 fetch 확장), CONFIRMED 월 선택 시 liveData 항상 유지 버그 수정, 다이얼로그 UI 정리(Pension placeholder 제거·Stock Balance 필드 제거). 통합 백업/복원 시스템(F-13) 신규: `/api/backup/full` 5개 모듈 단일 JSON API + `BackupRestorePanel` + `/dashboard/settings` 백업/복원 탭. 페이지 맵 settings 설명 업데이트 |
 
 ---
 
-*v5.1 | 2026.05.21 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
+*v5.2 | 2026.05.21 | Living Document — 워크플로우/기능 추가 시 수시 업데이트*
