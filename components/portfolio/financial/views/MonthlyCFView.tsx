@@ -331,16 +331,16 @@ export function MonthlyCFView({
     return Math.abs(val).toLocaleString();
   }
 
-  /** Expenses Total: 항상 양수 + "+" 접두사 */
+  /** Expenses Total: 절대값 (부호 없음) */
   function fmtExpTotal(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
-    return `+${Math.abs(val).toLocaleString()}`;
+    return Math.abs(val).toLocaleString();
   }
 
-  /** Income/Balance: 부호 포함 */
+  /** Income 셀: "+" 없이 숫자만, 음수일 때만 "-" */
   function fmtSigned(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
-    return val > 0 ? `+${val.toLocaleString()}` : val.toLocaleString();
+    return val.toLocaleString();
   }
 
   // ── 행 렌더링 ────────────────────────────────────────────────
