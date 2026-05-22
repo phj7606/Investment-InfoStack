@@ -1,10 +1,10 @@
 # ROADMAP — Investment+ (1인 투자 하우스 시스템)
 
-> **버전**: v5.5 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.21 | **상태**: Living Document
+> **버전**: v5.6 | **작성일**: 2026.03.31 | **최종 수정**: 2026.05.22 | **상태**: Living Document
 
 ---
 
-## 현재 진행 상황 (2026.05.21 기준)
+## 현재 진행 상황 (2026.05.22 기준)
 
 | Phase | 내용 | 상태 |
 |-------|------|------|
@@ -203,11 +203,14 @@
 | P9-39 | 월별 스냅샷 API — GET/POST(`/api/portfolio/financial/snapshot`), PUT/GET 단일월(`[month]`), POST 확정(`[month]/confirm`). DRAFT/CONFIRMED 상태 관리. DRAFT는 실시간 집계, CONFIRMED는 고정 저장. 확정 시 포트폴리오·연금·교육 포지션 자동 집계 | 🔴 | ✅ |
 | P9-40 | 실시간 집계 API — `/api/portfolio/financial/live-data`(DRAFT용 실시간 포지션 집계), `/api/portfolio/financial/tx-summary`(거래내역 월별 bid/askBv/fixedPnl 집계), `/api/portfolio/financial/monthly-cf`(월별 현금흐름 CRUD), `/api/exchange-rates`(yfinance 기반 USD/KRW·CAD/KRW 실시간 환율 조회) | 🔴 | ✅ |
 | P9-41 | 재무 계산 모듈 (`lib/portfolio/financial-calc.ts`) — buildConfirmedStatementData(재무제표 집계), buildAssetManagementYearlyData(연간 테이블·YTD 계산), calcMonthlyCFSummary/History(현금흐름 집계). 엑셀 Asset Management 시트 수식 동일 구현(cumBid/cumAskBv 누적 추적, Cum P/L % 분모=DecBalance+cumBid) | 🔴 | ✅ |
-| P9-42 | 재무제표 탭 (`FinancialStatementView`) — 대차대조표(CURRENT/NON-CURRENT/INVESTMENT 섹션) + 부채 + 순자산 + Net Worth 추세 차트(recharts). 월별 스냅샷 선택기 + DRAFT/CONFIRMED 상태 표시 | 🔴 | ✅ |
+| P9-42 | 재무제표 탭 (`FinancialStatementView`) — 엑셀 FS-May 2026 시트와 동일한 구조로 전면 재작성. 모든 라벨 영문화(Cash and cash equivalent / Marketable securities (KR) / Fund/Derivatives 등). US Stocks/ETF를 USD 원본 값으로 표시(`BSRowUsd` 컴포넌트). Pension fund / Education Savings를 Investment 섹션 아래로 배치. INVESTMENT & PENSION TOTAL 합계 행 추가. CAPITAL 변동 5개 하위 항목 세분화(Change in Current Asset / Non-Current Asset / Investment Asset / Pension/Education / Liability). 상단 KPI 카드 4개 + Net Worth 추세 차트 제거. 월별 스냅샷 선택기 + DRAFT/CONFIRMED 상태 표시 | 🔴 | ✅ |
 | P9-43 | 자산관리 탭 (`AssetManagementView`) — 엑셀 Asset Management 시트 구조 동일 연간 테이블. FUND/KOR Stocks/US Stocks/KRW Total 4개 섹션. Baseline(Dec) + Jan~Dec 월별 컬럼. YTD 컬럼(cumBid/cumAskBv 누적, Cum P/L % 분모=DecBalance+cumBid). Stock Deposit/Cash/Summary YTD 공란(-) 처리. 연도 전환 자동화(매년 12월을 신년 baseline으로). 엑셀 Dec-25~Apr-26 데이터 복원 완료(35개 수치 100% 일치 검증) | 🔴 | ✅ |
 | P9-44 | 연금·교육 탭 (`EduPensionView`) + 현금흐름 탭(`MonthlyCFView` v2) — `cf-table-config.ts` config-driven 행 정의(rowType: section-header/input/calc-*), 셀 클릭 → `MonthlyCFSubItemDialog` 다이얼로그(항목 추가·인라인 편집(✏️ 버튼·Enter/Esc 단축키)·삭제, 여러 항목 지원), 연도 선택 버튼, `/api/portfolio/financial/monthly-cf/import-excel` 엑셀 Jan-Apr 가져오기(OneDrive FS 2026.xlsx "Monthly CF" 시트 파싱), 영문 레이블(Income/Fixed Expense/Credit Card/Cash/Tax/Account Transfer), 색상 규칙(Income=녹/적, 지출=검정, Expenses Total=붉은색), Account Balance = prev + Income - Expenses Total + 월말 확정 다이얼로그(`MonthEndConfirmDialog`) + 스냅샷 수정 다이얼로그(`SnapshotEditDialog`) + 환율 셀 컴포넌트(`RateCell`) + 자산관리 II 개선(Education/Shortterm 실시간 잔고: Naver 가격 fetch 포함, CONFIRMED 월 선택 시 liveData 항상 유지, 입력 다이얼로그 UI 정리) | 🔴 | ✅ |
 | P9-45 | JSON 백업/복원 (`/api/portfolio/financial/backup`) — GET 백업 다운로드 + POST overwrite/merge 복원(중복 기준: month 필드). 재무 대시보드 UI 내 복원/백업 버튼. `data/financial-snapshots.json` git 추적 등록(재발 방지). `data/monthly-cf.json` 현금흐름 데이터 저장 | 🔴 | ✅ |
 | P9-46 | 통합 백업/복원 UI — `/api/backup/full`(6개 모듈(재무/연금/중장기/교육/단기/월별현금흐름) 단일 JSON GET/POST, overwrite/merge 모드) + `components/settings/BackupRestorePanel.tsx`(전체 통합 백업 다운로드·모듈 선택 복원·모듈별 개별 백업/복원 카드, 6번째 모듈 "월별 현금흐름" 카드 추가) + `/dashboard/settings` "백업/복원" 탭 추가 + Monthly CF 개별 백업 API(`/api/portfolio/financial/monthly-cf/backup` — GET: `monthly-cf.json`+`monthly-cf-balance.json` 단일 JSON 다운로드, POST: overwrite/merge 복원). 덮어쓰기 경고 표시 | 🔴 | ✅ |
+| P9-47 | Balance Sheet 엑셀 형식 재구성 — `FinancialStatementView.tsx` 전면 재작성. 라벨 전체 영문화. `BSRowUsd` 컴포넌트 신규 추가(US Stocks/ETF USD 원본 표시). Pension fund / Education Savings를 INVESTMENT 섹션 아래로 이동. INVESTMENT & PENSION TOTAL 합계 행 추가. CAPITAL 섹션 5개 하위 항목 세분화(Change in Current Asset / Non-Current Asset / Investment Asset / Pension/Education / Liability). `types/financial.ts` 타입 확장: `capital` 섹션(prevNetWorth/netChanges/changeInCurrentAsset/changeInNonCurrentAsset/changeInInvestmentAsset/changeInPensionEducation/changeInLiability), `investmentAsset.usStocksUsd`/`usStocksDepositUsd`, `assets.investmentPensionTotal` 필드 추가. `buildFinancialStatementData`/`buildConfirmedStatementData`에 `prevData` 파라미터 추가 → 전월 대비 CAPITAL 변동 계산 | 🔴 | ✅ |
+| P9-48 | Education Savings에 Digital Asset(crypto) 잔액 포함 — `snapshot.crypto`의 upbit/korbit(KRW) + binance(USD→KRW 환산) 잔액을 `educationKrw`에 합산. `buildDraftStatementFromSnapshot`, `buildFinancialStatementData`, `buildConfirmedStatementData` 3개 함수 모두 수정 | 🔴 | ✅ |
+| P9-49 | Pension fund Canadian RESP/RRSP CAD→KRW fallback 수정 — `confirmedPortfolio.canadianPensionKrw`가 0으로 저장된 과거 데이터에서 `snapshot.canadianPension.balanceCad × cadKrw`로 fallback 처리 | 🟡 | ✅ |
 
 ### 연금 계좌 대시보드 (`/dashboard/portfolio/pension`)
 
@@ -246,6 +249,9 @@
 - [x] 통합 백업/복원 UI (5개 모듈 단일 JSON, 설정 페이지 백업 탭)
 - [x] 현금흐름 탭 v2 — config-driven 테이블·다이얼로그 인라인 편집·연도 선택·엑셀 import
 - [x] Monthly CF 백업/복원 (`/api/portfolio/financial/monthly-cf/backup`)
+- [x] Balance Sheet 엑셀 형식 재구성 — 영문 라벨·BSRowUsd·INVESTMENT & PENSION TOTAL·CAPITAL 변동 5개 세분화
+- [x] Education Savings crypto 잔액 합산 (upbit/korbit KRW + binance USD→KRW)
+- [x] Pension fund Canadian RESP/RRSP CAD→KRW fallback 수정
 - [ ] 단중기 계좌 대시보드 페이지 구현
 - [ ] 키움 API 실제 연동 검증 (HTS 데이터 대조)
 - [ ] `npm run build` 오류 없음
@@ -357,7 +363,8 @@
 | v5.3 | 2026.05.21 | Phase 9 P9-38~P9-45 완료 — 재무제표 통합 대시보드(`/dashboard/portfolio/financial`) 구현. 4탭(재무제표/자산관리/연금·교육/현금흐름). 월별 스냅샷 DRAFT/CONFIRMED 관리 시스템. 엑셀 Asset Management 시트 동일 YTD 수식(cumBid/cumAskBv 누적, Cum P/L % 분모=DecBalance+cumBid). 환율 실시간 조회(yfinance USD/KRW·CAD/KRW). 재무 데이터 JSON 백업/복원 및 `data/financial-snapshots.json` git 추적 등록. Phase 9 현황 98% 완료 갱신 |
 | v5.4 | 2026.05.21 | EduPensionView 자산관리 II 개선(P9-44) — Education/Shortterm 실시간 잔고 업데이트(Naver 가격 fetch 확장), CONFIRMED 월 선택 시 liveData 유지 버그 수정, 다이얼로그 UI 정리(Pension placeholder 제거·Stock Balance 필드 제거). P9-46 신규: 통합 백업/복원 시스템 구현(`/api/backup/full` 5개 모듈 단일 JSON API + `BackupRestorePanel` + `/dashboard/settings` 백업/복원 탭). Phase 9 현황 99% 완료 갱신 |
 | v5.5 | 2026.05.21 | Monthly CF 탭 v2 전면 개편(P9-44 보강) — config-driven 행 정의(`cf-table-config.ts`), 셀 클릭 다이얼로그(`MonthlyCFSubItemDialog` v3 인라인 편집 포함), 연도 선택, 엑셀 Jan-Apr 가져오기(OneDrive FS 2026.xlsx "Monthly CF" 시트), 영문 레이블(Income/Fixed Expense/Credit Card/Cash/Tax/Account Transfer), Account Balance = prev + Income - Expenses Total. P9-46 업데이트 — Monthly CF 개별 백업 추가(`/api/portfolio/financial/monthly-cf/backup`), `BackupRestorePanel` 6번째 모듈 카드("월별 현금흐름"), 통합 백업 6개 모듈(재무/연금/중장기/교육/단기/월별현금흐름). Phase 9 완료 기준 2개 추가(현금흐름 탭 v2·Monthly CF 백업/복원) |
+| v5.6 | 2026.05.22 | Phase 9 P9-47~P9-49 완료 — Balance Sheet 엑셀 형식 전면 재구성(FinancialStatementView 전면 재작성, 영문 라벨, BSRowUsd USD 원본 표시, Pension/Education을 Investment 섹션 아래 배치, INVESTMENT & PENSION TOTAL 합계 행, CAPITAL 변동 5개 세분화). `types/financial.ts` 타입 확장(`capital` 섹션/`usStocksUsd`/`investmentPensionTotal`). `buildFinancialStatementData`/`buildConfirmedStatementData` `prevData` 파라미터 추가(전월 대비 CAPITAL 변동 계산). Education Savings crypto 잔액 합산(upbit/korbit KRW + binance USD→KRW, 3개 함수 수정). Pension fund Canadian RESP/RRSP CAD→KRW fallback 수정(과거 데이터 0 대응). P9-42 재무제표 탭 설명 보강 |
 
 ---
 
-*v5.5 | 2026.05.21 | Living Document*
+*v5.6 | 2026.05.22 | Living Document*

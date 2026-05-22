@@ -5,4 +5,4 @@
 - [Phase 9 장기투자 계좌 대시보드](project_longterm_dashboard.md) — Excel 이중 파서+CRUD+FIFO 손익+현재가+JSON 백업+성과 분석+보유종목별 성과(MDR/Alpha/7대지표), P9-13~P9-26 완료 (2026.05.19, PRD v4.8/ROADMAP v5.0)
 - [Phase 9 교육 계좌 대시보드 + 단중기 인프라](project_education_shortterm_dashboard.md) — 파일 기반 3탭+PositionRiskTable(손절가·nR)+공유 다이얼로그, P9-27~P9-29 완료/P9-30 인프라 준비 (2026.05.20, PRD v4.9/ROADMAP v5.1)
 - [Phase 9 연금 계좌 대시보드](project_pension_dashboard.md) — 거래 기반 포지션 계산+3탭+계좌별 독립 리밸런싱+월평균 기하수익률+백업, P9-31~P9-37 완료 (2026.05.20, PRD v5.0/ROADMAP v5.2)
-- [Phase 9 재무제표 통합 대시보드](project_financial_dashboard.md) — 4탭+DRAFT/CONFIRMED 스냅샷+엑셀 YTD 수식(cumBid/cumAskBv)+환율 조회+백업, P9-38~P9-45 완료 (2026.05.21, PRD v5.1/ROADMAP v5.3)
+- [Phase 9 재무제표 통합 대시보드](project_financial_dashboard.md) — 4탭+DRAFT/CONFIRMED 스냅샷+엑셀 YTD 수식(cumBid/cumAskBv)+환율 조회+백업, Monthly CF v2(config-driven+다이얼로그 인라인 편집+엑셀 import)+6번째 백업 모듈, BS 엑셀 형식 재구성(영문 라벨+BSRowUsd+CAPITAL 변동 5개+crypto 합산+CAD fallback), P9-38~P9-49 완료 (2026.05.22, PRD v5.6/ROADMAP v5.6)

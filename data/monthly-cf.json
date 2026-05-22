@@ -519,5 +519,14 @@
     "amount": -160000,
     "note": "5/19 연후 독서",
     "createdAt": "2026-05-21T14:42:19.282Z"
+  },
+  {
+    "id": "f919ed2d-1cbe-4f03-a82f-9d81feecc3a2",
+    "category": "CASH_EXPENSE",
+    "name": "Tuition",
+    "month": "2026-05",
+    "amount": -210000,
+    "note": "5/22 재민 과외 선금",
+    "createdAt": "2026-05-21T23:48:06.850Z"
   }
 ]
