@@ -1175,7 +1175,7 @@ export function buildAssetManagementIIYearlyData(
       binanceBalanceUsd: 0, binancePrincipalUsd: 0,
       totalKrw: 0, totalPrincipalKrw: 0, pnlKrw: 0, pnlPct: 0,
     },
-    education: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 },
+    education: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 },
     pension: {
       pensionFundBalance: 0, pensionFundPrincipal: 0, pensionFundPnl: 0,
       pensionDepositBalance: 0, pensionDepositPrincipal: 0, pensionDepositPnl: 0,
@@ -1183,7 +1183,7 @@ export function buildAssetManagementIIYearlyData(
       totalBalance: 0, totalPrincipal: 0, totalPnl: 0, totalPnlPct: 0,
     },
     respRrsp: { balanceCad: 0, balanceKrw: 0 },
-    shortterm: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 },
+    shortterm: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 },
   });
 
   const columns: AssetManagementIIColumnData[] = [];
@@ -1238,23 +1238,25 @@ export function buildAssetManagementIIYearlyData(
     let education: AssetManagementIIColumnData["education"];
     if (isDraft) {
       const deposit = snap.educationMonthly?.deposit ?? 0;
+      const accountTransfer = snap.educationMonthly?.accountTransfer ?? 0;
       // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
       const stockBalance = snap.educationMonthly?.stockBalance || (liveData?.education1470.stock ?? 0);
       const principal = liveData?.education1470.principal ?? 0;
       const balance = deposit + stockBalance;
-      const pnl = balance - principal;
-      const pnlPct = principal > 0 ? pnl / principal : 0;
-      education = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+      // P/L = Stock 평가액 - 원금 (예수금 제외)
+      const pnl = stockBalance - principal;
+      education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else if (cp) {
       const deposit = cp.education1470Deposit ?? 0;
+      const accountTransfer = snap.educationMonthly?.accountTransfer ?? 0;
       const stockBalance = cp.education1470Stock ?? 0;
       const principal = cp.education1470Principal ?? 0;
       const balance = deposit + stockBalance;
-      const pnl = balance - principal;
-      const pnlPct = principal > 0 ? pnl / principal : 0;
-      education = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+      // P/L = Stock 평가액 - 원금 (예수금 제외)
+      const pnl = stockBalance - principal;
+      education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else {
-      education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 };
+      education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
     }
 
     // ── Pension 집계 (계좌별 분리) ───────────────────
@@ -1321,23 +1323,25 @@ export function buildAssetManagementIIYearlyData(
     let shortterm: AssetManagementIIColumnData["shortterm"];
     if (isDraft) {
       const deposit = snap.shorttermMonthly?.deposit ?? 0;
+      const accountTransfer = snap.shorttermMonthly?.accountTransfer ?? 0;
       // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
       const stockBalance = snap.shorttermMonthly?.stockBalance || (liveData?.shortterm.stockBalance ?? 0);
       const principal = liveData?.shortterm.principal ?? 0;
       const balance = deposit + stockBalance;
-      const pnl = balance - principal;
-      const pnlPct = principal > 0 ? pnl / principal : 0;
-      shortterm = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+      // P/L = Stock 평가액 - 원금 (예수금 제외)
+      const pnl = stockBalance - principal;
+      shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else if (cp) {
       const deposit = cp.shorttermDeposit ?? 0;
+      const accountTransfer = snap.shorttermMonthly?.accountTransfer ?? 0;
       const stockBalance = cp.shorttermStockBalance ?? 0;
       const principal = cp.shorttermPrincipal ?? 0;
       const balance = deposit + stockBalance;
-      const pnl = balance - principal;
-      const pnlPct = principal > 0 ? pnl / principal : 0;
-      shortterm = { deposit, stockBalance, balance, principal, pnl, pnlPct };
+      // P/L = Stock 평가액 - 원금 (예수금 제외)
+      const pnl = stockBalance - principal;
+      shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else {
-      shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, pnlPct: 0 };
+      shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
     }
 
     columns.push({

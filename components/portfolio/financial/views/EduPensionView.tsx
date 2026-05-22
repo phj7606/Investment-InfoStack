@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, RefreshCw, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { Pencil, RefreshCw, Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -78,16 +78,25 @@ interface CellProps {
   value: string;
   className?: string;
   isBaseline?: boolean;
+  /** 직접입력 필드 여부 — baseline 제외한 데이터 셀에 옅은 노란색 하이라이트 */
+  isManualInput?: boolean;
 }
 
-function Cell({ value, className = "", isBaseline = false }: CellProps) {
+function Cell({ value, className = "", isBaseline = false, isManualInput = false }: CellProps) {
   // hasData=false인 셀: 자산관리 탭과 동일하게 en-dash + 흐린 색상
   // (빈 값은 fmtKrw에서 "–"로 변환되어 전달됨)
+  // baseline 컬럼은 기준값 배경 우선, 비baseline 직접입력만 노란색
+  const bgClass = isBaseline
+    ? "bg-muted/40 text-muted-foreground"
+    : isManualInput
+      ? "bg-yellow-50/60 dark:bg-yellow-950/20"
+      : "";
+
   return (
     <td
       className={[
         "tabular-nums text-right px-2 py-1 text-xs border-l border-border/50",
-        isBaseline ? "bg-muted/40 text-muted-foreground" : "",
+        bgClass,
         value === "–" && !className ? "text-muted-foreground/40" : "",
         className,
       ].join(" ")}
@@ -112,6 +121,7 @@ interface DialogState {
   binancePrincipal: string;
   // Education 1470
   educationDeposit: string;
+  educationAccountTransfer: string;
   // Pension (실제 잔액 수동 입력)
   pensionFundBalance: string;
   pensionFundPrincipal: string;
@@ -123,6 +133,7 @@ interface DialogState {
   respRrspBalanceCad: string;
   // Short-term Account (2805)
   shorttermDeposit: string;
+  shorttermAccountTransfer: string;
 }
 
 interface InputDialogProps {
@@ -203,9 +214,15 @@ function AssetManagementIIInputDialog({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Education 1470
             </p>
-            <div>
-              <Label className="text-xs">예수금 / Deposit (KRW)</Label>
-              <Input className="h-7 text-xs" value={state.educationDeposit} onChange={set("educationDeposit")} placeholder="0" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">예수금 / Deposit (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.educationDeposit} onChange={set("educationDeposit")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Account Transfer (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.educationAccountTransfer} onChange={set("educationAccountTransfer")} placeholder="0" />
+              </div>
             </div>
           </section>
 
@@ -261,9 +278,15 @@ function AssetManagementIIInputDialog({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Short-term Account (2805)
             </p>
-            <div>
-              <Label className="text-xs">예수금 / Deposit (KRW)</Label>
-              <Input className="h-7 text-xs" value={state.shorttermDeposit} onChange={set("shorttermDeposit")} placeholder="0" />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">예수금 / Deposit (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.shorttermDeposit} onChange={set("shorttermDeposit")} placeholder="0" />
+              </div>
+              <div>
+                <Label className="text-xs">Account Transfer (KRW)</Label>
+                <Input className="h-7 text-xs" value={state.shorttermAccountTransfer} onChange={set("shorttermAccountTransfer")} placeholder="0" />
+              </div>
             </div>
           </section>
         </div>
@@ -298,11 +321,13 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
     korbitBalance: "0", korbitPrincipal: "0",
     binanceBalance: "0", binancePrincipal: "0",
     educationDeposit: "0",
+    educationAccountTransfer: "0",
     pensionFundBalance: "", pensionFundPrincipal: "",
     pensionDepositBalance: "", pensionDepositPrincipal: "",
     irpBalance: "", irpPrincipal: "",
     respRrspBalanceCad: "0",
     shorttermDeposit: "0",
+    shorttermAccountTransfer: "0",
   });
 
   // 스냅샷 맵 (month → snapshot) — 이전 월 데이터 접근용
@@ -330,6 +355,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
       binancePrincipal: String(crypto?.binance?.principal ?? col.digitalAsset.binancePrincipalUsd),
       // Education: 저장된 수동 입력값 우선, 없으면 현재 집계값
       educationDeposit: String(snap?.educationMonthly?.deposit ?? col.education.deposit),
+      educationAccountTransfer: String(snap?.educationMonthly?.accountTransfer ?? col.education.accountTransfer),
       // Pension: 저장된 수동 입력값 우선 (없으면 빈 문자열 → 자동 계산 사용)
       pensionFundBalance: pm?.fundBalance != null ? String(pm.fundBalance) : "",
       pensionFundPrincipal: pm?.fundPrincipal != null ? String(pm.fundPrincipal) : "",
@@ -340,6 +366,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
       respRrspBalanceCad: String(snap?.canadianPension?.balanceCad ?? col.respRrsp.balanceCad),
       // Short-term: 저장된 수동 입력값 우선, 없으면 현재 집계값
       shorttermDeposit: String(snap?.shorttermMonthly?.deposit ?? col.shortterm.deposit),
+      shorttermAccountTransfer: String(snap?.shorttermMonthly?.accountTransfer ?? col.shortterm.accountTransfer),
     });
     setDialogOpen(true);
   }, [snapMap]);
@@ -394,6 +421,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
         },
         educationMonthly: {
           deposit: Number(dialogState.educationDeposit) || 0,
+          accountTransfer: Number(dialogState.educationAccountTransfer) || 0,
         },
         pensionMonthly: {
           fundBalance: parsePension(dialogState.pensionFundBalance),
@@ -409,6 +437,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
         },
         shorttermMonthly: {
           deposit: Number(dialogState.shorttermDeposit) || 0,
+          accountTransfer: Number(dialogState.shorttermAccountTransfer) || 0,
         },
       };
 
@@ -432,22 +461,28 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
 
   return (
     <div className="space-y-3">
-      {/* 헤더 컨트롤 */}
+      {/* 헤더: 연도 선택 + 새로고침 — 자산관리 탭과 동일한 형식 */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setYear((y) => y - 1)}>
-            <ChevronLeft className="h-3 w-3" />
-          </Button>
-          <span className="text-sm font-semibold tabular-nums w-12 text-center">{year}</span>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setYear((y) => y + 1)}
-            disabled={year >= curYear}
-          >
-            <ChevronRight className="h-3 w-3" />
-          </Button>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium">자산관리 II</span>
+          <div className="flex gap-1">
+            {[curYear - 1, curYear].map((y) => (
+              <Button
+                key={y}
+                variant={year === y ? "default" : "outline"}
+                size="sm"
+                className="h-7 text-xs px-3"
+                onClick={() => setYear(y)}
+              >
+                {y}
+              </Button>
+            ))}
+          </div>
+          {liveLoading && (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-400 animate-pulse">
+              실시간 로드 중…
+            </Badge>
+          )}
         </div>
         <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onRefresh} disabled={liveLoading}>
           <RefreshCw className={`h-3 w-3 ${liveLoading ? "animate-spin" : ""}`} />
@@ -477,13 +512,9 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                     <span>{headerLabels[idx]}</span>
                     {col.hasData && (
                       <div className="flex items-center gap-1">
-                        {col.isDraft ? (
+                        {col.isDraft && (
                           <Badge variant="outline" className="text-[10px] h-4 px-1 border-orange-400 text-orange-500">
                             DRAFT
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] h-4 px-1 border-emerald-400 text-emerald-600">
-                            확정
                           </Badge>
                         )}
                         {col.isDraft && (
@@ -505,24 +536,24 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── Digital Asset 섹션 ── */}
             <SectionHeaderRow label="Digital Asset" colCount={columns.length} />
 
-            {/* Principal */}
+            {/* Principal — 직접입력 */}
             <LabelRow label="Principal (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Upbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitPrincipal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitPrincipal)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Korbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitPrincipal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitPrincipal)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Binance (USD)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binancePrincipalUsd)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binancePrincipalUsd)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <TotalRow
@@ -531,24 +562,24 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
               getValue={(col) => fmtKrw(col.digitalAsset.totalPrincipalKrw)}
             />
 
-            {/* Balance */}
+            {/* Balance — 직접입력 */}
             <LabelRow label="Balance (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Upbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitBalance)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitBalance)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Korbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitBalance)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitBalance)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Binance (USD)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binanceBalanceUsd)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binanceBalanceUsd)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <TotalRow
@@ -590,14 +621,23 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                 <Cell key={col.month} value={fmtKrw(col.education.principal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
+            {/* Account Transfer — 직접입력 */}
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Account Transfer (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.education.accountTransfer)} isBaseline={col.isBaseline} isManualInput />
+              ))}
+            </tr>
 
             <LabelRow label="Balance (KRW)" indent={0} />
+            {/* Deposit — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Deposit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.education.deposit)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.education.deposit)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
+            {/* Stock — live data, 하이라이트 없음 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Stock" />
               {columns.map((col) => (
@@ -610,7 +650,8 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
               getValue={(col) => fmtKrw(col.education.balance)}
             />
 
-            <tr className="hover:bg-muted/20 border-b border-border/30">
+            {/* P/L = Stock - Principal */}
+            <tr className="hover:bg-muted/20 border-b border-border/40">
               <LabelCell label="P/L (KRW)" />
               {columns.map((col) => (
                 <Cell
@@ -621,39 +662,28 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                 />
               ))}
             </tr>
-            <tr className="hover:bg-muted/20 border-b border-border/40">
-              <LabelCell label="P/L %" />
-              {columns.map((col) => (
-                <Cell
-                  key={col.month}
-                  value={fmtPct(col.education.pnlPct)}
-                  className={pnlClass(col.education.pnlPct)}
-                  isBaseline={col.isBaseline}
-                />
-              ))}
-            </tr>
 
             {/* ── Pension 섹션 ── */}
             <SectionHeaderRow label="Pension" colCount={columns.length} />
 
-            {/* Principal */}
+            {/* Principal — 직접입력 */}
             <LabelRow label="Principal (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundPrincipal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundPrincipal)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 연금저축 (Pension Deposit)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositPrincipal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositPrincipal)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· IRP" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.irpPrincipal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.irpPrincipal)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <TotalRow
@@ -662,24 +692,24 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
               getValue={(col) => fmtKrw(col.pension.totalPrincipal)}
             />
 
-            {/* Balance */}
+            {/* Balance — 직접입력 */}
             <LabelRow label="Balance (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundBalance)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundBalance)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 연금저축 (Pension Deposit)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositBalance)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositBalance)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· IRP" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.irpBalance)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.pension.irpBalance)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
             <TotalRow
@@ -744,12 +774,14 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── RESP/RRSP 섹션 ── */}
             <SectionHeaderRow label="RESP/RRSP" colCount={columns.length} />
 
+            {/* Balance (CAD) — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <LabelCell label="Balance (CAD)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtCad(col.respRrsp.balanceCad)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtCad(col.respRrsp.balanceCad)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
+            {/* Balance (KRW) — CAD × 환율 자동계산, 하이라이트 없음 */}
             <tr className="hover:bg-muted/20 border-b border-border/40">
               <LabelCell label="Balance (KRW)" />
               {columns.map((col) => (
@@ -766,14 +798,23 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                 <Cell key={col.month} value={fmtKrw(col.shortterm.principal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
+            {/* Account Transfer — 직접입력 */}
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Account Transfer (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={fmtKrw(col.shortterm.accountTransfer)} isBaseline={col.isBaseline} isManualInput />
+              ))}
+            </tr>
 
             <LabelRow label="Balance (KRW)" indent={0} />
+            {/* Deposit — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Deposit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.shortterm.deposit)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={fmtKrw(col.shortterm.deposit)} isBaseline={col.isBaseline} isManualInput />
               ))}
             </tr>
+            {/* Stock — live data, 하이라이트 없음 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Stock" />
               {columns.map((col) => (
@@ -786,7 +827,8 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
               getValue={(col) => fmtKrw(col.shortterm.balance)}
             />
 
-            <tr className="hover:bg-muted/20 border-b border-border/30">
+            {/* P/L = Stock - Principal */}
+            <tr className="hover:bg-muted/20 border-b border-border/40">
               <LabelCell label="P/L (KRW)" />
               {columns.map((col) => (
                 <Cell
@@ -797,19 +839,17 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                 />
               ))}
             </tr>
-            <tr className="hover:bg-muted/20 border-b border-border/40">
-              <LabelCell label="P/L %" />
-              {columns.map((col) => (
-                <Cell
-                  key={col.month}
-                  value={fmtPct(col.shortterm.pnlPct)}
-                  className={pnlClass(col.shortterm.pnlPct)}
-                  isBaseline={col.isBaseline}
-                />
-              ))}
-            </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* 범례 */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <span className="text-amber-600">• DRAFT: 현재 월 (실시간)</span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-300/60" />
+          직접입력 필드
+        </span>
       </div>
 
       {/* 입력 다이얼로그 */}

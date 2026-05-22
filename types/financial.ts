@@ -198,12 +198,14 @@ export interface FinancialSnapshot {
   educationMonthly?: {
     deposit: number;
     stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 21)
+    accountTransfer?: number; // 계좌이체 입금액
   };
 
   /** Short-term 계좌(2805) 예수금 · 주식잔액 월별 직접입력 */
   shorttermMonthly?: {
     deposit: number;
     stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 53)
+    accountTransfer?: number; // 계좌이체 입금액
   };
 
   /** 연금 계좌 월별 직접입력 — 자동계산 대신 실제 잔액 입력 시 사용 */
@@ -502,12 +504,12 @@ export interface AssetManagementIIColumnData {
 
   // (2) Education 1470 — stock/principal: live/confirmed, deposit: 수동입력
   education: {
-    deposit: number;       // 예수금 (educationMonthly.deposit)
-    stockBalance: number;  // 주식 평가액 (live-data / confirmedPortfolio)
-    balance: number;       // 총 잔액 = deposit + stockBalance
-    principal: number;     // 원금
-    pnl: number;           // 손익 = balance - principal
-    pnlPct: number;        // 수익률
+    deposit: number;          // 예수금 (educationMonthly.deposit)
+    stockBalance: number;     // 주식 평가액 (live-data / confirmedPortfolio)
+    balance: number;          // 총 잔액 = deposit + stockBalance
+    principal: number;        // 원금
+    accountTransfer: number;  // 계좌이체 입금액 (수동입력)
+    pnl: number;              // 손익 = stockBalance - principal
   };
 
   // (3) Pension — live/confirmed
@@ -529,12 +531,12 @@ export interface AssetManagementIIColumnData {
 
   // (5) Short-term Account (2805) — stock/principal: live/confirmed, deposit: 수동입력
   shortterm: {
-    deposit: number;       // 예수금 (shorttermMonthly.deposit)
-    stockBalance: number;  // 주식 평가액 (live-data / confirmedPortfolio)
-    balance: number;       // 총 잔액 = deposit + stockBalance
-    principal: number;     // 원금
-    pnl: number;           // 손익 = balance - principal
-    pnlPct: number;        // 수익률
+    deposit: number;          // 예수금 (shorttermMonthly.deposit)
+    stockBalance: number;     // 주식 평가액 (live-data / confirmedPortfolio)
+    balance: number;          // 총 잔액 = deposit + stockBalance
+    principal: number;        // 원금
+    accountTransfer: number;  // 계좌이체 입금액 (수동입력)
+    pnl: number;              // 손익 = stockBalance - principal
   };
 }
 
@@ -743,8 +745,8 @@ export interface UpdateSnapshotRequest {
     balance: number;
   };
   // 자산관리 II 월별 직접입력
-  educationMonthly?: { deposit: number; stockBalance?: number };
-  shorttermMonthly?: { deposit: number; stockBalance?: number };
+  educationMonthly?: { deposit: number; stockBalance?: number; accountTransfer?: number };
+  shorttermMonthly?: { deposit: number; stockBalance?: number; accountTransfer?: number };
   pensionMonthly?: {
     fundBalance?: number;
     fundPrincipal?: number;
