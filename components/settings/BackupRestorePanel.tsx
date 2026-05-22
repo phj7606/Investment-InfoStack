@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Download, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { CloudDownload, CloudUpload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 
 // ─────────────────────────────────────────
 // 모듈 정의
@@ -45,7 +45,7 @@ interface ModuleMeta {
 const MODULES: ModuleMeta[] = [
   {
     key: "financial",
-    label: "재무현황",
+    label: "Financial Statement",
     description: "월별 재무 스냅샷 (DRAFT/CONFIRMED)",
     backupEndpoint: "/api/portfolio/financial/backup",
   },
@@ -219,18 +219,18 @@ function FullBackupSection() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
-          전체 통합 백업
+          Full Backup
           <Badge variant="secondary" className="text-xs">추천</Badge>
         </CardTitle>
         <CardDescription className="text-xs">
-          5개 모듈(재무·연금·중장기·교육·단기) 데이터를 하나의 JSON 파일로 백업/복원합니다.
+          5개 모듈(재무·연금·중장기·교육·단기) 데이터를 하나의 JSON 파일로 Backup/Restore합니다.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* 다운로드 */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium">전체 백업 다운로드</p>
+            <p className="text-sm font-medium">Full Backup Download</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               investment-backup-YYYY-MM-DD.json
             </p>
@@ -244,8 +244,8 @@ function FullBackupSection() {
               onClick={handleFullDownload}
               disabled={downloadStatus.status === "loading"}
             >
-              <Download className="h-3.5 w-3.5" />
-              백업 다운로드
+              <CloudDownload className="h-3.5 w-3.5" />
+              Backup
             </Button>
           </div>
         </div>
@@ -255,11 +255,11 @@ function FullBackupSection() {
 
         {/* 복원 */}
         <div className="space-y-3">
-          <p className="text-sm font-medium">전체 복원</p>
+          <p className="text-sm font-medium">Full Restore</p>
 
           {/* 모듈 선택 체크박스 */}
           <div>
-            <p className="text-xs text-muted-foreground mb-2">복원할 모듈 선택</p>
+            <p className="text-xs text-muted-foreground mb-2">Restore할 모듈 선택</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {MODULES.map((m) => (
                 <div key={m.key} className="flex items-center gap-2">
@@ -308,8 +308,8 @@ function FullBackupSection() {
               onClick={() => fileRef.current?.click()}
               disabled={restoreStatus.status === "loading" || selectedModules.size === 0}
             >
-              <Upload className="h-3.5 w-3.5" />
-              파일 선택 후 복원
+              <CloudUpload className="h-3.5 w-3.5" />
+              파일 선택 후 Restore
             </Button>
 
             <StatusBadge {...restoreStatus} />
@@ -411,8 +411,8 @@ function ModuleBackupCard({ module }: { module: ModuleMeta }) {
             onClick={handleDownload}
             disabled={downloadStatus.status === "loading"}
           >
-            <Download className="h-3 w-3" />
-            백업
+            <CloudDownload className="h-3 w-3" />
+            Backup
           </Button>
 
           {/* 복원 모드 선택 */}
@@ -447,8 +447,8 @@ function ModuleBackupCard({ module }: { module: ModuleMeta }) {
             onClick={() => fileRef.current?.click()}
             disabled={restoreStatus.status === "loading"}
           >
-            <Upload className="h-3 w-3" />
-            복원
+            <CloudUpload className="h-3 w-3" />
+            Restore
           </Button>
 
           {/* 상태 표시 */}
@@ -505,7 +505,7 @@ export function BackupRestorePanel() {
       {/* 모듈별 개별 백업/복원 */}
       <div>
         <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-          모듈별 개별 백업/복원
+          모듈별 개별 Backup/Restore
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {MODULES.map((m) => (

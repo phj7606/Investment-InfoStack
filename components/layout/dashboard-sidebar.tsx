@@ -108,7 +108,7 @@ const ACTION2_ITEMS = [
     icon: BarChart3,
   },
   {
-    title: "재무현황",
+    title: "Financial Statement",
     href: "/dashboard/portfolio/financial",
     icon: Landmark,
   },
@@ -258,7 +258,7 @@ export function DashboardSidebar() {
               <Briefcase className="h-2.5 w-2.5" />
               ACTION 2
             </span>
-            <span className="text-[10px] font-semibold text-muted-foreground tracking-wide">포트폴리오 관리</span>
+            <span className="text-[10px] font-semibold text-muted-foreground tracking-wide">Investment Management</span>
           </SidebarGroupLabel>
           <SidebarMenu>
             {ACTION2_ITEMS.map((item) => {
