@@ -107,7 +107,10 @@ function mergeSnapshotUpdate(
     canadianPension: body.canadianPension ?? snapshot.canadianPension,
     // 2805 중기 계좌
     midterm2805: body.midterm2805 ?? snapshot.midterm2805,
-    // 계좌별 주식예수금
+    // 주식예수금 — 합계 직접입력 및 계좌별 세부 내역
+    // stockDepositKrw/Usd: Edit 다이얼로그에서 직접 입력 시 저장됨 (byAccount 없을 때 fallback)
+    stockDepositKrw: body.stockDepositKrw ?? snapshot.stockDepositKrw,
+    stockDepositUsd: body.stockDepositUsd ?? snapshot.stockDepositUsd,
     stockDepositByAccount: body.stockDepositByAccount ?? snapshot.stockDepositByAccount,
     // 자산관리 II 월별 직접입력 (교육, 연금, 단기)
     educationMonthly: body.educationMonthly

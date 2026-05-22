@@ -123,7 +123,11 @@ export interface FinancialSnapshot {
   cashForeignCad?: number;
 
   // ── 계좌별 주식 예수금 (수동 입력) ─────────────────────
-  /** Value Investment 계좌별 예수금: 4802 / 1635 / 1402 */
+  /** 주식 예수금 합계 KRW — byAccount 미입력 시 Edit 다이얼로그 직접 입력값 */
+  stockDepositKrw?: number;
+  /** 주식 예수금 합계 USD — byAccount 미입력 시 Edit 다이얼로그 직접 입력값 */
+  stockDepositUsd?: number;
+  /** Value Investment 계좌별 예수금 세부 내역: 4802 / 1635 / 1402 */
   stockDepositByAccount?: {
     "4802"?: { krw: number; usd: number };
     "1635"?: { krw: number; usd: number };

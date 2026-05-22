@@ -42,9 +42,18 @@ export function SnapshotEditDialog({ open, snapshot, onClose, onSave }: Snapshot
   const [fixedDepositUsd, setFixedDepositUsd] = useState(snapshot.fixedDepositUsd);
   const [cashForeignUsd, setCashForeignUsd] = useState(snapshot.cashForeignUsd ?? 0);
   const [cashForeignCad, setCashForeignCad] = useState(snapshot.cashForeignCad ?? 0);
-  // 주식예수금 직접입력 (자산관리 탭 Stock Deposit용)
-  const [stockDepositKrw, setStockDepositKrw] = useState(0);
-  const [stockDepositUsd, setStockDepositUsd] = useState(0);
+  // 주식예수금 직접입력 — byAccount 합산 또는 스냅샷 저장값으로 초기값 설정
+  // 이유: 프로덕션 환경에서 Edit 후 저장 시 0으로 덮어쓰지 않기 위해 기존 값을 로드
+  const byAccountKrwInit = Object.values(snapshot.stockDepositByAccount ?? {})
+    .reduce((s, v) => s + (v.krw ?? 0), 0);
+  const byAccountUsdInit = Object.values(snapshot.stockDepositByAccount ?? {})
+    .reduce((s, v) => s + (v.usd ?? 0), 0);
+  const [stockDepositKrw, setStockDepositKrw] = useState(
+    byAccountKrwInit || snapshot.stockDepositKrw || 0
+  );
+  const [stockDepositUsd, setStockDepositUsd] = useState(
+    byAccountUsdInit || snapshot.stockDepositUsd || 0
+  );
 
   // ── 3. 부채 ──────────────────────────────────────────────
   const [leaseDeposit, setLeaseDeposit] = useState(snapshot.leaseDeposit);

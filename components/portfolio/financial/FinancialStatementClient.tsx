@@ -75,8 +75,19 @@ function buildDraftStatementFromSnapshot(
     .reduce((sum, v) => sum + (v.krw ?? 0), 0);
   const byAccountUsdTotal = Object.values(snapshot.stockDepositByAccount ?? {})
     .reduce((sum, v) => sum + (v.usd ?? 0), 0);
-  const stockDepositKrw = byAccountKrwTotal || (liveData?.stockDepositKrw ?? cp?.stockDepositKrw ?? 0);
-  const stockDepositUsd = byAccountUsdTotal || (liveData?.stockDepositUsd ?? cp?.stockDepositUsd ?? 0);
+  // 우선순위: byAccount 합산 → snapshot 직접입력(top-level) → liveData → cp → 0
+  // 이유: 프로덕션 Supabase에 byAccount가 없을 경우 Edit 다이얼로그에서 저장한
+  //       top-level stockDepositKrw/Usd 값을 fallback으로 사용
+  const stockDepositKrw = byAccountKrwTotal
+    || snapshot.stockDepositKrw
+    || liveData?.stockDepositKrw
+    || cp?.stockDepositKrw
+    || 0;
+  const stockDepositUsd = byAccountUsdTotal
+    || snapshot.stockDepositUsd
+    || liveData?.stockDepositUsd
+    || cp?.stockDepositUsd
+    || 0;
 
   // 연금
   const pensionFundBalance = liveData?.pensionFund.balance ?? cp?.pensionFundBalance ?? 0;
