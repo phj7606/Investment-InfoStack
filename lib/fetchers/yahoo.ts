@@ -74,39 +74,28 @@ export interface YahooHistoricalBar {
  * @returns YahooQuote 배열 — 조회 실패한 심볼은 결과에서 제외
  */
 /**
- * Yahoo Finance v7 quote API를 curl 서브프로세스로 호출 (TLS 차단 우회용)
- * fetchYahooQuotes 의 fallback — Node.js HTTP 클라이언트가 차단될 때 사용
+ * Yahoo Finance v7 quote API를 fetch로 호출 (curl 대체)
+ * fetchYahooQuotes 의 fallback — yahoo-finance2 라이브러리가 실패할 때 사용
  */
 async function fetchYahooQuotesViaCurl(symbols: string[]): Promise<YahooQuote[]> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { execFile } = require("child_process") as typeof import("child_process");
-
   const symbolsParam = encodeURIComponent(symbols.join(","));
   const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbolsParam}&fields=regularMarketPrice,regularMarketChangePercent,regularMarketVolume,shortName,currency`;
 
-  const stdout = await new Promise<string>((resolve, reject) => {
-    execFile(
-      "curl",
-      [
-        "-s",
-        "--max-time", "15",
-        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "-H", "Accept: application/json",
-        url,
-      ],
-      { maxBuffer: 5 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
-        resolve(stdout);
-      }
-    );
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "Accept": "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
   });
 
-  if (!stdout.trim().startsWith("{")) {
-    throw new Error(`curl quote 응답이 JSON이 아님: ${stdout.slice(0, 80)}`);
+  if (!res.ok) throw new Error(`Yahoo quote HTTP ${res.status}`);
+  const text = await res.text();
+  if (!text.trim().startsWith("{")) {
+    throw new Error(`Yahoo quote 응답이 JSON이 아님: ${text.slice(0, 80)}`);
   }
 
-  const data = JSON.parse(stdout);
+  const data = JSON.parse(text);
   const results: Array<{
     symbol: string;
     shortName?: string;
@@ -169,49 +158,37 @@ export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]>
 }
 
 /**
- * Yahoo Finance v8 chart API를 curl 서브프로세스로 호출
+ * Yahoo Finance v8 chart API를 fetch로 호출 (curl 대체)
  *
- * Node.js fetch/https 모듈은 Yahoo Finance의 TLS 핑거프린팅 차단에 걸리지만,
- * curl은 OpenSSL 기반 TLS 구현체를 사용하여 동일 URL에 정상 접근 가능.
- * 네트워크 환경(China 등)에서 Node.js HTTP 클라이언트가 차단될 때 사용.
+ * Vercel 서버리스 환경 호환 — curl 서브프로세스 의존성 제거
+ * Node.js 내장 fetch 사용 (Node.js 18+ 기본 제공)
  */
 async function fetchYahooHistoryViaCurl(
   symbol: string,
   period1Date: Date,
   period2Date: Date
 ): Promise<YahooHistoricalBar[]> {
-  // child_process는 Node.js 내장 모듈 — 서버 전용
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { execFile } = require("child_process") as typeof import("child_process");
-
   const p1 = Math.floor(period1Date.getTime() / 1000);
   const p2 = Math.floor(period2Date.getTime() / 1000);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${p1}&period2=${p2}&includePrePost=false`;
 
-  const stdout = await new Promise<string>((resolve, reject) => {
-    execFile(
-      "curl",
-      [
-        "-s",                             // 진행 상황 출력 억제
-        "--max-time", "15",               // 전체 요청 타임아웃 15초
-        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "-H", "Accept: application/json",
-        url,
-      ],
-      { maxBuffer: 10 * 1024 * 1024 },    // 최대 10MB 버퍼
-      (error, stdout, stderr) => {
-        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
-        resolve(stdout);
-      }
-    );
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "Accept": "application/json",
+    },
+    signal: AbortSignal.timeout(15000),
   });
 
+  if (!res.ok) throw new Error(`Yahoo history HTTP ${res.status}`);
+  const text = await res.text();
+
   // 응답이 JSON인지 확인 (HTML 오류 페이지 걸러내기)
-  if (!stdout.trim().startsWith("{")) {
-    throw new Error(`curl 응답이 JSON이 아님: ${stdout.slice(0, 80)}`);
+  if (!text.trim().startsWith("{")) {
+    throw new Error(`fetch 응답이 JSON이 아님: ${text.slice(0, 80)}`);
   }
 
-  const data = JSON.parse(stdout);
+  const data = JSON.parse(text);
   const result = data?.chart?.result?.[0];
   if (!result) throw new Error("curl Yahoo API: result 없음");
 
@@ -321,48 +298,38 @@ export function toYahooKrSymbol(
 }
 
 /**
- * Yahoo Finance v8/finance/chart API로 단일 심볼의 현재가 조회
+ * Yahoo Finance v8/finance/chart API로 단일 심볼의 현재가 조회 (fetch 사용)
  *
  * v7/finance/quote (401 차단) 대신 v8/chart 의 meta.regularMarketPrice 필드 사용.
- * 이 엔드포인트는 인증 없이도 curl로 접근 가능하다.
+ * Vercel 서버리스 환경 호환 — curl 대신 Node.js 내장 fetch 사용
  *
  * @param symbol - 티커 심볼 (예: "TSLA", "SOXX")
  * @returns 현재가 (없으면 null)
  */
 async function fetchYahooCurrentPriceViaCurl(symbol: string): Promise<number | null> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { execFile } = require("child_process") as typeof import("child_process");
-
   // range=5d로 최근 데이터 포함 요청, meta.regularMarketPrice로 실시간 가격 접근
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=5d`;
 
-  const stdout = await new Promise<string>((resolve, reject) => {
-    execFile(
-      "curl",
-      [
-        "-s",
-        "--max-time", "12",
-        "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "-H", "Accept: application/json",
-        url,
-      ],
-      { maxBuffer: 2 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (error) return reject(new Error(`curl 실패: ${stderr || error.message}`));
-        resolve(stdout);
-      }
-    );
-  });
-
-  if (!stdout.trim().startsWith("{")) return null;
-
-  const data = JSON.parse(stdout);
-  const result = data?.chart?.result?.[0];
-  if (!result) return null;
-
-  // meta.regularMarketPrice = 현재 시세 (장중이면 실시간, 장 마감 후엔 종가)
-  const price = result.meta?.regularMarketPrice ?? result.meta?.chartPreviousClose;
-  return price != null && price > 0 ? price : null;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim().startsWith("{")) return null;
+    const data = JSON.parse(text);
+    const result = data?.chart?.result?.[0];
+    if (!result) return null;
+    // meta.regularMarketPrice = 현재 시세 (장중이면 실시간, 장 마감 후엔 종가)
+    const price = result.meta?.regularMarketPrice ?? result.meta?.chartPreviousClose;
+    return price != null && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -12,7 +12,6 @@
  * 서버 전용 모듈 — Next.js Route Handler에서만 import
  */
 
-import { execFile } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -115,40 +114,31 @@ interface NaverAcItem {
 export async function searchNaverStockCode(stockName: string): Promise<string | null> {
   const url = `https://ac.stock.naver.com/ac?q=${encodeURIComponent(stockName)}&target=stock`;
 
-  return new Promise((resolve) => {
-    execFile(
-      "curl",
-      [
-        "-s",
-        "--max-time", "8",
-        "-H", "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
-        "-H", "Accept: application/json",
-        "-H", "Referer: https://m.stock.naver.com/",
-        url,
-      ],
-      { maxBuffer: 256 * 1024 },
-      (error, stdout) => {
-        if (error || !stdout.trim().startsWith("{")) {
-          resolve(null);
-          return;
-        }
-        try {
-          const data = JSON.parse(stdout) as { items?: NaverAcItem[] };
-          const items = data.items ?? [];
-          // 정확 일치 우선, 없으면 접두 일치
-          const exact  = items.find((i) => i.name === stockName);
-          const prefix = items.find((i) => i.name.startsWith(stockName));
-          const match  = exact ?? prefix ?? null;
-          if (match) {
-            console.log(`[naver] 코드 검색 성공: "${stockName}" → ${match.code} (${match.typeCode})`);
-          }
-          resolve(match?.code ?? null);
-        } catch {
-          resolve(null);
-        }
-      }
-    );
-  });
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Accept": "application/json",
+        "Referer": "https://m.stock.naver.com/",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim().startsWith("{")) return null;
+    const data = JSON.parse(text) as { items?: NaverAcItem[] };
+    const items = data.items ?? [];
+    // 정확 일치 우선, 없으면 접두 일치
+    const exact  = items.find((i) => i.name === stockName);
+    const prefix = items.find((i) => i.name.startsWith(stockName));
+    const match  = exact ?? prefix ?? null;
+    if (match) {
+      console.log(`[naver] 코드 검색 성공: "${stockName}" → ${match.code} (${match.typeCode})`);
+    }
+    return match?.code ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────
@@ -156,43 +146,33 @@ export async function searchNaverStockCode(stockName: string): Promise<string | 
 // ─────────────────────────────────────────
 
 /**
- * curl 서브프로세스로 Naver Finance 현재가 단건 조회
+ * Node.js fetch로 Naver Finance 현재가 단건 조회
  *
- * Node.js fetch 대신 curl 사용 — 일부 환경에서 Naver API 접근 안정성 향상
+ * curl 서브프로세스 대신 내장 fetch 사용 — Vercel 서버리스 환경 호환
  * closePrice 필드: "281,000" 형태 문자열 → parseInt 처리
  */
-export function fetchNaverPriceViaCurl(stockCode: string): Promise<number | null> {
-  return new Promise((resolve) => {
-    const url = `https://m.stock.naver.com/api/stock/${stockCode}/basic`;
-
-    execFile(
-      "curl",
-      [
-        "-s",
-        "--max-time", "10",
-        "-H", "User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
-        "-H", "Accept: application/json",
-        "-H", "Referer: https://m.stock.naver.com/",
-        url,
-      ],
-      { maxBuffer: 512 * 1024 },
-      (error, stdout) => {
-        if (error || !stdout.trim().startsWith("{")) {
-          resolve(null);
-          return;
-        }
-        try {
-          const data = JSON.parse(stdout);
-          const raw = data?.closePrice ?? data?.stockPrice;
-          if (!raw) { resolve(null); return; }
-          const price = parseInt(String(raw).replace(/,/g, ""), 10);
-          resolve(!isNaN(price) && price > 0 ? price : null);
-        } catch {
-          resolve(null);
-        }
-      }
-    );
-  });
+export async function fetchNaverPriceViaCurl(stockCode: string): Promise<number | null> {
+  const url = `https://m.stock.naver.com/api/stock/${stockCode}/basic`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+        "Accept": "application/json",
+        "Referer": "https://m.stock.naver.com/",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text.trim().startsWith("{")) return null;
+    const data = JSON.parse(text);
+    const raw = data?.closePrice ?? data?.stockPrice;
+    if (!raw) return null;
+    const price = parseInt(String(raw).replace(/,/g, ""), 10);
+    return !isNaN(price) && price > 0 ? price : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────
