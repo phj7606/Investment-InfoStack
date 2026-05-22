@@ -91,8 +91,14 @@ export function SnapshotEditDialog({ open, snapshot, onClose, onSave }: Snapshot
     setFixedDepositUsd(snapshot.fixedDepositUsd);
     setCashForeignUsd(snapshot.cashForeignUsd ?? 0);
     setCashForeignCad(snapshot.cashForeignCad ?? 0);
-    setStockDepositKrw(0);
-    setStockDepositUsd(0);
+    // useEffect 재초기화 시에도 byAccount 합산 또는 스냅샷 저장값으로 복원
+    // 이유: 스냅샷이 변경될 때 0으로 리셋하면 기존 저장값이 소실됨
+    const newByAccKrw = Object.values(snapshot.stockDepositByAccount ?? {})
+      .reduce((s, v) => s + (v.krw ?? 0), 0);
+    const newByAccUsd = Object.values(snapshot.stockDepositByAccount ?? {})
+      .reduce((s, v) => s + (v.usd ?? 0), 0);
+    setStockDepositKrw(newByAccKrw || snapshot.stockDepositKrw || 0);
+    setStockDepositUsd(newByAccUsd || snapshot.stockDepositUsd || 0);
     setLeaseDeposit(snapshot.leaseDeposit);
     setPrivateLoan(snapshot.privateLoan);
     setMortgageLoan(snapshot.mortgageLoan);
