@@ -98,7 +98,9 @@ export async function writeCache<T>(
     } catch {
       // 임시 파일 삭제 실패는 무시
     }
-    throw error;
+    // Vercel 등 읽기 전용 파일시스템 환경에서는 쓰기가 불가능하므로
+    // 에러를 throw하지 않고 경고만 출력 — 캐시 없이도 정상 응답 가능
+    console.warn("[cache] writeCache 실패 (읽기 전용 환경 또는 권한 오류):", (error as Error).message);
   }
 }
 
