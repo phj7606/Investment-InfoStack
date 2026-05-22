@@ -170,7 +170,7 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit }: Tra
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-sm">
-            {isEditMode ? "거래 편집" : "거래 추가"}
+            {isEditMode ? "Edit Trade" : "Add Trade"}
           </DialogTitle>
         </DialogHeader>
 

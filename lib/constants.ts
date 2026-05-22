@@ -57,7 +57,7 @@ export const FEATURES: Feature[] = [
       "ETF 트렌드 강도와 편안함 점수를 결합한 복합 지표입니다. 강한 추세를 유지하면서도 변동성이 낮은 안정적인 ETF를 우선적으로 선별합니다.",
   },
   {
-    title: "포트폴리오 관리",
+    title: "Investment Management",
     description:
       "보유 종목 현황, 교체 신호, IRP 포트폴리오를 통합 관리합니다. 상대강도 약화 종목의 교체 시점을 자동으로 감지합니다.",
   },

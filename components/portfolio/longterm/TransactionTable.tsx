@@ -8,7 +8,7 @@
 // - 날짜 내림차순 기본 정렬
 
 import { useState, useMemo } from "react";
-import { Trash2, Pencil, Search, X } from "lucide-react";
+import { Trash2, Pencil, Search, X, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,11 @@ type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
 type MarketFilter = "all" | "KR" | "US";
 type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
 type TradeTypeFilter = "all" | "BUY" | "SELL" | "DIVIDEND";
+
+// 정렬 컬럼 타입
+type SortCol = "date" | "accountNo" | "stockName" | "tradeType" | "quantity" | "price" | "amount" | "realizedPL";
+type SortDir = "asc" | "desc";
+interface SortState { col: SortCol; dir: SortDir }
 
 // 수익률 색상 헬퍼 (한국 컨벤션)
 function plColor(value: number): string {
@@ -73,9 +78,44 @@ export function TransactionTable({
   // ── 드릴다운: 클릭된 종목코드 ──
   const [drilldownCode, setDrilldownCode] = useState<string | null>(null);
 
+  // ── 정렬 상태 ──
+  const [sort, setSort] = useState<SortState>({ col: "date", dir: "desc" });
+
+  function toggleSort(col: SortCol) {
+    setSort((prev) =>
+      prev.col === col
+        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { col, dir: col === "date" ? "desc" : "asc" }
+    );
+  }
+
+  function SortIcon({ col }: { col: SortCol }) {
+    if (sort.col !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-0.5 inline-block" />;
+    return sort.dir === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-0.5 inline-block text-blue-500" />
+      : <ArrowDown className="h-3 w-3 ml-0.5 inline-block text-blue-500" />;
+  }
+
+  function Th({ col, label, align = "left" }: { col: SortCol; label: string; align?: "left" | "right" | "center" }) {
+    return (
+      <th
+        className={cn(
+          "px-3 py-2 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors",
+          align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
+        )}
+        onClick={() => toggleSort(col)}
+      >
+        <span className={cn("inline-flex items-center gap-0.5", align === "right" ? "justify-end w-full" : align === "center" ? "justify-center w-full" : "")}>
+          {label}
+          <SortIcon col={col} />
+        </span>
+      </th>
+    );
+  }
+
   // ── 필터링 + 정렬 처리 ──
   const filtered = useMemo(() => {
-    let result = [...transactions].sort((a, b) => b.date.localeCompare(a.date));
+    let result = [...transactions];
 
     // 드릴다운 필터 (종목명 클릭 시)
     if (drilldownCode) {
@@ -98,8 +138,24 @@ export function TransactionTable({
     if (assetTypeFilter !== "all") result = result.filter((t) => t.assetType === assetTypeFilter);
     if (tradeTypeFilter !== "all") result = result.filter((t) => t.tradeType === tradeTypeFilter);
 
+    // 정렬 적용
+    result.sort((a, b) => {
+      let v = 0;
+      switch (sort.col) {
+        case "date":       v = a.date.localeCompare(b.date); break;
+        case "accountNo":  v = a.accountNo.localeCompare(b.accountNo); break;
+        case "stockName":  v = a.stockName.localeCompare(b.stockName, "ko"); break;
+        case "tradeType":  v = a.tradeType.localeCompare(b.tradeType); break;
+        case "quantity":   v = a.quantity - b.quantity; break;
+        case "price":      v = a.price - b.price; break;
+        case "amount":     v = a.amount - b.amount; break;
+        case "realizedPL": v = (a.realizedPL ?? 0) - (b.realizedPL ?? 0); break;
+      }
+      return sort.dir === "asc" ? v : -v;
+    });
+
     return result;
-  }, [transactions, search, drilldownCode, accountFilter, marketFilter, assetTypeFilter, tradeTypeFilter]);
+  }, [transactions, search, drilldownCode, accountFilter, marketFilter, assetTypeFilter, tradeTypeFilter, sort]);
 
   // 드릴다운 종목명 (상태 표시용)
   const drilldownName = drilldownCode
@@ -120,7 +176,7 @@ export function TransactionTable({
         {/* ── 헤더: 타이틀 + 드릴다운 표시 ── */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-sm">거래 내역</CardTitle>
+            <CardTitle className="text-sm">Transactions</CardTitle>
             {/* 드릴다운 모드 배지 */}
             {drilldownCode && (
               <Badge
@@ -239,23 +295,23 @@ export function TransactionTable({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">날짜</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">계좌</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">종목</th>
-                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">유형</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">수량</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">단가</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">금액</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">매도손익</th>
-                  <th className="px-3 py-2 text-center font-medium text-muted-foreground w-16"></th>
+                <tr className="border-b bg-muted/30 text-[10px]">
+                  <Th col="date"       label="날짜" />
+                  <Th col="accountNo"  label="계좌" />
+                  <Th col="stockName"  label="종목" />
+                  <Th col="tradeType"  label="유형"     align="center" />
+                  <Th col="quantity"   label="수량"     align="right" />
+                  <Th col="price"      label="단가"     align="right" />
+                  <Th col="amount"     label="금액"     align="right" />
+                  <Th col="realizedPL" label="매도손익" align="right" />
+                  <th className="px-3 py-2 w-16" />
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {filtered.map((tx) => (
                   <tr key={tx.id} className="hover:bg-muted/20 transition-colors">
                     {/* 날짜 */}
-                    <td className="px-4 py-2.5 tabular-nums text-muted-foreground whitespace-nowrap">
+                    <td className="px-3 py-2.5 tabular-nums text-muted-foreground whitespace-nowrap">
                       {tx.date}
                     </td>
 

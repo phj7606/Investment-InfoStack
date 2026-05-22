@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Lock, RefreshCw, FileDown, FileUp } from "lucide-react";
+import { Lock, RefreshCw, CloudUpload, CloudDownload } from "lucide-react";
 import { RateCell } from "./RateCell";
 import { Button } from "@/components/ui/button";
 import { FinancialStatementView } from "./views/FinancialStatementView";
@@ -588,8 +588,8 @@ export function FinancialStatementClient() {
             onClick={() => backupFileRef.current?.click()}
             disabled={backupLoading}
           >
-            <FileUp className="h-3 w-3" />
-            복원
+            <CloudDownload className="h-3 w-3" />
+            Restore
           </Button>
           <Button
             variant="outline"
@@ -598,8 +598,8 @@ export function FinancialStatementClient() {
             onClick={() => void handleJsonBackup()}
             disabled={backupLoading}
           >
-            <FileDown className="h-3 w-3" />
-            백업
+            <CloudUpload className="h-3 w-3" />
+            Backup
           </Button>
         </div>
       </div>

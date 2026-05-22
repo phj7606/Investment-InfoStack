@@ -6,8 +6,8 @@
 // - 평가손익/수익률 색상: 양수=red-500, 음수=blue-500 (한국 주식 컨벤션)
 // - 현재가 없을 때 평가손익/수익률 "-" 표시
 
-import { useState } from "react";
-import { Pencil, Check, X, RefreshCw } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Pencil, Check, X, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,14 @@ interface LongtermPositionsTableProps {
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
 type MarketFilter = "KR" | "US";
+
+// 정렬 컬럼 타입
+type SortCol =
+  | "stockName" | "accountNo" | "quantity" | "avgCost"
+  | "currentPrice" | "evalAmount" | "evalPL" | "evalPLPct"
+  | "totalRealizedPL" | "weight";
+type SortDir = "asc" | "desc";
+interface SortState { col: SortCol; dir: SortDir }
 
 // 수익률 색상 헬퍼 (한국 컨벤션)
 function plColor(value: number): string {
@@ -144,10 +152,70 @@ export function LongtermPositionsTable({
   // 기본값 KR — 전체(all) 제거
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("KR");
 
-  // 시장 필터 + 평가금액 내림차순 정렬
-  const filtered = positions
-    .filter((p) => p.market === marketFilter)
-    .sort((a, b) => b.evalAmount - a.evalAmount);
+  // 정렬 상태 (기본: 평가금액 내림차순)
+  const [sort, setSort] = useState<SortState>({ col: "evalAmount", dir: "desc" });
+
+  function toggleSort(col: SortCol) {
+    setSort((prev) =>
+      prev.col === col
+        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { col, dir: "desc" }
+    );
+  }
+
+  function SortIcon({ col }: { col: SortCol }) {
+    if (sort.col !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-0.5 inline-block" />;
+    return sort.dir === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-0.5 inline-block text-blue-500" />
+      : <ArrowDown className="h-3 w-3 ml-0.5 inline-block text-blue-500" />;
+  }
+
+  function Th({ col, label, align = "right" }: { col: SortCol; label: string; align?: "left" | "right" | "center" }) {
+    return (
+      <th
+        className={cn(
+          "px-3 py-2 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors",
+          align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
+        )}
+        onClick={() => toggleSort(col)}
+      >
+        <span className={cn("inline-flex items-center gap-0.5", align === "right" ? "justify-end w-full" : align === "center" ? "justify-center w-full" : "")}>
+          {label}
+          <SortIcon col={col} />
+        </span>
+      </th>
+    );
+  }
+
+  // totalWeight는 비중 정렬 계산에 사용
+  const totalKRWForSort = positions.filter((p) => p.currency === "KRW").reduce((s, p) => s + p.evalAmount, 0);
+  const totalUSDForSort = positions.filter((p) => p.currency === "USD").reduce((s, p) => s + p.evalAmount, 0);
+
+  // 시장 필터 + 정렬 적용
+  const filtered = useMemo(() => {
+    const arr = positions.filter((p) => p.market === marketFilter);
+    arr.sort((a, b) => {
+      let v = 0;
+      switch (sort.col) {
+        case "stockName":       v = a.stockName.localeCompare(b.stockName, "ko"); break;
+        case "accountNo":       v = a.accountNo.localeCompare(b.accountNo); break;
+        case "quantity":        v = a.quantity - b.quantity; break;
+        case "avgCost":         v = a.avgCost - b.avgCost; break;
+        case "currentPrice":    v = (a.currentPrice ?? 0) - (b.currentPrice ?? 0); break;
+        case "evalAmount":      v = a.evalAmount - b.evalAmount; break;
+        case "evalPL":          v = a.evalPL - b.evalPL; break;
+        case "evalPLPct":       v = a.evalPLPct - b.evalPLPct; break;
+        case "totalRealizedPL": v = a.totalRealizedPL - b.totalRealizedPL; break;
+        case "weight": {
+          const total = a.currency === "KRW" ? totalKRWForSort : totalUSDForSort;
+          v = total > 0 ? (a.evalAmount / total) - (b.evalAmount / total) : 0;
+          break;
+        }
+      }
+      return sort.dir === "asc" ? v : -v;
+    });
+    return arr;
+  }, [positions, marketFilter, sort, totalKRWForSort, totalUSDForSort]);
 
   // KR/US 전체 평가금액 합계 (비중 계산용)
   const totalKRW = positions
@@ -249,24 +317,31 @@ export function LongtermPositionsTable({
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">종목</th>
+                <tr className="border-b bg-muted/30 text-[10px]">
+                  <Th col="stockName"       label="종목"     align="left" />
+                  {/* 시장 컬럼은 필터로 이미 고정 — 정렬 불필요 */}
                   <th className="px-3 py-2 text-center font-medium text-muted-foreground">시장</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">계좌</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">수량</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">평균단가</th>
-                  {/* 현재가 컬럼 헤더: 로딩 중 스핀 표시 */}
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
+                  <Th col="accountNo"       label="계좌"     align="left" />
+                  <Th col="quantity"        label="수량" />
+                  <Th col="avgCost"         label="평균단가" />
+                  {/* 현재가 헤더: 정렬 + 로딩 스피너 공존 */}
+                  <th
+                    className="px-3 py-2 text-right font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors"
+                    onClick={() => toggleSort("currentPrice")}
+                  >
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
                       현재가
-                      {pricesLoading && <RefreshCw className="h-2.5 w-2.5 animate-spin" />}
+                      {pricesLoading
+                        ? <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                        : <SortIcon col="currentPrice" />
+                      }
                     </span>
                   </th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">평가금액</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">평가손익</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">수익률</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">누적실현</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">비중</th>
+                  <Th col="evalAmount"      label="평가금액" />
+                  <Th col="evalPL"          label="평가손익" />
+                  <Th col="evalPLPct"       label="수익률" />
+                  <Th col="totalRealizedPL" label="누적실현" />
+                  <Th col="weight"          label="비중" />
                 </tr>
               </thead>
               <tbody className="divide-y">

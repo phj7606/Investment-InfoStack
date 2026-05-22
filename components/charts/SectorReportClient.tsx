@@ -28,11 +28,11 @@ import {
 import {
   Search,
   ChevronDown,
-  Download,
+  CloudDownload,
   Printer,
   Send,
   Loader2,
-  Upload,
+  CloudUpload,
   FileText,
   AlertCircle,
   RotateCcw,
@@ -304,7 +304,7 @@ export function SectorReportClient() {
               <Tabs defaultValue="file">
                 <TabsList className="h-7">
                   <TabsTrigger value="file" className="text-xs px-3 h-6">
-                    <Upload className="h-3 w-3 mr-1" />
+                    <CloudUpload className="h-3 w-3 mr-1" />
                     파일 업로드
                   </TabsTrigger>
                   <TabsTrigger value="text" className="text-xs px-3 h-6">
@@ -314,7 +314,7 @@ export function SectorReportClient() {
                 </TabsList>
                 <TabsContent value="file" className="mt-2">
                   <label className="flex items-center gap-2 cursor-pointer border border-dashed rounded-md p-3 hover:bg-muted/50 transition-colors">
-                    <Upload className="h-4 w-4 text-muted-foreground" />
+                    <CloudUpload className="h-4 w-4 text-muted-foreground" />
                     <span className="text-xs text-muted-foreground">
                       {previousReport
                         ? `파일 로드됨 (${previousReport.length.toLocaleString()}자)`
@@ -382,7 +382,7 @@ export function SectorReportClient() {
                   onClick={handleExportMarkdown}
                   className="h-7 text-xs gap-1"
                 >
-                  <Download className="h-3 w-3" />
+                  <CloudDownload className="h-3 w-3" />
                   Markdown
                 </Button>
                 <Button

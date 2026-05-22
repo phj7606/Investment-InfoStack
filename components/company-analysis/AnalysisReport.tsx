@@ -8,7 +8,7 @@
 // → 브라우저 기본 인쇄 다이얼로그 → "PDF로 저장" 선택
 
 import { useEffect, useRef, useMemo, useCallback } from "react";
-import { Download, Save, Loader2, Printer } from "lucide-react";
+import { CloudDownload, Save, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -190,7 +190,7 @@ ${content}
                 onClick={onDownload}
                 className="gap-1.5 h-8 text-xs"
               >
-                <Download className="h-3.5 w-3.5" />
+                <CloudDownload className="h-3.5 w-3.5" />
                 MD 저장
               </Button>
               <Button

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -14,6 +14,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// viewport는 Next.js 14+에서 metadata와 분리해야 경고 없이 동작
+// themeColor: PWA 설치 시 상태바 색상 (모바일)
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: {
     default: SITE_CONFIG.name,
@@ -21,6 +29,19 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_CONFIG.name}`,
   },
   description: SITE_CONFIG.description,
+  // PWA manifest 연결: 브라우저가 앱 설치 프롬프트를 인식
+  manifest: "/manifest.json",
+  // iOS Safari "홈 화면에 추가" 시 네이티브 앱처럼 동작
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "InfoStack",
+  },
+  // 앱 아이콘 (Android Chrome 설치, 파비콘 등)
+  icons: {
+    icon: "/icons/icon-192x192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

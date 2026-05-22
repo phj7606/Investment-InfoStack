@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Edit } from "lucide-react";
+import { Lock, Pencil } from "lucide-react";
 import { MonthEndConfirmDialog } from "../MonthEndConfirmDialog";
 import { SnapshotEditDialog } from "../SnapshotEditDialog";
 import type {
@@ -167,7 +167,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
           {!isConfirmed && (
             <>
               <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
-                <Edit className="w-3.5 h-3.5 mr-1" />Edit
+                <Pencil className="w-3.5 h-3.5 mr-1" />Edit
               </Button>
               <Button
                 size="sm"

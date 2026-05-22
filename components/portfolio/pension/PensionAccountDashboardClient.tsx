@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Plus, RefreshCw, Trash2, Pencil,
-  ChevronDown, ChevronRight, HardDrive,
+  ChevronDown, ChevronRight, CloudUpload, CloudDownload,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -596,7 +596,7 @@ export function PensionAccountDashboardClient() {
         <TabsList className="grid w-full grid-cols-3 bg-emerald-500/5 border">
           {[
             { value: "rebalancing",  label: "리밸런싱" },
-            { value: "transactions", label: "거래내역", count: transactions.length },
+            { value: "transactions", label: "Executed Trade", count: transactions.length },
             { value: "stocks",       label: "종목별",   count: stockGroups.length },
           ].map(({ value, label, count }) => (
             <TabsTrigger
@@ -631,17 +631,17 @@ export function PensionAccountDashboardClient() {
             <div className="flex flex-wrap gap-2 items-center">
               {backupMsg && <span className="text-[10px] text-emerald-600">{backupMsg}</span>}
               {/* 복원 버튼 — 파일 선택 input 클릭 트리거 */}
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => backupFileRef.current?.click()}
                 disabled={backupLoading}>
-                <HardDrive className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
-                복원
+                <CloudDownload className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
+                Restore
               </Button>
               {/* 백업 다운로드 */}
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => void handleJsonBackup()} disabled={backupLoading}>
-                <HardDrive className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
-                백업
+                <CloudUpload className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
+                Backup
               </Button>
               <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => void fetchPrices(positions)} disabled={priceLoading || positions.length === 0}>
@@ -651,7 +651,7 @@ export function PensionAccountDashboardClient() {
               <Button size="sm" className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
                 onClick={() => { setTxFormDefault(selectedAccount); setTxFormOpen(true); }}>
                 <Plus className="h-3 w-3" />
-                거래 추가
+                Add Trade
               </Button>
             </div>
           </div>
@@ -1079,20 +1079,20 @@ export function PensionAccountDashboardClient() {
             </div>
             <div className="flex gap-2 items-center">
               {/* 복원/백업 — 거래내역 탭에서도 동일한 API 사용 */}
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => backupFileRef.current?.click()}
                 disabled={backupLoading}>
-                <HardDrive className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
-                복원
+                <CloudDownload className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
+                Restore
               </Button>
-              <Button variant="ghost" size="sm" className="h-7 text-xs gap-1"
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
                 onClick={() => void handleJsonBackup()} disabled={backupLoading}>
-                <HardDrive className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
-                백업
+                <CloudUpload className={cn("h-3 w-3", backupLoading && "animate-pulse")} />
+                Backup
               </Button>
               <Button size="sm" className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
                 onClick={() => { setEditTx(null); setTxFormOpen(true); }}>
-                <Plus className="h-3 w-3" />거래 추가
+                <Plus className="h-3 w-3" />Add Trade
               </Button>
             </div>
           </div>
@@ -1570,14 +1570,15 @@ function RebalancingPanel({
         <div className="overflow-x-auto rounded-lg border">
           <table className="text-xs" style={{ width: "100%", tableLayout: "fixed" }}>
             {/* 고정 열 너비 — 열맞춤 */}
+            {/* 고정 열 너비: 종목28 | 현재금액14 | 비중9 | 월평균10 | 목표%11 | 목표금액14 | 필요금액14 */}
             <colgroup>
-              <col style={{ width: "28%" }} />  {/* 종목 */}
-              <col style={{ width: "14%" }} />  {/* 현재금액 */}
-              <col style={{ width: "9%" }} />   {/* 현재비중 */}
-              <col style={{ width: "10%" }} />  {/* 월평균 */}
-              <col style={{ width: "11%" }} />  {/* 목표비중 */}
-              <col style={{ width: "14%" }} />  {/* 목표금액 */}
-              <col style={{ width: "14%" }} />  {/* 필요금액 */}
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "9%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "11%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "14%" }} />
             </colgroup>
             <thead>
               <tr className="border-b bg-muted/30">

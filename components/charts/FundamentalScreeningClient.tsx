@@ -13,7 +13,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   FileText, DatabaseZap, FolderOpen, Trash2, ChevronDown, ChevronUp,
-  Download, Upload,
+  CloudDownload, CloudUpload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -474,7 +474,7 @@ export function FundamentalScreeningClient() {
               disabled={savedList.length === 0}
               title="저장된 분석 전체를 JSON 파일로 내보내기"
             >
-              <Download className="h-3.5 w-3.5" />
+              <CloudDownload className="h-3.5 w-3.5" />
               내보내기
             </Button>
             <Button
@@ -484,7 +484,7 @@ export function FundamentalScreeningClient() {
               onClick={handleImportClick}
               title="JSON 파일에서 분석 데이터 가져오기"
             >
-              <Upload className="h-3.5 w-3.5" />
+              <CloudUpload className="h-3.5 w-3.5" />
               가져오기
             </Button>
           </div>

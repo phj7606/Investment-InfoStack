@@ -180,12 +180,12 @@ export function RebalancingPanel({ positions }: RebalancingPanelProps) {
 
         <CardContent className="pt-0">
           <div className="space-y-3">
-            {positions.map((pos) => {
+            {positions.map((pos, idx) => {
               const targetPct = parseFloat(targetInputs[pos.stockCode] || "0") || 0;
               const currentPct = pos.currentWeight * 100;
 
               return (
-                <div key={pos.stockCode} className="space-y-1">
+                <div key={`${pos.stockCode}-${idx}`} className="space-y-1">
                   {/* 종목명 + 입력 */}
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 min-w-0">
@@ -263,8 +263,8 @@ export function RebalancingPanel({ positions }: RebalancingPanelProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {suggestions.map((s) => (
-                    <tr key={s.stockCode} className="hover:bg-muted/20 transition-colors">
+                  {suggestions.map((s, i) => (
+                    <tr key={`${s.stockCode}-${i}`} className="hover:bg-muted/20 transition-colors">
                       {/* 종목명 */}
                       <td className="px-4 py-2.5">
                         <p className="font-medium">{s.stockName}</p>

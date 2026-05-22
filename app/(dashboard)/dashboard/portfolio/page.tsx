@@ -49,7 +49,7 @@ const ACCOUNTS = [
 ];
 
 export const metadata = {
-  title: "포트폴리오 관리 | Investment+",
+  title: "Investment Management | Investment+",
   description: "계좌별 포트폴리오 대시보드 — 추세추종·장기투자·연금 계좌 통합 관리",
 };
 
@@ -57,7 +57,7 @@ export default function PortfolioHubPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <PageHeader
-        title="포트폴리오 관리"
+        title="Investment Management"
         description="투자 계좌별 대시보드에서 보유 포지션, 리스크 관리, 성과를 관리합니다."
       />
 

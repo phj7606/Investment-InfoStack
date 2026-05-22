@@ -15,7 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { ArrowUpDown, ArrowUp, ArrowDown, Check, X, Download } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown, Check, X, CloudDownload } from "lucide-react";
 import { CATEGORY_LABELS } from "@/lib/constants/categories";
 import type { ScreenerResult, ScreenerFilters } from "@/types";
 
@@ -199,7 +199,7 @@ export function ScreenerResultTable({ data, filters, market }: ScreenerResultTab
           onClick={() => exportToCsv(sorted, market)}
           disabled={sorted.length === 0}
         >
-          <Download className="h-3 w-3" />
+          <CloudDownload className="h-3 w-3" />
           CSV 다운로드
         </Button>
       </div>

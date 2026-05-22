@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { Upload, X, BookMarked, FileText } from "lucide-react";
+import { CloudUpload, X, BookMarked, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AnalysisInputForm } from "./AnalysisInputForm";
@@ -299,7 +299,7 @@ export function CompanyAnalysisClient({ initialInput }: CompanyAnalysisClientPro
               disabled={isLoading}
               title="이전 분석 MD 파일을 업로드해 새 분석의 참고 컨텍스트로 활용"
             >
-              <Upload className="h-3.5 w-3.5" />
+              <CloudUpload className="h-3.5 w-3.5" />
               이전 분석 불러오기
             </Button>
           )}

@@ -233,7 +233,7 @@ export function PensionTransactionForm({
       <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-sm">
-            {isEdit ? "거래 수정" : "거래 추가"}
+            {isEdit ? "Edit Trade" : "Add Trade"}
           </DialogTitle>
         </DialogHeader>
 

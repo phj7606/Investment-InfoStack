@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, FileDown, FileUp } from "lucide-react";
+import { Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, CloudUpload, CloudDownload } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RiskManagementPanel } from "@/components/portfolio/RiskManagementPanel";
 import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
@@ -54,9 +54,16 @@ type TradeCol =
   | "buyPrice" | "sellPrice" | "quantity"
   | "profitLoss" | "profitLossPct" | "holdingDays" | "result";
 
+// 포지션 테이블 정렬 가능 컬럼
+type PosCol =
+  | "stockName" | "sector" | "buyDate"
+  | "avgPrice" | "quantity" | "buyAmount"
+  | "currentPrice" | "profitLoss" | "profitLossPct";
+
 type SortDir = "asc" | "desc";
 
-interface SortState { col: TradeCol; dir: SortDir }
+interface SortState    { col: TradeCol; dir: SortDir }
+interface PosSortState { col: PosCol;   dir: SortDir }
 
 function sortTrades(trades: EducationTrade[], sort: SortState): EducationTrade[] {
   return [...trades].sort((a, b) => {
@@ -68,6 +75,28 @@ function sortTrades(trades: EducationTrade[], sort: SortState): EducationTrade[]
     } else {
       v = String(aVal ?? "").localeCompare(String(bVal ?? ""), "ko");
     }
+    return sort.dir === "asc" ? v : -v;
+  });
+}
+
+type EnrichedPos = EducationPosition & {
+  currentPrice: number; evalAmount: number;
+  profitLoss: number; profitLossPct: number;
+};
+function sortPositions(positions: EnrichedPos[], sort: PosSortState): EnrichedPos[] {
+  return [...positions].sort((a, b) => {
+    let aVal: number | string;
+    let bVal: number | string;
+    if (sort.col === "buyAmount") {
+      aVal = a.avgPrice * a.quantity;
+      bVal = b.avgPrice * b.quantity;
+    } else {
+      aVal = a[sort.col] as number | string;
+      bVal = b[sort.col] as number | string;
+    }
+    const v = typeof aVal === "number" && typeof bVal === "number"
+      ? aVal - bVal
+      : String(aVal ?? "").localeCompare(String(bVal ?? ""), "ko");
     return sort.dir === "asc" ? v : -v;
   });
 }
@@ -110,6 +139,9 @@ export function EducationAccountDashboardClient() {
   // 파일 선택 input ref (hidden) — 복원 시 사용
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+
+  // ── 포지션 정렬 ────────────────────────────
+  const [posSort, setPosSort] = useState<PosSortState>({ col: "buyDate", dir: "desc" });
 
   // ── 거래내역 정렬/필터 ─────────────────────
   const [sort, setSort]           = useState<SortState>({ col: "sellDate", dir: "desc" });
@@ -330,6 +362,41 @@ export function EducationAccountDashboardClient() {
   }
 
   // ─────────────────────────────────────────
+  // 정렬 헤더 — 포지션 테이블
+  // ─────────────────────────────────────────
+  function togglePosSort(col: PosCol) {
+    setPosSort((prev) =>
+      prev.col === col
+        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { col, dir: "desc" }
+    );
+  }
+
+  function PosSortIcon({ col }: { col: PosCol }) {
+    if (posSort.col !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-0.5" />;
+    return posSort.dir === "asc"
+      ? <ArrowUp className="h-3 w-3 ml-0.5 text-emerald-500" />
+      : <ArrowDown className="h-3 w-3 ml-0.5 text-emerald-500" />;
+  }
+
+  function ThPosSort({ col, label, align = "right" }: { col: PosCol; label: string; align?: "left" | "right" }) {
+    return (
+      <th
+        className={cn(
+          "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
+          align === "right" ? "text-right" : "text-left"
+        )}
+        onClick={() => togglePosSort(col)}
+      >
+        <span className={cn("inline-flex items-center gap-0.5", align === "right" ? "justify-end" : "")}>
+          {label}
+          <PosSortIcon col={col} />
+        </span>
+      </th>
+    );
+  }
+
+  // ─────────────────────────────────────────
   // 렌더
   // ─────────────────────────────────────────
   return (
@@ -337,8 +404,8 @@ export function EducationAccountDashboardClient() {
       <Tabs defaultValue="positions">
         <TabsList className="grid w-full grid-cols-3 bg-emerald-500/5 border">
           {[
-            { value: "positions", label: "포지션",         count: positions.length },
-            { value: "trades",    label: "거래내역",       count: trades.length },
+            { value: "positions", label: "Open Positions",  count: positions.length },
+            { value: "trades",    label: "Executed Trade", count: trades.length },
             { value: "account",   label: "Risk Management", count: undefined },
           ].map(({ value, label, count }) => (
             <TabsTrigger
@@ -376,8 +443,8 @@ export function EducationAccountDashboardClient() {
                 onClick={() => backupFileRef.current?.click()}
                 disabled={backupLoading}
               >
-                <FileUp className="h-3 w-3" />
-                복원
+                <CloudDownload className="h-3 w-3" />
+                Restore
               </Button>
               {/* 백업 다운로드 */}
               <Button variant="outline" size="sm"
@@ -385,8 +452,8 @@ export function EducationAccountDashboardClient() {
                 onClick={() => void handleJsonBackup()}
                 disabled={backupLoading}
               >
-                <FileDown className="h-3 w-3" />
-                백업
+                <CloudUpload className="h-3 w-3" />
+                Backup
               </Button>
               <Button variant="ghost" size="sm"
                 className="h-7 text-xs gap-1"
@@ -441,21 +508,20 @@ export function EducationAccountDashboardClient() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b text-[10px] text-muted-foreground bg-muted/20">
-                        {/* 종목, 섹터, 매수일, 매수가, 수량, 매수금액, unit, 현재가, 손익 */}
-                        <th className="text-left p-2 pl-3 font-medium">종목</th>
-                        <th className="text-left p-2 font-medium">섹터</th>
-                        <th className="text-right p-2 font-medium">매수일</th>
-                        <th className="text-right p-2 font-medium">매수가</th>
-                        <th className="text-right p-2 font-medium">수량</th>
-                        <th className="text-right p-2 font-medium">매수금액</th>
+                        <ThPosSort col="stockName"    label="종목"     align="left" />
+                        <ThPosSort col="sector"       label="섹터"     align="left" />
+                        <ThPosSort col="buyDate"      label="매수일" />
+                        <ThPosSort col="avgPrice"     label="매수가" />
+                        <ThPosSort col="quantity"     label="수량" />
+                        <ThPosSort col="buyAmount"    label="매수금액" />
                         <th className="text-right p-2 font-medium">Unit</th>
-                        <th className="text-right p-2 font-medium">현재가</th>
-                        <th className="text-right p-2 pr-3 font-medium">손익</th>
+                        <ThPosSort col="currentPrice" label="현재가" />
+                        <ThPosSort col="profitLoss"   label="손익" />
                         <th className="p-2 w-16" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {enrichedPositions.map((p) => {
+                      {sortPositions(enrichedPositions, posSort).map((p) => {
                         const hasCur = p.currentPrice > 0;
                         return (
                           <tr key={p.id} className="hover:bg-muted/30">
@@ -634,23 +700,23 @@ export function EducationAccountDashboardClient() {
                 onClick={() => backupFileRef.current?.click()}
                 disabled={backupLoading}
               >
-                <FileUp className="h-3 w-3" />
-                복원
+                <CloudDownload className="h-3 w-3" />
+                Restore
               </Button>
               <Button variant="outline" size="sm"
                 className="h-7 text-xs gap-1"
                 onClick={() => void handleJsonBackup()}
                 disabled={backupLoading}
               >
-                <FileDown className="h-3 w-3" />
-                백업
+                <CloudUpload className="h-3 w-3" />
+                Backup
               </Button>
               <Button size="sm"
                 className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
                 onClick={() => setAddTradeOpen(true)}
               >
                 <Plus className="h-3 w-3" />
-                거래 추가
+                Add Trade
               </Button>
             </div>
           </div>

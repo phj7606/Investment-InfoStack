@@ -7,8 +7,10 @@
  * - 전량 매도 완료 종목: "매도완료" 뱃지로 표시, 흐리게 처리
  * - 현재 보유 종목: 정상 표시
  * - 컬럼: 종목명 / ticker / 월별 MoM% / 누적수익률
+ * - 컬럼 헤더 클릭으로 정렬 전환 (종목명·상태·누적 수익률)
  */
 
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -18,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import type {
   StockMonthPerformance,
   PerformanceMonthPoint,
@@ -58,6 +61,12 @@ function toShortLabel(period: string): string {
 
 /** 현재 진행 중인 월 (YYYY-MM) — 월말 종가 미확정 상태 표시용 */
 const CURRENT_PERIOD = new Date().toISOString().slice(0, 7);
+
+// ─────────────────────────────────────────
+// 정렬 상태 타입
+// ─────────────────────────────────────────
+type SortKey = "stockName" | "status" | "cumPct";
+type SortDir = "asc" | "desc";
 
 /**
  * 종목 보유 기간에 맞춘 벤치마크 누적 수익률 계산 (기간 매칭)
@@ -101,6 +110,51 @@ function getPeriodMatchedBenchmarkCum(
 }
 
 export function StockPerformanceTable({ stocks, currency, portfolioMonths, benchmarkData }: Props) {
+  // 기본 정렬: 누적 수익률 내림차순 (성과 좋은 종목이 위)
+  const [sortKey, setSortKey] = useState<SortKey>("cumPct");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  // 컬럼 헤더 클릭 — 같은 키면 방향 전환, 다른 키면 내림차순 초기화
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  // 정렬 아이콘
+  function SortIcon({ col }: { col: SortKey }) {
+    if (col !== sortKey)
+      return <ArrowUpDown className="h-3 w-3 text-muted-foreground/40 ml-0.5 inline-block" />;
+    return sortDir === "desc"
+      ? <ArrowDown className="h-3 w-3 text-foreground ml-0.5 inline-block" />
+      : <ArrowUp className="h-3 w-3 text-foreground ml-0.5 inline-block" />;
+  }
+
+  // 종목 목록 정렬 (포트폴리오 합계 행은 항상 최상단 고정)
+  const sortedStocks = useMemo(() => {
+    return [...stocks].sort((a, b) => {
+      if (sortKey === "stockName") {
+        const cmp = a.stockName.localeCompare(b.stockName, "ko");
+        return sortDir === "desc" ? -cmp : cmp;
+      }
+      if (sortKey === "status") {
+        // 보유중(false) → 매도완료(true) 순, desc면 반대
+        const av = a.fullyExited ? 1 : 0;
+        const bv = b.fullyExited ? 1 : 0;
+        return sortDir === "desc" ? av - bv : bv - av;
+      }
+      if (sortKey === "cumPct") {
+        const av = a.months[a.months.length - 1]?.cumPct ?? -Infinity;
+        const bv = b.months[b.months.length - 1]?.cumPct ?? -Infinity;
+        return sortDir === "desc" ? bv - av : av - bv;
+      }
+      return 0;
+    });
+  }, [stocks, sortKey, sortDir]);
+
   if (stocks.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
@@ -138,15 +192,28 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
       <Table className="text-xs">
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            {/* 종목명: 최대 폭 고정 + 넘치면 말줄임 → 긴 이름이 레이아웃 변형하는 원인 차단 */}
-            <TableHead className="py-2 text-xs font-semibold text-foreground w-[140px] min-w-[140px] max-w-[140px] sticky left-0 bg-muted/30">
-              종목명
+            {/* 종목명: sticky left + 클릭 정렬 */}
+            <TableHead
+              className="py-2 text-xs font-semibold text-foreground w-[140px] min-w-[140px] max-w-[140px] sticky left-0 bg-muted/30 cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("stockName")}
+            >
+              <span className="flex items-center">
+                종목명
+                <SortIcon col="stockName" />
+              </span>
             </TableHead>
             <TableHead className="py-2 text-xs font-semibold text-foreground w-[76px] min-w-[76px]">
               {currency === "KRW" ? "종목코드" : "심볼"}
             </TableHead>
-            <TableHead className="py-2 text-xs font-semibold text-foreground w-[64px] min-w-[64px] text-center">
-              상태
+            {/* 상태: 보유중/매도완료 정렬 */}
+            <TableHead
+              className="py-2 text-xs font-semibold text-foreground w-[64px] min-w-[64px] text-center cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("status")}
+            >
+              <span className="flex items-center justify-center">
+                상태
+                <SortIcon col="status" />
+              </span>
             </TableHead>
             {/* 월별 MoM% — 모든 열 동일 폭으로 고정 */}
             {allPeriods.map((period) => (
@@ -166,11 +233,17 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
                 )}
               </TableHead>
             ))}
-            {/* 누적 수익률 — 보유기간별 기준 */}
-            <TableHead className="py-2 text-xs font-semibold text-foreground text-right w-[96px] min-w-[96px]">
-              누적 수익률
+            {/* 누적 수익률 — 클릭 정렬 */}
+            <TableHead
+              className="py-2 text-xs font-semibold text-foreground text-right w-[96px] min-w-[96px] cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("cumPct")}
+            >
+              <span className="flex items-center justify-end">
+                누적 수익률
+                <SortIcon col="cumPct" />
+              </span>
               {dataStartPeriod && dataEndPeriod && (
-                <span className="block text-[9px] font-normal text-muted-foreground leading-tight mt-0.5">
+                <span className="block text-[9px] font-normal text-muted-foreground leading-tight mt-0.5 text-right">
                   {dataStartPeriod} ~ {dataEndPeriod}
                 </span>
               )}
@@ -221,8 +294,8 @@ export function StockPerformanceTable({ stocks, currency, portfolioMonths, bench
             );
           })()}
 
-          {/* ── 개별 종목 행 ── */}
-          {stocks.map((stock) => {
+          {/* ── 개별 종목 행 (정렬 적용) ── */}
+          {sortedStocks.map((stock) => {
             const monthMap = new Map(stock.months.map((m) => [m.period, m]));
             const lastMonth = stock.months[stock.months.length - 1];
             const startPeriod = stock.months[0]?.period;

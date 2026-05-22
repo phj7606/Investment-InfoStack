@@ -121,7 +121,7 @@ export function AddTradeDialog({ open, onOpenChange, onSaved }: AddTradeDialogPr
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-sm">거래 추가</DialogTitle>
+          <DialogTitle className="text-sm">Add Trade</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 py-2">

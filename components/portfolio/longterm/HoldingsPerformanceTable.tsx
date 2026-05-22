@@ -36,6 +36,7 @@ interface Props {
 // ─────────────────────────────────────────
 
 type SortKey =
+  | "stockName"
   | "mdr"
   | "alpha"
   | "annualizedAlpha"
@@ -44,7 +45,11 @@ type SortKey =
   | "evalPLPct"
   | "hitRate"
   | "mdd"
-  | "holdingDays";
+  | "holdingDays"
+  | "currentWeight"
+  | "portfolioContributionPct"
+  | "upCapture"
+  | "downCapture";
 
 type SortDir = "asc" | "desc";
 
@@ -167,15 +172,20 @@ function PLCell({ pl, currency }: { pl: number | null | undefined; currency: "KR
 /** 정렬 키에서 숫자 값 추출 (undefined는 정렬 끝으로) */
 function getSortValue(h: HoldingPerformance, key: SortKey): number {
   switch (key) {
-    case "mdr":                return h.mdr ?? -Infinity;
-    case "alpha":              return h.alpha ?? -Infinity;
-    case "annualizedAlpha":    return h.annualizedAlpha ?? -Infinity;
-    case "twr":                return h.twr ?? -Infinity;
-    case "benchmarkTwr":       return h.benchmarkTwr ?? -Infinity;
-    case "evalPLPct":          return h.evalPLPct ?? 0;
-    case "hitRate":            return h.hitRate ?? -Infinity;
-    case "mdd":                return h.mdd ?? Infinity; // MDD는 낮을수록 나쁨 → 큰 음수가 아래로
-    case "holdingDays":        return h.holdingDays ?? 0;
+    case "stockName":                return 0; // 문자열 정렬은 별도 처리
+    case "mdr":                      return h.mdr ?? -Infinity;
+    case "alpha":                    return h.alpha ?? -Infinity;
+    case "annualizedAlpha":          return h.annualizedAlpha ?? -Infinity;
+    case "twr":                      return h.twr ?? -Infinity;
+    case "benchmarkTwr":             return h.benchmarkTwr ?? -Infinity;
+    case "evalPLPct":                return h.evalPLPct ?? 0;
+    case "hitRate":                  return h.hitRate ?? -Infinity;
+    case "mdd":                      return h.mdd ?? Infinity; // MDD는 낮을수록 나쁨 → 큰 음수가 아래로
+    case "holdingDays":              return h.holdingDays ?? 0;
+    case "currentWeight":            return h.currentWeight ?? 0;
+    case "portfolioContributionPct": return h.portfolioContributionPct ?? -Infinity;
+    case "upCapture":                return h.upCapture ?? -Infinity;
+    case "downCapture":              return h.downCapture ?? Infinity; // 낮을수록 방어적(좋음)
   }
 }
 
@@ -202,9 +212,13 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
     return new Set(Array.from(counts.entries()).filter(([, n]) => n > 1).map(([code]) => code));
   }, [filtered]);
 
-  // 정렬 적용
+  // 정렬 적용 — stockName은 문자열 비교, 나머지는 숫자 비교
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
+      if (sortKey === "stockName") {
+        const cmp = a.stockName.localeCompare(b.stockName, "ko");
+        return sortDir === "desc" ? -cmp : cmp;
+      }
       const av = getSortValue(a, sortKey);
       const bv = getSortValue(b, sortKey);
       return sortDir === "desc" ? bv - av : av - bv;
@@ -263,19 +277,29 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
       <Table className="text-xs">
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30">
-            {/* 종목명: sticky left — 가로 스크롤 시 고정 */}
-            <TableHead className="py-2 text-xs font-semibold text-foreground w-[130px] min-w-[130px] max-w-[130px] sticky left-0 bg-muted/30">
-              종목명
+            {/* 종목명: sticky left — 클릭으로 가나다순 정렬 */}
+            <TableHead
+              className="py-2 text-xs font-semibold text-foreground w-[130px] min-w-[130px] max-w-[130px] sticky left-0 bg-muted/30 cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("stockName")}
+            >
+              <span className="flex items-center">
+                종목명
+                <SortIcon col="stockName" />
+              </span>
             </TableHead>
             <TableHead className="py-2 text-xs font-semibold text-foreground w-[48px] min-w-[48px] text-center">
               시장
             </TableHead>
-            {/* 비중% */}
+            {/* 비중% — 클릭으로 정렬 */}
             <TableHead
-              className="py-2 text-xs font-semibold text-right text-foreground w-[56px] min-w-[56px]"
+              className="py-2 text-xs font-semibold text-right text-foreground w-[56px] min-w-[56px] cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("currentWeight")}
               title="전체 포트폴리오 대비 해당 통화(KRW/USD) 내 종목 비중. 평가금액 기준."
             >
-              비중
+              <span className="flex items-center justify-end">
+                비중
+                <SortIcon col="currentWeight" />
+              </span>
             </TableHead>
             {/* 보유기간 — 클릭으로 정렬 */}
             <TableHead
@@ -373,20 +397,28 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
             {hasCapture && (
               <>
                 <TableHead
-                  className="py-2 text-xs font-semibold text-right text-foreground w-[72px] min-w-[72px]"
+                  className="py-2 text-xs font-semibold text-right text-foreground w-[72px] min-w-[72px] cursor-pointer select-none hover:bg-muted/50"
+                  onClick={() => handleSort("upCapture")}
                   title="Up Capture = 벤치마크 상승 구간에서 종목 평균 수익률 / 벤치마크 평균 수익률. 100% 초과면 상승장에서 벤치마크보다 더 올랐음."
                 >
-                  <span className="block">Up Cap</span>
-                  <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5">
+                  <span className="flex items-center justify-end">
+                    Up Cap
+                    <SortIcon col="upCapture" />
+                  </span>
+                  <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5 text-right">
                     상승 포착
                   </span>
                 </TableHead>
                 <TableHead
-                  className="py-2 text-xs font-semibold text-right text-foreground w-[72px] min-w-[72px]"
+                  className="py-2 text-xs font-semibold text-right text-foreground w-[72px] min-w-[72px] cursor-pointer select-none hover:bg-muted/50"
+                  onClick={() => handleSort("downCapture")}
                   title="Down Capture = 벤치마크 하락 구간에서 종목 평균 손실률 / 벤치마크 평균 손실률. 100% 미만이면 하락장에서 벤치마크보다 덜 빠졌음(방어적)."
                 >
-                  <span className="block">Dn Cap</span>
-                  <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5">
+                  <span className="flex items-center justify-end">
+                    Dn Cap
+                    <SortIcon col="downCapture" />
+                  </span>
+                  <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5 text-right">
                     하락 포착
                   </span>
                 </TableHead>
@@ -403,12 +435,16 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
                 <SortIcon col="evalPLPct" />
               </span>
             </TableHead>
-            {/* 기여도 */}
+            {/* 기여도 — 클릭으로 정렬 */}
             <TableHead
-              className="py-2 text-xs font-semibold text-right text-foreground w-[68px] min-w-[68px]"
+              className="py-2 text-xs font-semibold text-right text-foreground w-[68px] min-w-[68px] cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("portfolioContributionPct")}
               title="포트폴리오 기여도 = 종목 평가손익 / 전체 평가손익 합계(%). 어느 종목이 전체 수익/손실에 얼마나 기여하는지 나타냄."
             >
-              기여도
+              <span className="flex items-center justify-end">
+                기여도
+                <SortIcon col="portfolioContributionPct" />
+              </span>
             </TableHead>
           </TableRow>
         </TableHeader>

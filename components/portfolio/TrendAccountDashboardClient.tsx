@@ -192,7 +192,7 @@ export function TrendAccountDashboardClient({ accountType }: TrendAccountDashboa
         <TabsList className="grid w-full grid-cols-4 bg-emerald-500/5 border">
           {[
             { value: "overview",  label: "대시보드",       count: undefined },
-            { value: "positions", label: "포지션",         count: positions.length },
+            { value: "positions", label: "Open Positions", count: positions.length },
             { value: "trades",    label: "거래 내역",      count: performances.length },
             { value: "account",   label: "Risk Management", count: undefined },
           ].map(({ value, label, count }) => (

@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { FileText, CheckSquare, BookmarkPlus, MessageSquare, Download } from "lucide-react";
+import { FileText, CheckSquare, BookmarkPlus, MessageSquare, CloudDownload } from "lucide-react";
 
 // Step 5에서 구현 예정인 기능 명세 (Phase 8 작업 대상)
 const PLANNED_FEATURES = [
@@ -38,7 +38,7 @@ const PLANNED_FEATURES = [
     description: "보고서 컨텍스트 기반 대화형 Q&A (Phase 5 구현 재활용)",
   },
   {
-    icon: Download,
+    icon: CloudDownload,
     title: "보고서 저장",
     description: "Markdown 다운로드 + Google Drive 저장 (MCP 연동 후 활성화)",
   },

@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileUp, FileDown, RefreshCw } from "lucide-react";
+import { CloudDownload, CloudUpload, RefreshCw } from "lucide-react";
 
 import { AccountSummaryCards } from "./AccountSummaryCards";
 import { PortfolioAllocationChart } from "./PortfolioAllocationChart";
@@ -113,7 +113,16 @@ export function LongtermDashboardClient() {
   const [perfLoading, setPerfLoading] = useState(false);
 
   // ── 현재가 (Yahoo Finance 자동 조회 + localStorage 수동 오버라이드) ──────
-  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
+  // lazy initializer로 localStorage를 동기적으로 읽어 초기값 세팅:
+  // fetchPositions 실행 시 currentPricesRef에 캐시 가격이 이미 존재해 즉시 반영 가능
+  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(CURRENT_PRICES_KEY);
+      return saved ? (JSON.parse(saved) as Record<string, number>) : {};
+    } catch {
+      return {};
+    }
+  });
   // ref로 유지 → fetchPositions 내부에서 최신 prices를 읽되 deps에 포함시키지 않아 무한 루프 방지
   const currentPricesRef = useRef(currentPrices);
 
@@ -150,18 +159,6 @@ export function LongtermDashboardClient() {
   useEffect(() => {
     currentPricesRef.current = currentPrices;
   }, [currentPrices]);
-
-  // ────────────────────────────────────────────────
-  // localStorage 현재가 로드 (마운트 시)
-  // ────────────────────────────────────────────────
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CURRENT_PRICES_KEY);
-      if (saved) setCurrentPrices(JSON.parse(saved) as Record<string, number>);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // ────────────────────────────────────────────────
   // 거래 내역 조회
@@ -668,8 +665,8 @@ export function LongtermDashboardClient() {
             onClick={() => jsonFileRef.current?.click()}
             disabled={jsonLoading}
           >
-            <FileUp className="h-3.5 w-3.5" />
-            {jsonLoading ? "처리 중..." : "JSON 복원"}
+            <CloudDownload className="h-3.5 w-3.5" />
+            {jsonLoading ? "처리 중..." : "Restore"}
           </Button>
           {/* JSON 백업: 서버 데이터 → 로컬 PC 저장 (오프사이트 안전망) */}
           <Button
@@ -679,14 +676,14 @@ export function LongtermDashboardClient() {
             onClick={handleJsonBackup}
             disabled={jsonLoading || transactions.length === 0}
           >
-            <FileDown className="h-3.5 w-3.5" />
-            JSON 백업
+            <CloudUpload className="h-3.5 w-3.5" />
+            Backup
           </Button>
 
           {/* 구분선 */}
           <div className="w-px h-5 bg-border" />
 
-          {/* 가져오기: PC → 앱 방향 = FileUp (파일을 올려서 읽는 개념) */}
+          {/* 가져오기: PC → 앱 방향 = CloudDownload (파일을 올려서 읽는 개념) */}
           <Button
             variant="outline"
             size="sm"
@@ -694,7 +691,7 @@ export function LongtermDashboardClient() {
             onClick={() => importFileRef.current?.click()}
             disabled={importLoading}
           >
-            <FileUp className="h-3.5 w-3.5" />
+            <CloudDownload className="h-3.5 w-3.5" />
             {importLoading ? "처리 중..." : "Excel 가져오기"}
           </Button>
           {/* 내보내기: 앱 → PC 방향 = FileDown (파일을 내려받는 개념) */}
@@ -705,7 +702,7 @@ export function LongtermDashboardClient() {
             onClick={handleExport}
             disabled={transactions.length === 0}
           >
-            <FileDown className="h-3.5 w-3.5" />
+            <CloudUpload className="h-3.5 w-3.5" />
             Excel 내보내기
           </Button>
         </div>
@@ -723,8 +720,8 @@ export function LongtermDashboardClient() {
         <TabsList className="grid w-full grid-cols-6 bg-blue-500/5 border">
           {[
             { value: "overview",     label: "대시보드" },
-            { value: "positions",    label: "포지션",    count: positions.length },
-            { value: "transactions", label: "거래 내역", count: transactions.length },
+            { value: "positions",    label: "Open Positions",    count: positions.length },
+            { value: "transactions", label: "Transactions", count: transactions.length },
             { value: "stocks",       label: "종목별" },
             { value: "performance",  label: "Performance Analysis" },
             { value: "rebalancing",  label: "리밸런싱" },
@@ -800,7 +797,7 @@ export function LongtermDashboardClient() {
               className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={() => { setEditingTx(undefined); setShowForm(true); }}
             >
-              + 거래 추가
+              + Add Trade
             </Button>
           </div>
 

@@ -23,7 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   ScanSearch,
   Loader2,
-  Download,
+  CloudDownload,
   RotateCcw,
   TrendingUp,
   TrendingDown,
@@ -34,7 +34,7 @@ import {
   Filter,
   FileText,
   BarChart3,
-  Upload,
+  CloudUpload,
   X,
   BookMarked,
   ChevronDown,
@@ -559,7 +559,7 @@ export function StockScreenerClient() {
                 onSelect={() => fileInputRef.current?.click()}
                 className="text-xs gap-2 cursor-pointer"
               >
-                <Upload className="h-3.5 w-3.5" />
+                <CloudUpload className="h-3.5 w-3.5" />
                 MD 파일 업로드
               </DropdownMenuItem>
               {/* 기업 분석 이력 목록 */}
@@ -939,7 +939,7 @@ export function StockScreenerClient() {
                   onClick={() => exportCsv(reportText, filters)}
                   className="h-7 px-2.5 text-xs gap-1.5"
                 >
-                  <Download className="h-3 w-3" />
+                  <CloudDownload className="h-3 w-3" />
                   CSV 저장
                 </Button>
               )}

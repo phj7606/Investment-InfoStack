@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, RefreshCw, Copy, Lock } from "lucide-react";
+import { Pencil, RefreshCw, Copy, Lock } from "lucide-react";
 import { RateCell } from "@/components/portfolio/financial/RateCell";
 import { buildAssetManagementYearlyData, currentMonth } from "@/lib/portfolio/financial-calc";
 import type {
@@ -136,14 +136,20 @@ function DataCell({
   isPct,
   isUsd = false,
   noData = false,
+  isManualInput = false,
 }: {
   value: number;
   isPnl?: boolean;
   isPct?: boolean;
   isUsd?: boolean;
   noData?: boolean;
+  /** 직접입력 필드 여부 — 옅은 노란색 배경 하이라이트 */
+  isManualInput?: boolean;
 }) {
-  if (noData) return <td className="px-2 py-1 text-right text-xs text-muted-foreground">–</td>;
+  // 직접입력 필드 배경: 자동계산(live data)과 시각적으로 구분
+  const bgClass = isManualInput ? "bg-yellow-50/60 dark:bg-yellow-950/20" : "";
+
+  if (noData) return <td className={`px-2 py-1 text-right text-xs text-muted-foreground/40 ${bgClass}`}>–</td>;
 
   const colorClass = isPnl || isPct ? plClass(value) : "";
   let display: string;
@@ -153,7 +159,7 @@ function DataCell({
 
   return (
     /* tabular-nums만 적용 — font-mono 제거 (UI 기본 폰트 유지) */
-    <td className={`px-2 py-1 text-right text-xs tabular-nums ${colorClass}`}>
+    <td className={`px-2 py-1 text-right text-xs tabular-nums ${colorClass} ${bgClass}`}>
       {display}
     </td>
   );
@@ -168,11 +174,14 @@ function SectionRows({
   columns,
   getData,
   isUsd = false,
+  manualInputKeys,
 }: {
   label: string;
   columns: AssetManagementColumnData[];
   getData: (col: AssetManagementColumnData) => AssetManagementSectionData;
   isUsd?: boolean;
+  /** 직접입력 행 키 집합 — 해당 행의 데이터 셀만 노란색 하이라이트 (항목 열 제외) */
+  manualInputKeys?: ReadonlySet<SectionRowKey>;
 }) {
   return (
     <>
@@ -187,46 +196,49 @@ function SectionRows({
       </tr>
 
       {/* 데이터 행 */}
-      {SECTION_ROWS.map((row) => (
-        <tr key={row.key} className="border-b border-border/30 hover:bg-muted/20">
-          {/* 행 레이블 — sticky left */}
-          <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap min-w-[130px]">
-            {row.label}
-          </td>
+      {SECTION_ROWS.map((row) => {
+        // 직접입력 여부: manualInputKeys에 이 행의 key가 포함된 경우만
+        const isManual = manualInputKeys?.has(row.key) ?? false;
+        return (
+          <tr key={row.key} className="border-b border-border/30 hover:bg-muted/20">
+            {/* 항목 레이블 — sticky left, 하이라이트 제외 */}
+            <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap min-w-[130px]">
+              {row.label}
+            </td>
 
-          {/* 데이터 컬럼 */}
-          {columns.map((col) => {
-            if (!col.hasData) {
+            {/* 데이터 컬럼 */}
+            {columns.map((col) => {
+              if (!col.hasData) {
+                return (
+                  <DataCell key={col.month} value={0} noData isManualInput={isManual} />
+                );
+              }
+              const d = getData(col);
+              const v = d[row.key];
               return (
-                <td key={col.month} className="px-2 py-1 text-right text-xs text-muted-foreground/40">
-                  –
-                </td>
+                <DataCell
+                  key={col.month}
+                  value={v}
+                  isPnl={row.isPnl}
+                  isPct={row.isPct}
+                  isUsd={isUsd}
+                  isManualInput={isManual}
+                />
               );
-            }
-            const d = getData(col);
-            const v = d[row.key];
-            return (
-              <DataCell
-                key={col.month}
-                value={v}
-                isPnl={row.isPnl}
-                isPct={row.isPct}
-                isUsd={isUsd}
-              />
-            );
-          })}
+            })}
 
-          {/* YTD 컬럼 */}
-          <YtdCell
-            columns={columns}
-            getData={getData}
-            rowKey={row.key}
-            isPnl={row.isPnl}
-            isPct={row.isPct}
-            isUsd={isUsd}
-          />
-        </tr>
-      ))}
+            {/* YTD 컬럼 */}
+            <YtdCell
+              columns={columns}
+              getData={getData}
+              rowKey={row.key}
+              isPnl={row.isPnl}
+              isPct={row.isPct}
+              isUsd={isUsd}
+            />
+          </tr>
+        );
+      })}
     </>
   );
 }
@@ -302,6 +314,7 @@ function SimpleRow({
   isUsd = false,
   isPnl = false,
   isBold = false,
+  isManualInput = false,
 }: {
   label: string;
   cols: AssetManagementColumnData[];
@@ -309,9 +322,13 @@ function SimpleRow({
   isUsd?: boolean;
   isPnl?: boolean;
   isBold?: boolean;
+  /** 직접입력 행 여부 — 노란색 하이라이트 적용 */
+  isManualInput?: boolean;
 }) {
   const lastNonBaseline = [...cols].reverse().find((c) => c.hasData && !c.isBaseline);
   const fmt = isUsd ? fmtUsd : fmtKrw;
+  // 직접입력 행: 데이터 셀만 노란색 (항목 열 제외)
+  const cellBg = isManualInput ? "bg-yellow-50/60 dark:bg-yellow-950/20" : "";
 
   return (
     <tr className={`border-b border-border/30 hover:bg-muted/20 ${isBold ? "font-semibold" : ""}`}>
@@ -321,7 +338,7 @@ function SimpleRow({
       {cols.map((col) => {
         if (!col.hasData)
           return (
-            <td key={col.month} className="px-2 py-1 text-right text-xs text-muted-foreground/40">
+            <td key={col.month} className={`px-2 py-1 text-right text-xs text-muted-foreground/40 ${cellBg}`}>
               –
             </td>
           );
@@ -329,13 +346,13 @@ function SimpleRow({
         const cls = isPnl ? plClass(v) : "";
         return (
           /* tabular-nums만 적용 — font-mono 제거 */
-          <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls}`}>
+          <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls} ${cellBg}`}>
             {fmt(v)}
           </td>
         );
       })}
       {/* YTD: Stock Deposit / Cash 섹션은 YTD 계산 미지원 — 공란 */}
-      <td className="px-2 py-1 text-right text-xs text-muted-foreground/40">–</td>
+      <td className={`px-2 py-1 text-right text-xs text-muted-foreground/40 ${cellBg}`}>–</td>
     </tr>
   );
 }
@@ -736,7 +753,7 @@ export function AssetManagementView({
                           className="text-muted-foreground hover:text-foreground"
                           title="Fund 직접입력"
                         >
-                          <Edit className="w-2.5 h-2.5" />
+                          <Pencil className="w-2.5 h-2.5" />
                         </button>
                         {/* 월별 입력 버튼 — 모든 유효 컬럼 (Stock Deposit / Cash) */}
                         <button
@@ -744,7 +761,7 @@ export function AssetManagementView({
                           className="text-muted-foreground hover:text-foreground"
                           title="Stock Deposit / Cash 입력"
                         >
-                          <Edit className="w-2.5 h-2.5" />
+                          <Pencil className="w-2.5 h-2.5" />
                         </button>
                       </div>
                     )}
@@ -772,11 +789,12 @@ export function AssetManagementView({
               </tr>
             ) : (
               <>
-                {/* ── FUND 섹션 ─────────────────────────────── */}
+                {/* ── FUND 섹션 — Balance·Bid·Ask(BV)·Fixed P/L만 직접입력 (노란색) ── */}
                 <SectionRows
                   label="FUND"
                   columns={allCols}
                   getData={(col) => col.fund}
+                  manualInputKeys={new Set<SectionRowKey>(["balance", "bid", "askBv", "fixedPnl"])}
                 />
 
                 {/* ── KOR Stocks 섹션 ──────────────────────── */}
@@ -805,7 +823,7 @@ export function AssetManagementView({
                   </td>
                 </tr>
 
-                {/* 계좌별 KRW 행 */}
+                {/* 계좌별 KRW 행 — 직접입력 (노란색 하이라이트) */}
                 {DEPOSIT_ACCOUNTS.map((acc) => (
                   <SimpleRow
                     key={`${acc}-krw`}
@@ -817,9 +835,10 @@ export function AssetManagementView({
                       }).stockDepositByAccount;
                       return byAcc?.[acc]?.krw ?? 0;
                     }}
+                    isManualInput
                   />
                 ))}
-                {/* 계좌별 USD 행 */}
+                {/* 계좌별 USD 행 — 직접입력 (노란색 하이라이트) */}
                 {DEPOSIT_ACCOUNTS.map((acc) => (
                   <SimpleRow
                     key={`${acc}-usd`}
@@ -832,6 +851,7 @@ export function AssetManagementView({
                       return byAcc?.[acc]?.usd ?? 0;
                     }}
                     isUsd
+                    isManualInput
                   />
                 ))}
                 {/* 합계 행 */}
@@ -859,28 +879,33 @@ export function AssetManagementView({
                     Cash and Equivalent
                   </td>
                 </tr>
+                {/* Cash 전체 행 — 직접입력 (노란색 하이라이트) */}
                 <SimpleRow
                   label="Foreign deposit (USD)"
                   cols={allCols}
                   getValue={(c) => c.cashForeignUsd}
                   isUsd
+                  isManualInput
                 />
                 <SimpleRow
                   label="Foreign deposit (CAD)"
                   cols={allCols}
                   getValue={(c) => c.cashForeignCad}
                   isUsd
+                  isManualInput
                 />
                 <SimpleRow
                   label="Fixed deposit (KRW)"
                   cols={allCols}
                   getValue={(c) => c.fixedDepositKrw}
+                  isManualInput
                 />
                 <SimpleRow
                   label="Fixed deposit (USD)"
                   cols={allCols}
                   getValue={(c) => c.fixedDepositUsd}
                   isUsd
+                  isManualInput
                 />
 
                 {/* ── Summary 섹션 — Net Debt/Surplus 여기에만 존재 ── */}
@@ -951,6 +976,7 @@ export function AssetManagementView({
                 ].map(({ label, key }) => {
                   // YTD 위치: 마지막 유효 컬럼의 환율 표시
                   const lastCol = [...monthCols].reverse().find((c) => c.hasData);
+                  // 환율 행 — 직접입력 (DRAFT: RateCell, CONFIRMED: 읽기 전용) → 노란색 하이라이트
                   return (
                     <tr key={key} className="border-b border-border/30 hover:bg-muted/20">
                       <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap">
@@ -959,7 +985,7 @@ export function AssetManagementView({
                       {allCols.map((col) => {
                         if (!col.hasData) {
                           return (
-                            <td key={col.month} className="px-2 py-1 text-right text-xs text-muted-foreground/40">
+                            <td key={col.month} className="px-2 py-1 text-right text-xs text-muted-foreground/40 bg-yellow-50/60 dark:bg-yellow-950/20">
                               –
                             </td>
                           );
@@ -967,7 +993,7 @@ export function AssetManagementView({
                         // DRAFT 월: 인라인 편집 가능 (RateCell compact 모드)
                         if (col.isDraft && onRateSave) {
                           return (
-                            <td key={col.month} className="px-1 py-0.5">
+                            <td key={col.month} className="px-1 py-0.5 bg-yellow-50/60 dark:bg-yellow-950/20">
                               <RateCell
                                 value={col.exchangeRates[key]}
                                 onSave={(v) => onRateSave(key, v)}
@@ -980,7 +1006,7 @@ export function AssetManagementView({
                         return (
                           <td
                             key={col.month}
-                            className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground"
+                            className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground bg-yellow-50/60 dark:bg-yellow-950/20"
                           >
                             <span className="inline-flex items-center justify-end gap-1">
                               {col.exchangeRates[key].toLocaleString("ko-KR", {
@@ -993,7 +1019,7 @@ export function AssetManagementView({
                         );
                       })}
                       {/* YTD 컬럼 — 마지막 유효 월의 환율 (읽기 전용) */}
-                      <td className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground">
+                      <td className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground bg-yellow-50/60 dark:bg-yellow-950/20">
                         {lastCol
                           ? lastCol.exchangeRates[key].toLocaleString("ko-KR", {
                               minimumFractionDigits: 2,
@@ -1016,6 +1042,11 @@ export function AssetManagementView({
         <span>• US Stocks: USD 기준 수치</span>
         <span>• YTD: Jan 기준 누적 수익률</span>
         <span className="text-amber-600">• DRAFT: 현재 월 (실시간)</span>
+        {/* 직접입력 필드 범례 */}
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-300/60" />
+          직접입력 필드
+        </span>
       </div>
 
       {/* Fund 직접입력 다이얼로그 — 전기간 */}
