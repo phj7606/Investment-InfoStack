@@ -191,7 +191,8 @@ export interface PortfolioValues {
  */
 export function buildFinancialStatementData(
   snapshot: FinancialSnapshot,
-  portfolio: PortfolioValues
+  portfolio: PortfolioValues,
+  prevData?: FinancialStatementData | null
 ): FinancialStatementData {
   const { exchangeRates, otherAssets, canadianPension } = snapshot;
   const { usdKrw, cadKrw } = exchangeRates;
@@ -210,8 +211,14 @@ export function buildFinancialStatementData(
   const pensionKrw = calcPensionKrwTotal(portfolio.pensionPositions);
   const canadianPensionKrw = Math.round(canadianPension.balanceCad * cadKrw);
 
-  // ── 교육자산 계산 ─────────────────────────────────────
-  const educationKrw = calcEducationKrwTotal(portfolio.educationPositions);
+  // ── 교육자산 + Digital Asset(크립토) 계산 ──────────────
+  const educationBase = calcEducationKrwTotal(portfolio.educationPositions);
+  // 가상자산 잔액 — snapshot.crypto에서 수동 입력값 사용
+  const cryptoKrw =
+    (snapshot.crypto.upbit.balance || 0) +
+    (snapshot.crypto.korbit.balance || 0) +
+    Math.round((snapshot.crypto.binance.balance || 0) * usdKrw);
+  const educationKrw = educationBase + cryptoKrw;
 
   // ── 정기예금 KRW 환산 ─────────────────────────────────
   const fixedDepositKrwVal = snapshot.fixedDepositKrw;
@@ -240,6 +247,25 @@ export function buildFinancialStatementData(
   const totalDebt = nonCurrentLiabilityTotal; // 현재 유동부채 없음
 
   const netWorth = totalAssets - totalDebt;
+
+  // ── 투자+연금+교육 합계 (엑셀 INVESTMENT & PENSION TOTAL) ──
+  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
+
+  // ── CAPITAL 변동 내역 (전월 대비 섹션별 변동) ─────────
+  const prevNetWorthVal = prevData?.netWorth ?? 0;
+  const capitalNetChanges = prevData ? netWorth - prevNetWorthVal : 0;
+  const capitalChangeInCurrentAsset = prevData
+    ? currentAssetTotal - prevData.assets.currentAsset.total : 0;
+  const capitalChangeInNonCurrentAsset = prevData
+    ? nonCurrentAssetTotal - prevData.assets.nonCurrentAsset.total : 0;
+  const capitalChangeInInvestmentAsset = prevData
+    ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
+  const capitalChangeInPensionEducation = prevData
+    ? (pensionKrw + canadianPensionKrw + educationKrw) -
+      (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
+  // 부채 감소 = 순자산 증가이므로, 부채 변동의 부호를 반전
+  const capitalChangeInLiability = prevData
+    ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
 
   // ── Asset Management Net Debt/Surplus 계산 ───────────
   // 엑셀 공식: Asset Total = Investment Total + Cash and Equivalent Total
@@ -299,11 +325,14 @@ export function buildFinancialStatementData(
         fund: fundKrw,
         stockDepositKrw,
         usStocksKrw,
+        usStocksUsd: usStocksUsd,
         usStocksDepositKrw: Math.round(stockDepositUsd * usdKrw),
+        usStocksDepositUsd: stockDepositUsd,
         total: investmentAssetTotal,
       },
       pensionKrw: pensionKrw + canadianPensionKrw,
       educationKrw,
+      investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
       // 이전 버전 호환 필드
       investmentPortfolio,
@@ -325,6 +354,15 @@ export function buildFinancialStatementData(
       totalDebt,
     },
     netWorth: Math.round(netWorth),
+    capital: {
+      prevNetWorth: Math.round(prevNetWorthVal),
+      netChanges: Math.round(capitalNetChanges),
+      changeInCurrentAsset: Math.round(capitalChangeInCurrentAsset),
+      changeInNonCurrentAsset: Math.round(capitalChangeInNonCurrentAsset),
+      changeInInvestmentAsset: Math.round(capitalChangeInInvestmentAsset),
+      changeInPensionEducation: Math.round(capitalChangeInPensionEducation),
+      changeInLiability: Math.round(capitalChangeInLiability),
+    },
     assetManagement: {
       fundKrw,
       korStocksKrw,
@@ -350,7 +388,8 @@ export function buildFinancialStatementData(
  * 포트폴리오 값은 confirmedPortfolio에 저장된 고정값 사용 (재계산 없음)
  */
 export function buildConfirmedStatementData(
-  snapshot: FinancialSnapshot
+  snapshot: FinancialSnapshot,
+  prevData?: FinancialStatementData | null
 ): FinancialStatementData | null {
   if (snapshot.status !== "CONFIRMED" || !snapshot.confirmedPortfolio) return null;
 
@@ -366,8 +405,16 @@ export function buildConfirmedStatementData(
   const stockDepositUsd = cp.stockDepositUsd;
 
   const pensionKrw = cp.pensionFundBalance + cp.pensionDepositBalance + cp.irpBalance;
-  const canadianPensionKrw = cp.canadianPensionKrw ?? Math.round(canadianPension.balanceCad * cadKrw);
-  const educationKrw = cp.education1470Deposit + cp.education1470Stock;
+  // canadianPensionKrw가 0이어도 balanceCad에서 재계산 (과거 confirm 시 누락 대응)
+  const canadianPensionKrw = (cp.canadianPensionKrw && cp.canadianPensionKrw > 0)
+    ? cp.canadianPensionKrw
+    : Math.round(canadianPension.balanceCad * cadKrw);
+  // 교육 + Digital Asset(크립토)
+  const cryptoKrw =
+    (snapshot.crypto.upbit.balance || 0) +
+    (snapshot.crypto.korbit.balance || 0) +
+    Math.round((snapshot.crypto.binance.balance || 0) * usdKrw);
+  const educationKrw = cp.education1470Deposit + cp.education1470Stock + cryptoKrw;
 
   const fixedDepositKrwVal = snapshot.fixedDepositKrw;
   const fixedDepositUsdKrw = Math.round(snapshot.fixedDepositUsd * usdKrw);
@@ -385,6 +432,24 @@ export function buildConfirmedStatementData(
   const nonCurrentLiabilityTotal = snapshot.privateLoan + snapshot.leaseDeposit + snapshot.mortgageLoan;
   const totalDebt = nonCurrentLiabilityTotal;
   const netWorth = totalAssets - totalDebt;
+
+  // 투자+연금+교육 합계
+  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
+
+  // CAPITAL 변동 내역 (전월 대비)
+  const prevNetWorthVal = prevData?.netWorth ?? 0;
+  const capitalNetChanges = prevData ? netWorth - prevNetWorthVal : 0;
+  const capitalChangeInCurrentAsset = prevData
+    ? currentAssetTotal - prevData.assets.currentAsset.total : 0;
+  const capitalChangeInNonCurrentAsset = prevData
+    ? nonCurrentAssetTotal - prevData.assets.nonCurrentAsset.total : 0;
+  const capitalChangeInInvestmentAsset = prevData
+    ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
+  const capitalChangeInPensionEducation = prevData
+    ? (pensionKrw + canadianPensionKrw + educationKrw) -
+      (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
+  const capitalChangeInLiability = prevData
+    ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
 
   const investmentTotal = investmentAssetTotal;
   const cashTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
@@ -438,11 +503,14 @@ export function buildConfirmedStatementData(
         fund: fundKrw,
         stockDepositKrw,
         usStocksKrw,
+        usStocksUsd,
         usStocksDepositKrw: Math.round(stockDepositUsd * usdKrw),
+        usStocksDepositUsd: stockDepositUsd,
         total: investmentAssetTotal,
       },
       pensionKrw: pensionKrw + canadianPensionKrw,
       educationKrw,
+      investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
       investmentPortfolio,
       pension,
@@ -463,6 +531,15 @@ export function buildConfirmedStatementData(
       totalDebt,
     },
     netWorth: Math.round(netWorth),
+    capital: {
+      prevNetWorth: Math.round(prevNetWorthVal),
+      netChanges: Math.round(capitalNetChanges),
+      changeInCurrentAsset: Math.round(capitalChangeInCurrentAsset),
+      changeInNonCurrentAsset: Math.round(capitalChangeInNonCurrentAsset),
+      changeInInvestmentAsset: Math.round(capitalChangeInInvestmentAsset),
+      changeInPensionEducation: Math.round(capitalChangeInPensionEducation),
+      changeInLiability: Math.round(capitalChangeInLiability),
+    },
     assetManagement: {
       fundKrw,
       korStocksKrw,

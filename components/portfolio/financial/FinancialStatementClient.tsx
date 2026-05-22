@@ -51,7 +51,8 @@ interface NetWorthPoint {
 
 function buildDraftStatementFromSnapshot(
   snapshot: FinancialSnapshot,
-  liveData: LivePortfolioData | null
+  liveData: LivePortfolioData | null,
+  prevData?: FinancialStatementData | null
 ): FinancialStatementData {
   /**
    * DRAFT 상태에서는 실시간 포지션을 liveData API에서 가져온다.
@@ -76,10 +77,15 @@ function buildDraftStatementFromSnapshot(
   const pensionKrw = pensionFundBalance + pensionDepositBalance + irpBalance;
   const canadianPensionKrw = Math.round(snapshot.canadianPension.balanceCad * cadKrw);
 
-  // 교육
+  // 교육 + Digital Asset(크립토)
   const edu1470Stock = liveData?.education1470.stock ?? cp?.education1470Stock ?? 0;
   const edu1470Deposit = liveData?.education1470.deposit ?? cp?.education1470Deposit ?? 0;
-  const educationKrw = edu1470Stock + edu1470Deposit;
+  // 가상자산 잔액 — snapshot.crypto에서 수동 입력값 사용
+  const cryptoKrw =
+    (snapshot.crypto.upbit.balance || 0) +
+    (snapshot.crypto.korbit.balance || 0) +
+    Math.round((snapshot.crypto.binance.balance || 0) * usdKrw);
+  const educationKrw = edu1470Stock + edu1470Deposit + cryptoKrw;
 
   // 정기예금
   const fixedDepositKrwVal = snapshot.fixedDepositKrw;
@@ -105,6 +111,24 @@ function buildDraftStatementFromSnapshot(
   const nonCurrentLiabilityTotal = snapshot.privateLoan + snapshot.leaseDeposit + snapshot.mortgageLoan;
   const totalDebt = nonCurrentLiabilityTotal;
   const netWorth = totalAssets - totalDebt;
+
+  // 투자+연금+교육 합계 (엑셀 INVESTMENT & PENSION TOTAL)
+  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
+
+  // CAPITAL 변동 내역 (전월 대비 섹션별 변동)
+  const prevNetWorthVal = prevData?.netWorth ?? 0;
+  const capitalNetChanges = prevData ? netWorth - prevNetWorthVal : 0;
+  const capitalChangeInCurrentAsset = prevData
+    ? currentAssetTotal - prevData.assets.currentAsset.total : 0;
+  const capitalChangeInNonCurrentAsset = prevData
+    ? nonCurrentAssetTotal - prevData.assets.nonCurrentAsset.total : 0;
+  const capitalChangeInInvestmentAsset = prevData
+    ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
+  const capitalChangeInPensionEducation = prevData
+    ? (pensionKrw + canadianPensionKrw + educationKrw) -
+      (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
+  const capitalChangeInLiability = prevData
+    ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
 
   // Net Debt/Surplus
   const investmentTotal = investmentAssetTotal;
@@ -136,11 +160,14 @@ function buildDraftStatementFromSnapshot(
         fund: fundKrw,
         stockDepositKrw,
         usStocksKrw,
+        usStocksUsd: usStocksUsd,
         usStocksDepositKrw: Math.round(stockDepositUsd * usdKrw),
+        usStocksDepositUsd: stockDepositUsd,
         total: investmentAssetTotal,
       },
       pensionKrw: pensionKrw + canadianPensionKrw,
       educationKrw,
+      investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
       investmentPortfolio: [
         { label: "국내 펀드 (FUND)", amountKrw: fundKrw, currency: "KRW" },
@@ -180,6 +207,15 @@ function buildDraftStatementFromSnapshot(
       totalDebt,
     },
     netWorth: Math.round(netWorth),
+    capital: {
+      prevNetWorth: Math.round(prevNetWorthVal),
+      netChanges: Math.round(capitalNetChanges),
+      changeInCurrentAsset: Math.round(capitalChangeInCurrentAsset),
+      changeInNonCurrentAsset: Math.round(capitalChangeInNonCurrentAsset),
+      changeInInvestmentAsset: Math.round(capitalChangeInInvestmentAsset),
+      changeInPensionEducation: Math.round(capitalChangeInPensionEducation),
+      changeInLiability: Math.round(capitalChangeInLiability),
+    },
     assetManagement: {
       fundKrw,
       korStocksKrw,
@@ -287,11 +323,24 @@ export function FinancialStatementClient() {
     loadLiveData(currentSnapshot.exchangeRates.usdKrw);
   }, [selectedMonth, currentSnapshot.status, currentSnapshot.exchangeRates.usdKrw, loadLiveData]);
 
+  // ── 전월 재무제표 데이터 (CAPITAL 변동 계산용) ─────────
+  const prevMonth = (() => {
+    const [y, m] = selectedMonth.split("-").map(Number);
+    const d = new Date(y, m - 2, 1); // 전월
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const prevSnapshot = snapshots.find((s) => s.month === prevMonth);
+  const prevStatementData: FinancialStatementData | null = prevSnapshot
+    ? prevSnapshot.status === "CONFIRMED"
+      ? buildConfirmedStatementData(prevSnapshot)
+      : buildDraftStatementFromSnapshot(prevSnapshot, null)
+    : null;
+
   // ── 재무제표 데이터 조립 ─────────────────────────────
   const statementData: FinancialStatementData | null =
     currentSnapshot.status === "CONFIRMED"
-      ? buildConfirmedStatementData(currentSnapshot)
-      : buildDraftStatementFromSnapshot(currentSnapshot, liveData);
+      ? buildConfirmedStatementData(currentSnapshot, prevStatementData)
+      : buildDraftStatementFromSnapshot(currentSnapshot, liveData, prevStatementData);
 
   // ── 순자산 추세 데이터 (최근 12개월) ──────────────────
   const recentMonths = getRecentMonths(12).reverse();

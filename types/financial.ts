@@ -321,18 +321,21 @@ export interface FinancialStatementData {
     };
     // 투자자산 INVESTMENT ASSET
     investmentAsset: {
-      korStocks: number;                // 국내 유가증권 KRW
-      fund: number;                     // 펀드/파생상품 KRW
-      stockDepositKrw: number;          // 주식계좌 예수금 KRW
+      korStocks: number;                // 국내 유가증권 KRW — Marketable securities (KR)
+      fund: number;                     // 펀드/파생상품 KRW — Fund/Derivatives
+      stockDepositKrw: number;          // 주식계좌 예수금 KRW — Stock deposit (KRW)
       usStocksKrw: number;              // 미국주식/ETF KRW 환산
+      usStocksUsd: number;              // 미국주식/ETF USD 원본 — US Stocks/ETF (USD)
       usStocksDepositKrw: number;       // 미국주식 예수금 KRW 환산
-      total: number;                    // 투자자산 합계
+      usStocksDepositUsd: number;       // 미국주식 예수금 USD 원본 — US Stocks/ETF Deposit (USD)
+      total: number;                    // 투자자산 합계 (KRW) — INVESTMENT TOTAL (KRW)
     };
     // 연금·교육자산
-    pensionKrw: number;                 // 연금 합계 KRW
-    educationKrw: number;               // 교육저축 합계 KRW
+    pensionKrw: number;                 // 연금 합계 KRW — Pension fund
+    educationKrw: number;               // 교육저축 합계 KRW — Education Savings
+    investmentPensionTotal: number;     // 투자+연금+교육 합계 — INVESTMENT & PENSION TOTAL
 
-    totalAssets: number;                // 총자산 합계
+    totalAssets: number;                // 총자산 합계 — TOTAL ASSETS
 
     // 이전 버전 호환 (AssetManagement 뷰용)
     investmentPortfolio: AssetLineItem[];
@@ -357,6 +360,17 @@ export interface FinancialStatementData {
 
   // 순자산
   netWorth: number;
+
+  // CAPITAL 변동 내역 — 엑셀 Row 24~30 (전월 대비 섹션별 변동)
+  capital: {
+    prevNetWorth: number;               // Balance (last month) — 전월 순자산
+    netChanges: number;                 // Net changes — 당월 순자산 변동 총액
+    changeInCurrentAsset: number;       // Change in Current Asset
+    changeInNonCurrentAsset: number;    // Change in Non-Current Asset
+    changeInInvestmentAsset: number;    // Change in Investment Asset
+    changeInPensionEducation: number;   // Change in Pension/Education
+    changeInLiability: number;          // Change in Liability (부채 증가=음수)
+  };
 
   // 자산관리 섹션 (Net Debt/Surplus 계산)
   assetManagement: {
