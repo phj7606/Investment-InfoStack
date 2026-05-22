@@ -1243,8 +1243,8 @@ export function buildAssetManagementIIYearlyData(
       const stockBalance = snap.educationMonthly?.stockBalance || (liveData?.education1470.stock ?? 0);
       const principal = liveData?.education1470.principal ?? 0;
       const balance = deposit + stockBalance;
-      // P/L = Stock 평가액 - 원금 (예수금 제외)
-      const pnl = stockBalance - principal;
+      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
+      const pnl = balance - principal;
       education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else if (cp) {
       const deposit = cp.education1470Deposit ?? 0;
@@ -1252,8 +1252,8 @@ export function buildAssetManagementIIYearlyData(
       const stockBalance = cp.education1470Stock ?? 0;
       const principal = cp.education1470Principal ?? 0;
       const balance = deposit + stockBalance;
-      // P/L = Stock 평가액 - 원금 (예수금 제외)
-      const pnl = stockBalance - principal;
+      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
+      const pnl = balance - principal;
       education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else {
       education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
@@ -1328,8 +1328,8 @@ export function buildAssetManagementIIYearlyData(
       const stockBalance = snap.shorttermMonthly?.stockBalance || (liveData?.shortterm.stockBalance ?? 0);
       const principal = liveData?.shortterm.principal ?? 0;
       const balance = deposit + stockBalance;
-      // P/L = Stock 평가액 - 원금 (예수금 제외)
-      const pnl = stockBalance - principal;
+      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
+      const pnl = balance - principal;
       shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else if (cp) {
       const deposit = cp.shorttermDeposit ?? 0;
@@ -1337,8 +1337,8 @@ export function buildAssetManagementIIYearlyData(
       const stockBalance = cp.shorttermStockBalance ?? 0;
       const principal = cp.shorttermPrincipal ?? 0;
       const balance = deposit + stockBalance;
-      // P/L = Stock 평가액 - 원금 (예수금 제외)
-      const pnl = stockBalance - principal;
+      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
+      const pnl = balance - principal;
       shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
     } else {
       shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
