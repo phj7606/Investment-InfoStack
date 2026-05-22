@@ -9,23 +9,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import type { MonthlyCFEntry, CreateMonthlyCFRequest } from "@/types/financial";
+import { readKey, writeKey } from "@/lib/db";
 
-const DATA_PATH = path.join(process.cwd(), "data", "monthly-cf.json");
+const DATA_KEY = "monthly_cf";
 
 async function readEntries(): Promise<MonthlyCFEntry[]> {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as MonthlyCFEntry[];
-  } catch {
-    return [];
-  }
+  return readKey<MonthlyCFEntry[]>(DATA_KEY, []);
 }
 
 async function writeEntries(entries: MonthlyCFEntry[]): Promise<void> {
-  await fs.writeFile(DATA_PATH, JSON.stringify(entries, null, 2), "utf-8");
+  await writeKey(DATA_KEY, entries);
 }
 
 // GET — 항목 조회 (month 파라미터로 필터 가능)

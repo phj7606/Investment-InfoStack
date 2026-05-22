@@ -40,6 +40,7 @@ import {
 import { UserMenu } from "@/components/common/user-menu";
 import { SITE_CONFIG } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { ACTION_THEME } from "@/lib/theme/colors";
 
 // ACTION 1 · 종목 탐색 선행 독립 메뉴 — 시장 환경 (스텝 번호 없음)
 // 섹터 조감 전에 거시 환경을 파악하는 단계
@@ -187,8 +188,8 @@ export function DashboardSidebar() {
         {/* ── ACTION 1 · 종목 탐색 그룹 — 인디고 테마 ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5 mb-1">
-            {/* ACTION 번호를 컬러 배지로 강조 — 인디고 */}
-            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/10 px-1.5 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 ring-1 ring-inset ring-indigo-500/20">
+            {/* ACTION 번호를 컬러 배지로 강조 — ACTION_THEME[1] 인디고 */}
+            <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold", ACTION_THEME[1].badge)}>
               <Search className="h-2.5 w-2.5" />
               ACTION 1
             </span>
@@ -205,8 +206,8 @@ export function DashboardSidebar() {
                     <Link
                       href={MARKET_ENV_ITEM.href}
                       className={cn(
-                        // 활성 메뉴: 인디고 왼쪽 보더 강조
-                        active && "border-l-2 border-indigo-500 !text-indigo-600 dark:!text-indigo-400 !bg-indigo-500/8"
+                        // 활성 메뉴: ACTION_THEME[1] 왼쪽 보더 강조
+                        active && ACTION_THEME[1].activeLink
                       )}
                     >
                       <span className="flex items-center gap-1.5 flex-1">
@@ -214,8 +215,8 @@ export function DashboardSidebar() {
                         <span className={cn(
                           "inline-flex items-center justify-center w-4 h-4 rounded-full shrink-0 transition-colors",
                           active
-                            ? "bg-indigo-500 text-white"
-                            : "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                            ? ACTION_THEME[1].iconBadgeActive
+                            : ACTION_THEME[1].iconBadgeInactive
                         )}>
                           <Globe className="w-2.5 h-2.5" />
                         </span>
@@ -236,8 +237,8 @@ export function DashboardSidebar() {
                     <Link
                       href={item.href}
                       className={cn(
-                        // 활성 메뉴: 인디고 왼쪽 보더 강조
-                        active && "border-l-2 border-indigo-500 !text-indigo-600 dark:!text-indigo-400 !bg-indigo-500/8"
+                        // 활성 메뉴: ACTION_THEME[1] 왼쪽 보더 강조
+                        active && ACTION_THEME[1].activeLink
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -253,8 +254,8 @@ export function DashboardSidebar() {
         {/* ── ACTION 2 · 포트폴리오 관리 그룹 — 에메랄드 테마 ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5 mb-1">
-            {/* ACTION 번호를 컬러 배지로 강조 — 에메랄드 */}
-            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
+            {/* ACTION 번호를 컬러 배지로 강조 — ACTION_THEME[2] 에메랄드 */}
+            <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold", ACTION_THEME[2].badge)}>
               <Briefcase className="h-2.5 w-2.5" />
               ACTION 2
             </span>
@@ -270,8 +271,8 @@ export function DashboardSidebar() {
                     <Link
                       href={item.href}
                       className={cn(
-                        // 활성 메뉴: 에메랄드 왼쪽 보더 강조
-                        active && "border-l-2 border-emerald-500 !text-emerald-600 dark:!text-emerald-400 !bg-emerald-500/8"
+                        // 활성 메뉴: ACTION_THEME[2] 왼쪽 보더 강조
+                        active && ACTION_THEME[2].activeLink
                       )}
                     >
                       <Icon className="h-4 w-4" />
@@ -287,8 +288,8 @@ export function DashboardSidebar() {
         {/* ── ACTION 3 · 자동화 루틴 그룹 — 앰버 테마 ── */}
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-1.5 mb-1">
-            {/* ACTION 번호를 컬러 배지로 강조 — 앰버 */}
-            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 ring-1 ring-inset ring-amber-500/20">
+            {/* ACTION 번호를 컬러 배지로 강조 — ACTION_THEME[3] 앰버 */}
+            <span className={cn("inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold", ACTION_THEME[3].badge)}>
               <Zap className="h-2.5 w-2.5" />
               ACTION 3
             </span>
@@ -304,8 +305,8 @@ export function DashboardSidebar() {
                     <Link
                       href={item.href}
                       className={cn(
-                        // 활성 메뉴: 앰버 왼쪽 보더 강조
-                        active && "border-l-2 border-amber-500 !text-amber-600 dark:!text-amber-400 !bg-amber-500/8"
+                        // 활성 메뉴: ACTION_THEME[3] 왼쪽 보더 강조
+                        active && ACTION_THEME[3].activeLink
                       )}
                     >
                       <Icon className="h-4 w-4" />

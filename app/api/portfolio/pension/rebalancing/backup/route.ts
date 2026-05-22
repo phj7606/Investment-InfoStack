@@ -2,40 +2,24 @@
  * 연금 리밸런싱 설정 백업/복원 API
  *
  * GET  /api/portfolio/pension/rebalancing/backup
- *   → pension-rebalancing.json 을 단일 JSON으로 다운로드
+ *   → 리밸런싱 설정을 단일 JSON으로 다운로드
  *
  * POST /api/portfolio/pension/rebalancing/backup
- *   body: { config: { bondRatio: number; equityRatio: number }, mode: "overwrite" }
- *   → mode=overwrite: 기존 설정 전체 교체 (단일 config 객체라 merge 불필요)
+ *   body: { config: PensionRebalancingConfig, mode: "overwrite" }
+ *   → mode=overwrite: 기존 설정 전체 교체
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
-
-const CONFIG_PATH = path.join(process.cwd(), "data", "pension-rebalancing.json");
-
-interface RebalancingConfig {
-  bondRatio: number;
-  equityRatio: number;
-}
-
-async function readConfig(): Promise<RebalancingConfig> {
-  try {
-    return JSON.parse(await fs.readFile(CONFIG_PATH, "utf-8"));
-  } catch {
-    return { bondRatio: 30, equityRatio: 70 };
-  }
-}
-
-async function writeConfig(config: RebalancingConfig): Promise<void> {
-  await fs.writeFile(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
-}
+import {
+  readRebalancingConfig,
+  writeRebalancingConfig,
+} from "@/lib/portfolio/pension-store";
+import type { PensionRebalancingConfig } from "@/types/portfolio";
 
 // ─── GET — 백업 다운로드 ───────────────────────────────────────────
 
 export async function GET() {
-  const config = await readConfig();
+  const config = await readRebalancingConfig();
 
   const payload = {
     version: 1,
@@ -56,7 +40,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as {
-    config?: RebalancingConfig;
+    config?: PensionRebalancingConfig;
     mode: "overwrite";
   };
 
@@ -67,14 +51,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!body.config || typeof body.config.bondRatio !== "number" || typeof body.config.equityRatio !== "number") {
+  if (!body.config) {
     return NextResponse.json(
-      { error: "config.bondRatio, config.equityRatio 가 필요합니다" },
+      { error: "config 객체가 필요합니다" },
       { status: 400 }
     );
   }
 
-  await writeConfig(body.config);
+  await writeRebalancingConfig(body.config);
 
   return NextResponse.json({ ok: true, restored: 1, skipped: 0 });
 }

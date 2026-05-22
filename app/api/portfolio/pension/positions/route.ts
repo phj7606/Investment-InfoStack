@@ -17,7 +17,7 @@ import {
 } from "@/lib/portfolio/pension-calc";
 
 export async function GET() {
-  const transactions = readTransactions();
+  const transactions = await readTransactions();
   const positions    = calcPensionPositions(transactions);
 
   const retirementSummary = calcPensionAccountSummary(positions, transactions, "RETIREMENT");

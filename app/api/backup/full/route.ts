@@ -80,11 +80,12 @@ interface FullBackupData {
 export async function GET() {
   try {
     // 5개 모듈 데이터 병렬 로드
+    // 5개 모듈 데이터 병렬 로드 — 모두 async 함수로 전환됨
     const [snapshots, pensionTx, longtermTx, educationData, shorttermData] =
       await Promise.all([
         readSnapshots(),
-        Promise.resolve(readPensionTx()),   // sync 함수를 Promise로 감싸서 병렬 처리
-        Promise.resolve(readLongtermTx()),
+        readPensionTx(),
+        readLongtermTx(),
         readEducation(),
         readShortterm(),
       ]);
@@ -200,10 +201,10 @@ export async function POST(req: NextRequest) {
         (async () => {
           const incoming = body.data.pension.transactions;
           if (body.mode === "overwrite") {
-            writePensionTx(incoming);
+            await writePensionTx(incoming);
             results.pension = { restored: incoming.length, skipped: 0 };
           } else {
-            const existing = readPensionTx();
+            const existing = await readPensionTx();
             const existingKeys = new Set(
               existing.map(
                 (t) => `${t.date}::${t.stockCode}::${t.accountType}::${t.tradeType}::${t.quantity}::${t.price}`
@@ -213,7 +214,7 @@ export async function POST(req: NextRequest) {
               const k = `${t.date}::${t.stockCode}::${t.accountType}::${t.tradeType}::${t.quantity}::${t.price}`;
               return !existingKeys.has(k);
             });
-            if (toAdd.length > 0) writePensionTx([...existing, ...toAdd]);
+            if (toAdd.length > 0) await writePensionTx([...existing, ...toAdd]);
             results.pension = {
               restored: toAdd.length,
               skipped: incoming.length - toAdd.length,
@@ -229,10 +230,10 @@ export async function POST(req: NextRequest) {
         (async () => {
           const incoming = body.data.longterm.transactions;
           if (body.mode === "overwrite") {
-            writeLongtermTx(incoming);
+            await writeLongtermTx(incoming);
             results.longterm = { restored: incoming.length, skipped: 0 };
           } else {
-            const existing = readLongtermTx();
+            const existing = await readLongtermTx();
             const existingKeys = new Set(
               existing.map(
                 (t) => `${t.date}::${t.stockCode}::${t.tradeType}::${t.quantity}::${t.price}`
@@ -242,7 +243,7 @@ export async function POST(req: NextRequest) {
               const k = `${t.date}::${t.stockCode}::${t.tradeType}::${t.quantity}::${t.price}`;
               return !existingKeys.has(k);
             });
-            if (toAdd.length > 0) writeLongtermTx([...existing, ...toAdd]);
+            if (toAdd.length > 0) await writeLongtermTx([...existing, ...toAdd]);
             results.longterm = {
               restored: toAdd.length,
               skipped: incoming.length - toAdd.length,

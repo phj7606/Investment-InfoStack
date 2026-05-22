@@ -19,11 +19,11 @@ export async function PUT(
 
     // SELL 거래인 경우 realizedPL 재계산 (기존 거래에서 자신 제외한 상태로 계산)
     if (tx.tradeType === "SELL") {
-      const existing = readTransactions().filter((t) => t.id !== id);
+      const existing = (await readTransactions()).filter((t) => t.id !== id);
       tx = enrichSellTransaction(tx, existing);
     }
 
-    updateTransaction(tx);
+    await updateTransaction(tx);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[longterm/transactions PUT]", err);
@@ -37,7 +37,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    deleteTransaction(id);
+    await deleteTransaction(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[longterm/transactions DELETE]", err);

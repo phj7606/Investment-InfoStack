@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const account = searchParams.get("account") as PensionAccountType | null;
   const type    = searchParams.get("type");
 
-  let txs = readTransactions();
+  let txs = await readTransactions();
 
   if (account) txs = txs.filter((t) => t.accountType === account);
   if (type)    txs = txs.filter((t) => t.tradeType === type);
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "종목코드와 종목명은 필수입니다." }, { status: 400 });
     }
 
-    const existing = readTransactions();
+    const existing = await readTransactions();
 
     // 중복 거래 방지 (DIVIDEND는 amount 기준, BUY/SELL은 날짜+종목+수량+단가 기준)
     const isDuplicate = existing.some((t) => {
@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
       ? enrichSellTransaction(withId, existing)
       : withId;
 
-    addTransaction(tx);
+    await addTransaction(tx);
     return NextResponse.json({ ok: true, transaction: tx }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "오류 발생";

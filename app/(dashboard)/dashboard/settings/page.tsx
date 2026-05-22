@@ -96,7 +96,7 @@ export default function SettingsPage() {
                           {i + 1}
                         </TableCell>
                         {/* 심볼 (KRX 6자리 코드) */}
-                        <TableCell className="font-mono text-xs font-semibold">
+                        <TableCell className="text-xs font-semibold">
                           {t.symbol}
                         </TableCell>
                         {/* ETF 이름 */}
@@ -148,7 +148,7 @@ export default function SettingsPage() {
                           {i + 1}
                         </TableCell>
                         {/* 심볼 (Yahoo Finance 형식) */}
-                        <TableCell className="font-mono text-xs font-semibold">
+                        <TableCell className="text-xs font-semibold">
                           {t.symbol}
                         </TableCell>
                         {/* ETF 이름 */}
@@ -183,19 +183,19 @@ export default function SettingsPage() {
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">히스토리 TTL</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.cache.historicalTTLSeconds / 3600}시간
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">실시간 가격 TTL</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.cache.priceTTLSeconds}초
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">지수 TTL</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.cache.indexTTLSeconds / 60}분
                     </dd>
                   </div>
@@ -215,19 +215,19 @@ export default function SettingsPage() {
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">계산 기간</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.momentum.periods.join(" / ")}일
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">안정화 윈도우</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.momentum.lookbackDays}일 평균
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">Top N</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.momentum.topN}종
                     </dd>
                   </div>
@@ -247,13 +247,13 @@ export default function SettingsPage() {
                 <dl className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">모멘텀 Top N</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.screener.topN}종
                     </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">MA 계산 최소 기간</dt>
-                    <dd className="font-mono font-medium">
+                    <dd className="tabular-nums font-medium">
                       {params.screener.minHistoryDays}일
                     </dd>
                   </div>

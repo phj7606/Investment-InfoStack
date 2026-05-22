@@ -67,8 +67,16 @@ function buildDraftStatementFromSnapshot(
   const korStocksKrw = liveData?.korStocks.balance ?? cp?.korStocksBalance ?? 0;
   const usStocksUsd = liveData?.usStocks.balanceUsd ?? cp?.usStocksBalanceUsd ?? 0;
   const usStocksKrw = liveData?.usStocks.balanceKrw ?? cp?.usStocksBalanceKrw ?? Math.round(usStocksUsd * usdKrw);
-  const stockDepositKrw = liveData?.stockDepositKrw ?? cp?.stockDepositKrw ?? 0;
-  const stockDepositUsd = liveData?.stockDepositUsd ?? cp?.stockDepositUsd ?? 0;
+
+  // 계좌별 예수금 합산 — financial-calc.ts 와 동일한 우선순위 적용
+  // 이유: liveData.stockDepositUsd 는 live-data API에서 0으로 하드코딩되어 있어
+  //       수동 입력된 stockDepositByAccount 합산값을 우선 사용해야 정확한 값을 표시함
+  const byAccountKrwTotal = Object.values(snapshot.stockDepositByAccount ?? {})
+    .reduce((sum, v) => sum + (v.krw ?? 0), 0);
+  const byAccountUsdTotal = Object.values(snapshot.stockDepositByAccount ?? {})
+    .reduce((sum, v) => sum + (v.usd ?? 0), 0);
+  const stockDepositKrw = byAccountKrwTotal || (liveData?.stockDepositKrw ?? cp?.stockDepositKrw ?? 0);
+  const stockDepositUsd = byAccountUsdTotal || (liveData?.stockDepositUsd ?? cp?.stockDepositUsd ?? 0);
 
   // 연금
   const pensionFundBalance = liveData?.pensionFund.balance ?? cp?.pensionFundBalance ?? 0;

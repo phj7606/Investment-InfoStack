@@ -122,7 +122,7 @@ function ComponentRow({
   return (
     <div className="flex justify-between gap-4">
       <span>{label}</span>
-      <span className="font-mono">{(value * 100).toFixed(1)}%</span>
+      <span className="tabular-nums">{(value * 100).toFixed(1)}%</span>
     </div>
   );
 }
@@ -147,7 +147,7 @@ function Track2Tooltip({ active, payload, label }: Track2TooltipProps) {
         entry.value !== null ? (
           <div key={entry.name} className="flex justify-between gap-4 text-xs">
             <span style={{ color: entry.color }}>{entry.name}</span>
-            <span className="font-mono">{entry.value.toFixed(3)}</span>
+            <span className="tabular-nums">{entry.value.toFixed(3)}</span>
           </div>
         ) : null
       )}

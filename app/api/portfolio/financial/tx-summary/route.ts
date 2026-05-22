@@ -26,7 +26,7 @@ export interface TxSummaryByMonth {
 
 export async function GET() {
   try {
-    const txs = readLongtermTxs();
+    const txs = await readLongtermTxs();
     const summary: TxSummaryByMonth = {};
 
     for (const tx of txs) {

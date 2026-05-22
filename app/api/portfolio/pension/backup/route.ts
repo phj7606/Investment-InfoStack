@@ -25,7 +25,7 @@ import type { PensionTransaction } from "@/types/portfolio";
 
 export async function GET() {
   try {
-    const transactions = readTransactions();
+    const transactions = await readTransactions();
     const today = new Date().toISOString().slice(0, 10);
 
     const payload = {
@@ -73,14 +73,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.mode === "overwrite") {
-      // 현재 데이터를 완전히 교체 (writeTransactions 내부에서 autoBackup 자동 실행)
-      writeTransactions(body.transactions);
+      // 현재 데이터를 완전히 교체
+      await writeTransactions(body.transactions);
       return NextResponse.json({ ok: true, restored: body.transactions.length, skipped: 0 });
     }
 
     // merge 모드: 기존 거래 유지, 중복이 아닌 신규 건만 추가
     // 중복 판단 기준: date + stockCode + accountType + tradeType + quantity + price
-    const existing = readTransactions();
+    const existing = await readTransactions();
     const existingKeys = new Set(
       existing.map(
         (t) => `${t.date}::${t.stockCode}::${t.accountType}::${t.tradeType}::${t.quantity}::${t.price}`
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (toAdd.length > 0) {
-      writeTransactions([...existing, ...toAdd]);
+      await writeTransactions([...existing, ...toAdd]);
     }
 
     return NextResponse.json({ ok: true, restored: toAdd.length, skipped });

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     ]);
 
     // Longterm: 거래내역 로드 후 포지션 계산 (가격 없이 먼저 계산하여 종목 목록 추출)
-    const longtermTxs = readLongtermTxs();
+    const longtermTxs = await readLongtermTxs();
     const rawPositions = calcLongtermPositions(longtermTxs, {});
 
     // KR/US 종목 현재가 조회 (캐시 우선)
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
     const longtermPositions = calcLongtermPositions(longtermTxs, prices);
 
     // Pension
-    const pensionTxs = readPensionTxs();
+    const pensionTxs = await readPensionTxs();
     const pensionPositions = calcPensionPositions(pensionTxs, {});
 
     // ── 2. FUND 집계 (assetType === "FUND", KRW) ─────────

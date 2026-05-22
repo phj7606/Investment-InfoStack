@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     const account = searchParams.get("account");
 
     // ── 거래 내역 조회 ────────────────────────────
-    let txs = readTransactions();
+    let txs = await readTransactions();
     if (account) txs = txs.filter((t: LongtermTransaction) => t.accountNo === account);
 
     // ── 현재 보유 포지션 계산 (가격 없이) ─────────

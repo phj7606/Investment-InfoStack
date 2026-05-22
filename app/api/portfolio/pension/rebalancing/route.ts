@@ -21,9 +21,9 @@ import {
 import type { PensionRebalancingTarget } from "@/types/portfolio";
 
 export async function GET() {
-  const transactions = readTransactions();
+  const transactions = await readTransactions();
   const positions    = calcPensionPositions(transactions);
-  const config       = readRebalancingConfig();
+  const config       = await readRebalancingConfig();
 
   // 퇴직연금 / 연금저축 각각 리밸런싱 계산
   const retirementResult = calcRebalancing(positions, config.RETIREMENT, "RETIREMENT");
@@ -67,10 +67,10 @@ export async function PUT(req: NextRequest) {
     };
 
     // 해당 계좌의 목표 비중만 업데이트
-    writeRebalancingTarget(body.accountType, target);
+    await writeRebalancingTarget(body.accountType, target);
 
     // 업데이트 후 재계산 결과 반환
-    const transactions = readTransactions();
+    const transactions = await readTransactions();
     const positions    = calcPensionPositions(transactions);
     const result       = calcRebalancing(positions, target, body.accountType);
 

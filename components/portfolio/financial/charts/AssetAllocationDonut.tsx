@@ -28,7 +28,7 @@ function CustomTooltip({ active, payload }: {
   return (
     <div className="bg-background border border-border rounded-lg p-2 shadow-lg text-sm">
       <p className="font-semibold">{p.name}</p>
-      <p className="font-mono">{p.value.toLocaleString()}원</p>
+      <p className="tabular-nums">{p.value.toLocaleString()}원</p>
       <p className="text-muted-foreground">{(p.percent * 100).toFixed(1)}%</p>
     </div>
   );

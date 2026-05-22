@@ -6,24 +6,18 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import type { FinancialSnapshot } from "@/types/financial";
 import { createDraftSnapshot } from "@/lib/portfolio/financial-calc";
+import { readKey, writeKey } from "@/lib/db";
 
-const DATA_PATH = path.join(process.cwd(), "data", "financial-snapshots.json");
+const DATA_KEY = "financial_snapshots";
 
 export async function readSnapshots(): Promise<FinancialSnapshot[]> {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as FinancialSnapshot[];
-  } catch {
-    return [];
-  }
+  return readKey<FinancialSnapshot[]>(DATA_KEY, []);
 }
 
 export async function writeSnapshots(snapshots: FinancialSnapshot[]): Promise<void> {
-  await fs.writeFile(DATA_PATH, JSON.stringify(snapshots, null, 2), "utf-8");
+  await writeKey(DATA_KEY, snapshots);
 }
 
 // GET — 전체 스냅샷 목록 (최신 월 우선 정렬)

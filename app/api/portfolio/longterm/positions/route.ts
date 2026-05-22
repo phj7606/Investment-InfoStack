@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const account = searchParams.get("account");
     const market = searchParams.get("market") as "KR" | "US" | null;
 
-    let txs = readTransactions();
+    let txs = await readTransactions();
     if (account) txs = txs.filter((t: LongtermTransaction) => t.accountNo === account);
     if (market) txs = txs.filter((t: LongtermTransaction) => t.market === market);
 

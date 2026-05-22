@@ -22,7 +22,7 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json() as PensionTransaction;
 
-    const existing = readTransactions();
+    const existing = await readTransactions();
     const idx = existing.findIndex((t) => t.id === id);
     if (idx === -1) {
       return NextResponse.json({ error: "거래를 찾을 수 없습니다." }, { status: 404 });
@@ -34,7 +34,7 @@ export async function PUT(
       ? enrichSellTransaction({ ...body, id }, withoutSelf)
       : { ...body, id };
 
-    updateTransaction(id, updated);
+    await updateTransaction(id, updated);
     return NextResponse.json({ ok: true, transaction: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : "오류 발생";
@@ -48,11 +48,11 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const existing = readTransactions();
+    const existing = await readTransactions();
     if (!existing.find((t) => t.id === id)) {
       return NextResponse.json({ error: "거래를 찾을 수 없습니다." }, { status: 404 });
     }
-    deleteTransaction(id);
+    await deleteTransaction(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "오류 발생";

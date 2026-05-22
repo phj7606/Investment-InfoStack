@@ -2,7 +2,7 @@
  * Monthly CF 백업/복원 API
  *
  * GET  /api/portfolio/financial/monthly-cf/backup
- *   → monthly-cf.json + monthly-cf-balance.json 을 단일 JSON으로 다운로드
+ *   → monthly-cf + monthly-cf-balance 를 단일 JSON으로 다운로드
  *
  * POST /api/portfolio/financial/monthly-cf/backup
  *   body: { entries: MonthlyCFEntry[]; balances: MonthlyCFBalance; mode: "overwrite" | "merge" }
@@ -11,41 +11,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import type { MonthlyCFEntry, MonthlyCFBalance } from "@/types/financial";
+import { readKey, writeKey } from "@/lib/db";
 
-const ENTRIES_PATH = path.join(process.cwd(), "data", "monthly-cf.json");
-const BALANCE_PATH = path.join(process.cwd(), "data", "monthly-cf-balance.json");
-
-async function readEntries(): Promise<MonthlyCFEntry[]> {
-  try {
-    return JSON.parse(await fs.readFile(ENTRIES_PATH, "utf-8"));
-  } catch {
-    return [];
-  }
-}
-
-async function readBalances(): Promise<MonthlyCFBalance> {
-  try {
-    return JSON.parse(await fs.readFile(BALANCE_PATH, "utf-8"));
-  } catch {
-    return {};
-  }
-}
-
-async function writeEntries(entries: MonthlyCFEntry[]): Promise<void> {
-  await fs.writeFile(ENTRIES_PATH, JSON.stringify(entries, null, 2), "utf-8");
-}
-
-async function writeBalances(balances: MonthlyCFBalance): Promise<void> {
-  await fs.writeFile(BALANCE_PATH, JSON.stringify(balances, null, 2), "utf-8");
-}
+const ENTRIES_KEY = "monthly_cf";
+const BALANCE_KEY = "monthly_cf_balance";
 
 // ─── GET — 백업 다운로드 ───────────────────────────────────────────
 
 export async function GET() {
-  const [entries, balances] = await Promise.all([readEntries(), readBalances()]);
+  const [entries, balances] = await Promise.all([
+    readKey<MonthlyCFEntry[]>(ENTRIES_KEY, []),
+    readKey<MonthlyCFBalance>(BALANCE_KEY, {}),
+  ]);
 
   const payload = {
     version: 1,
@@ -89,14 +67,18 @@ export async function POST(req: NextRequest) {
   let skippedBalances = 0;
 
   if (body.mode === "overwrite") {
-    // 전체 교체
-    await writeEntries(incomingEntries);
-    await writeBalances(incomingBalances);
+    await Promise.all([
+      writeKey(ENTRIES_KEY, incomingEntries),
+      writeKey(BALANCE_KEY, incomingBalances),
+    ]);
     restoredEntries = incomingEntries.length;
     restoredBalances = Object.keys(incomingBalances).length;
   } else {
     // merge — entries: id 기준 중복 제외, balances: month key 기준 중복 제외
-    const [existing, existingBalances] = await Promise.all([readEntries(), readBalances()]);
+    const [existing, existingBalances] = await Promise.all([
+      readKey<MonthlyCFEntry[]>(ENTRIES_KEY, []),
+      readKey<MonthlyCFBalance>(BALANCE_KEY, {}),
+    ]);
 
     // entries 병합
     const existingIds = new Set(existing.map((e) => e.id));
@@ -120,8 +102,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await writeEntries(existing);
-    await writeBalances(existingBalances);
+    await Promise.all([
+      writeKey(ENTRIES_KEY, existing),
+      writeKey(BALANCE_KEY, existingBalances),
+    ]);
   }
 
   return NextResponse.json({

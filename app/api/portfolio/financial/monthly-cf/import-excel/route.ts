@@ -6,19 +6,19 @@
  *          ?overwrite=true   — 기존 항목이 있으면 금액 업데이트
  *
  * 엑셀 파일 경로(EXCEL_PATH 환경변수 또는 하드코딩)의 "Monthly CF" 시트를 파싱해
- * Jan~Apr(D~G열) 데이터를 monthly-cf.json에 일괄 저장.
+ * Jan~Apr(D~G열) 데이터를 monthly_cf Supabase 키에 일괄 저장.
  *
  * 행 번호 → (category, name, isExpense) 매핑은 엑셀 시트 구조와 정확히 일치해야 함.
  * 엑셀 행 번호는 1-indexed (xlsx 패키지 기준).
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import { promises as fs } from "fs";
 import * as XLSX from "xlsx";
 import type { MonthlyCFEntry, CFCategoryType, CreateMonthlyCFRequest } from "@/types/financial";
+import { readKey, writeKey } from "@/lib/db";
 
-const DATA_PATH = path.join(process.cwd(), "data", "monthly-cf.json");
+const DATA_KEY = "monthly_cf";
 
 // 엑셀 파일 기본 경로 — 환경변수로 오버라이드 가능
 const DEFAULT_EXCEL_PATH =
@@ -73,19 +73,6 @@ const COL_TO_MONTH: Record<number, number> = { 3: 1, 4: 2, 5: 3, 6: 4 };
 
 // ─── 헬퍼 ──────────────────────────────────────────────────────
 
-async function readEntries(): Promise<MonthlyCFEntry[]> {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as MonthlyCFEntry[];
-  } catch {
-    return [];
-  }
-}
-
-async function writeEntries(entries: MonthlyCFEntry[]): Promise<void> {
-  await fs.writeFile(DATA_PATH, JSON.stringify(entries, null, 2), "utf-8");
-}
-
 /** 엑셀 셀에서 숫자 값 추출 — 빈 셀·비숫자는 null 반환 */
 function getCellNumber(
   ws: XLSX.WorkSheet,
@@ -136,7 +123,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ws = wb.Sheets[sheetName];
-  const entries = await readEntries();
+  const entries = await readKey<MonthlyCFEntry[]>(DATA_KEY, []);
 
   let imported = 0;
   let skipped = 0;
@@ -191,7 +178,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 신규 항목 생성
-      const req: CreateMonthlyCFRequest = {
+      const cfReq: CreateMonthlyCFRequest = {
         category: rowMeta.category,
         name: rowMeta.name,
         month,
@@ -199,10 +186,10 @@ export async function POST(req: NextRequest) {
       };
       const newEntry: MonthlyCFEntry = {
         id: crypto.randomUUID(),
-        category: req.category,
-        name: req.name,
-        month: req.month,
-        amount: req.amount,
+        category: cfReq.category,
+        name: cfReq.name,
+        month: cfReq.month,
+        amount: cfReq.amount,
         createdAt: new Date().toISOString(),
       };
       entries.push(newEntry);
@@ -211,7 +198,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await writeEntries(entries);
+  await writeKey(DATA_KEY, entries);
 
   return NextResponse.json({
     ok: true,

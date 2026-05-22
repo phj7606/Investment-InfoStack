@@ -38,7 +38,7 @@ function CustomTooltip({ active, payload, label }: {
       {payload.map((p) => (
         <div key={p.name} className="flex justify-between gap-4">
           <span style={{ color: p.fill }}>{p.name}</span>
-          <span className="font-mono">{p.value.toLocaleString()}원</span>
+          <span className="tabular-nums">{p.value.toLocaleString()}원</span>
         </div>
       ))}
     </div>

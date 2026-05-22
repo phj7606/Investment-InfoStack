@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const account = searchParams.get("account");
     const currency = (searchParams.get("currency") ?? "KRW") as "KRW" | "USD";
 
-    let txs = readTransactions();
+    let txs = await readTransactions();
     if (account) txs = txs.filter((t) => t.accountNo === account);
 
     // SELL 거래 → StockPerformance 변환 (기존 performance.ts 재사용)

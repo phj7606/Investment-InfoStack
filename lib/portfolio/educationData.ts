@@ -1,32 +1,25 @@
 /**
- * Education 계좌 데이터 파일 읽기/쓰기 헬퍼
- * data/education-account.json을 단일 소스로 관리
+ * Education 계좌 데이터 읽기/쓰기 헬퍼
+ * Supabase app_data 테이블의 'education_account' 키에 저장
  *
  * Next.js App Router RSC/Route Handler에서만 사용 (서버 전용)
  */
 
-import fs from "fs/promises";
-import path from "path";
+import { readKey, writeKey } from "@/lib/db";
 import type { EducationAccountData, EducationPosition, EducationTrade, PerformanceSummary } from "@/types/portfolio";
 
-const DATA_PATH = path.join(process.cwd(), "data", "education-account.json");
+const DATA_KEY = "education_account";
 
 // ─────────────────────────────────────────
-// 파일 읽기/쓰기
+// 데이터 읽기/쓰기
 // ─────────────────────────────────────────
 
 export async function readAccountData(): Promise<EducationAccountData> {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as EducationAccountData;
-  } catch {
-    // 파일 없으면 빈 구조 반환
-    return { positions: [], trades: [] };
-  }
+  return readKey<EducationAccountData>(DATA_KEY, { positions: [], trades: [] });
 }
 
 export async function writeAccountData(data: EducationAccountData): Promise<void> {
-  await fs.writeFile(DATA_PATH, JSON.stringify(data, null, 2), "utf-8");
+  await writeKey(DATA_KEY, data);
 }
 
 // ─────────────────────────────────────────

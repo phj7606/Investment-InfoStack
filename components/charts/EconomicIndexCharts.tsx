@@ -84,7 +84,7 @@ function ChartTooltip({ active, payload, label, labelMap, formatters }: ChartToo
         return (
           <p key={key} style={{ color: entry.color }} className="flex justify-between gap-4">
             <span>{displayLabel}</span>
-            <span className="font-mono">{formatted}</span>
+            <span className="tabular-nums">{formatted}</span>
           </p>
         );
       })}

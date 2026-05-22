@@ -51,7 +51,7 @@ export async function POST(
 
   // ── 2. 포트폴리오 포지션 일괄 계산 ───────────────────────
   // Longterm — 현재가 없으면 avgCost 기준 evalAmount 사용
-  const longtermTxs = readLongtermTxs();
+  const longtermTxs = await readLongtermTxs();
   const longtermPositions = calcLongtermPositions(longtermTxs, {});
 
   // FUND 집계 (assetType === "FUND", KRW)
@@ -116,7 +116,7 @@ export async function POST(
   if (pm?.fundBalance != null || pm?.fundPrincipal != null || pm?.depositBalance != null ||
       pm?.depositPrincipal != null || pm?.irpBalance != null || pm?.irpPrincipal != null) {
     // pensionMonthly 수동 입력값 사용 (일부만 있어도 나머지는 live calc로 보완)
-    const pensionTxs = readPensionTxs();
+    const pensionTxs = await readPensionTxs();
     const pensionPositions = calcPensionPositions(pensionTxs, {});
     const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
     const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
@@ -130,7 +130,7 @@ export async function POST(
     irpPrincipal = pm.irpPrincipal ?? Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
   } else {
     // 수동 입력 없으면 거래내역 기반 자동 계산
-    const pensionTxs = readPensionTxs();
+    const pensionTxs = await readPensionTxs();
     const pensionPositions = calcPensionPositions(pensionTxs, {});
     const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
     const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");

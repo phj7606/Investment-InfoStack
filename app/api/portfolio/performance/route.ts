@@ -18,10 +18,9 @@
  * 캐시: 24h JSON 파일 캐시 (data/cache/portfolio-performance.json)
  */
 
-import fs from "fs";
-import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { readCache, writeCache, readStaleCache } from "@/lib/cache";
+import { readKey } from "@/lib/db";
 import { fetchAllBenchmarks } from "@/lib/portfolio/performance-benchmark";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
 import { calcPositions } from "@/lib/portfolio/longterm-calc";
@@ -41,35 +40,29 @@ const CACHE_KEY = "portfolio-performance";
 // Bootstrap 데이터 (Jan~Apr 2026 고정 스냅샷)
 // ─────────────────────────────────────────
 
-const BOOTSTRAP_PATH = path.join(process.cwd(), "data", "performance-bootstrap.json");
-
 /**
- * Jan~Apr 2026 성과 데이터를 bootstrap JSON에서 읽는다.
+ * Jan~Apr 2026 성과 데이터를 Supabase DB에서 읽는다.
  *
  * 배경:
- * - Jan~Apr 2026에 매도 완료된 종목들은 거래내역 JSON에 없으므로 동적 계산이 불가능하다.
+ * - Jan~Apr 2026에 매도 완료된 종목들은 거래내역에 없으므로 동적 계산이 불가능하다.
  * - 엑셀에서 1회 추출한 고정 스냅샷을 사용하여 런타임 엑셀 의존성을 완전히 제거한다.
- * - bootstrap.json은 변경되지 않는다 — May 2026 이후는 longterm-transactions.json으로 계산한다.
+ * - bootstrap 데이터는 잘 변경되지 않음 — May 2026 이후는 거래내역으로 계산한다.
  *
- * 파일 없음 또는 파싱 실패 시 빈 구조 반환 (May+ 계산은 영향 없음).
+ * DB에 데이터 없으면 빈 구조 반환 (May+ 계산은 영향 없음).
  */
-function readBootstrap(): ExcelPerformanceData {
+async function readBootstrap(): Promise<ExcelPerformanceData> {
   const empty: ExcelPerformanceData = {
     krMonths: [], krByAccount: {}, usMonths: [], usByAccount: {},
     krStocks: [], usStocks: [],
     krDecBalance: 0, usDecBalance: 0,
     krDecByAccount: {}, usDecByAccount: {},
   };
-  try {
-    if (!fs.existsSync(BOOTSTRAP_PATH)) {
-      console.warn("[performance] bootstrap.json 없음 — Jan~Apr 2026 데이터 미포함");
-      return empty;
-    }
-    return JSON.parse(fs.readFileSync(BOOTSTRAP_PATH, "utf-8")) as ExcelPerformanceData;
-  } catch (err) {
-    console.error("[performance] bootstrap.json 읽기 실패:", err);
+  const data = await readKey<ExcelPerformanceData | null>("performance_bootstrap", null);
+  if (!data) {
+    console.warn("[performance] bootstrap 데이터 없음 — Jan~Apr 2026 데이터 미포함");
     return empty;
   }
+  return data;
 }
 
 /**
@@ -552,9 +545,9 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 1. Bootstrap 데이터 읽기 (Jan~Apr 2026 고정 스냅샷) ──
-    const excelData = readBootstrap();
+    const excelData = await readBootstrap();
 
-    const allTxs = readTransactions();
+    const allTxs = await readTransactions();
 
     // ── 2. Apr 잔고 → May+ 전월잔고 기준 결정 ──
     const krAprBalance = excelData.krMonths.at(-1)?.balance ?? excelData.krDecBalance;

@@ -234,7 +234,7 @@ export function ScreenerResultTable({ data, filters, market }: ScreenerResultTab
                 </TableCell>
 
                 {/* 심볼 */}
-                <TableCell className="font-mono text-xs font-semibold">{row.symbol}</TableCell>
+                <TableCell className="text-xs font-semibold">{row.symbol}</TableCell>
 
                 {/* 이름 */}
                 <TableCell className="text-xs max-w-[200px] truncate" title={row.name}>{row.name}</TableCell>
@@ -257,7 +257,7 @@ export function ScreenerResultTable({ data, filters, market }: ScreenerResultTab
                 </TableCell>
 
                 {/* RS Raw */}
-                <TableCell className={`font-mono text-xs ${getRawColor(row.rsRaw)}`}>
+                <TableCell className={`tabular-nums text-xs ${getRawColor(row.rsRaw)}`}>
                   {row.rsRaw !== null ? row.rsRaw.toFixed(2) : "—"}
                 </TableCell>
 
@@ -270,7 +270,7 @@ export function ScreenerResultTable({ data, filters, market }: ScreenerResultTab
                 </TableCell>
 
                 {/* 모멘텀 점수 */}
-                <TableCell className={`font-mono text-xs ${getMomentumColor(row.momentumScore)}`}>
+                <TableCell className={`tabular-nums text-xs ${getMomentumColor(row.momentumScore)}`}>
                   {row.momentumScore !== null ? row.momentumScore.toFixed(3) : "—"}
                 </TableCell>
 

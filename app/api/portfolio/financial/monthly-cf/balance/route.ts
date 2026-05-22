@@ -13,23 +13,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
 import type { MonthlyCFBalance } from "@/types/financial";
+import { readKey, writeKey } from "@/lib/db";
 
-const DATA_PATH = path.join(process.cwd(), "data", "monthly-cf-balance.json");
+const DATA_KEY = "monthly_cf_balance";
 
 async function readBalances(): Promise<MonthlyCFBalance> {
-  try {
-    const raw = await fs.readFile(DATA_PATH, "utf-8");
-    return JSON.parse(raw) as MonthlyCFBalance;
-  } catch {
-    return {};
-  }
+  return readKey<MonthlyCFBalance>(DATA_KEY, {});
 }
 
 async function writeBalances(balances: MonthlyCFBalance): Promise<void> {
-  await fs.writeFile(DATA_PATH, JSON.stringify(balances, null, 2), "utf-8");
+  await writeKey(DATA_KEY, balances);
 }
 
 // GET — 전체 잔액 맵 조회

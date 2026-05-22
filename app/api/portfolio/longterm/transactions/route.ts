@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const market = searchParams.get("market") as "KR" | "US" | null;
     const type = searchParams.get("type") as "STOCK" | "FUND" | "ETF" | null;
 
-    let txs = readTransactions();
+    let txs = await readTransactions();
 
     if (account) txs = txs.filter((t) => t.accountNo === account);
     if (market) txs = txs.filter((t) => t.market === market);
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // id 자동 생성
     let tx: LongtermTransaction = { ...body, id: randomUUID() };
 
-    const existing = readTransactions();
+    const existing = await readTransactions();
 
     // 서버사이드 중복 방지 — 클라이언트 dedup이 실패해도 이중 저장을 막음
     // 키: date::stockCode::accountNo::tradeType::quantity::price
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       tx = enrichSellTransaction(tx, existing);
     }
 
-    addTransaction(tx);
+    await addTransaction(tx);
     return NextResponse.json({ id: tx.id }, { status: 201 });
   } catch (err) {
     console.error("[longterm/transactions POST]", err);

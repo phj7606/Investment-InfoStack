@@ -89,7 +89,7 @@ function ChartTooltip({ active, payload, label, rawMap }: ChartTooltipProps) {
         return (
           <p key={key} style={{ color: entry.color }} className="flex justify-between gap-3">
             <span>{LABELS[key] ?? key}</span>
-            <span className="font-mono">
+            <span className="tabular-nums">
               {entry.value?.toFixed(1)}
               {rawVal != null ? ` ($${(rawVal as number).toFixed(2)})` : ""}
             </span>

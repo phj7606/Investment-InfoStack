@@ -499,7 +499,7 @@ export function FundamentalScreeningClient() {
                   onClick={() => handleLoad(entry)}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="font-mono text-xs font-semibold text-foreground">
+                    <span className="text-xs font-semibold text-foreground">
                       {entry.ticker}
                     </span>
                     <Badge variant="outline" className="text-[10px] h-4 px-1.5 shrink-0">
