@@ -617,7 +617,20 @@ export function FinancialStatementClient() {
 
         {/* Tab 1: 재무제표 */}
         <TabsContent value="statement" className="mt-6">
-          {statementData ? (
+          {/* DRAFT 상태에서 liveData 로딩 중이면 스켈레톤 표시
+              — liveData 없이는 투자자산이 0으로 잘못 표시되므로 로딩 완료까지 대기 */}
+          {currentSnapshot.status === "DRAFT" && liveLoading ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <span>투자 자산 실시간 데이터 로딩 중...</span>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Skeleton className="h-96 rounded-lg" />
+                <Skeleton className="h-96 rounded-lg" />
+              </div>
+            </div>
+          ) : statementData ? (
             <FinancialStatementView
               data={statementData}
               snapshot={currentSnapshot}

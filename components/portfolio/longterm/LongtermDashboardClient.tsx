@@ -318,17 +318,28 @@ export function LongtermDashboardClient() {
       setPricesFetchedAt(d.fetchedAt);
 
       // currentPrices 변경이 fetchPositions 재호출을 트리거하지 않으므로
-      // positions 상태를 여기서 직접 갱신 (handlePriceUpdate와 동일 패턴)
-      setPositions((prev) =>
-        prev.map((p) => {
+      // positions 상태를 여기서 직접 갱신 + KR/US 요약(evalPL, evalAmount)도 함께 재계산
+      setPositions((prev) => {
+        const next = prev.map((p) => {
           const cp = merged[p.stockCode];
           if (cp === undefined) return p;
           const evalAmount = cp * p.quantity;
           const evalPL = evalAmount - p.avgCost * p.quantity;
           const evalPLPct = p.avgCost > 0 ? (evalPL / (p.avgCost * p.quantity)) * 100 : 0;
           return { ...p, currentPrice: cp, evalAmount, evalPL, evalPLPct };
-        })
-      );
+        });
+
+        // 가격 반영 후 KR/US 요약 재계산 — fetchPositions의 summary는 prices 없이 계산되므로
+        // fetchLivePrices 완료 시점에 최신 evalPL/evalAmount로 덮어써야 정확한 값을 표시할 수 있음
+        const krEvalPL = next.filter((p) => p.currency === "KRW").reduce((s, p) => s + p.evalPL, 0);
+        const usEvalPL = next.filter((p) => p.currency === "USD").reduce((s, p) => s + p.evalPL, 0);
+        const krEvalAmount = next.filter((p) => p.currency === "KRW").reduce((s, p) => s + p.evalAmount, 0);
+        const usEvalAmount = next.filter((p) => p.currency === "USD").reduce((s, p) => s + p.evalAmount, 0);
+        setKrSummary((s) => ({ ...s, totalEvalPL: krEvalPL, totalEvalAmount: krEvalAmount }));
+        setUsSummary((s) => ({ ...s, totalEvalPL: usEvalPL, totalEvalAmount: usEvalAmount }));
+
+        return next;
+      });
     } catch (err) {
       console.error("[fetchLivePrices] 현재가 조회 실패:", err);
     } finally {

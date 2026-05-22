@@ -103,6 +103,23 @@ export async function writeCache<T>(
 }
 
 /**
+ * 만료 여부와 무관하게 캐시 데이터를 읽는다 (stale-while-revalidate 패턴용)
+ * 외부 API 실패 시 기존 캐시라도 반환하여 500 에러 대신 stale 데이터를 제공
+ * @param key - 캐시 키
+ * @returns 캐시 데이터 또는 null (파일 없음 / JSON 파싱 오류)
+ */
+export async function readStaleCache<T>(key: string): Promise<T | null> {
+  try {
+    const filePath = getCachePath(key);
+    const raw = await fs.readFile(filePath, "utf-8");
+    const entry: CacheEntry<T> = JSON.parse(raw);
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 특정 캐시 항목을 삭제
  * 데이터 갱신을 강제할 때 사용
  * @param key - 삭제할 캐시 키

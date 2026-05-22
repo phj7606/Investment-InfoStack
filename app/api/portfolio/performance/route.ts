@@ -21,7 +21,7 @@
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
-import { readCache, writeCache } from "@/lib/cache";
+import { readCache, writeCache, readStaleCache } from "@/lib/cache";
 import { fetchAllBenchmarks } from "@/lib/portfolio/performance-benchmark";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
 import { calcPositions } from "@/lib/portfolio/longterm-calc";
@@ -79,7 +79,7 @@ function readBootstrap(): ExcelPerformanceData {
  *   (현재 월 balance는 Naver 현재가 기반이므로 오래 캐시하면 포지션 탭과 괴리 발생)
  */
 const CACHE_TTL_HISTORICAL = 24 * 60 * 60; // 24h — 과거 확정 월만 있을 때
-const CACHE_TTL_LIVE = 5 * 60;             // 5min — 현재 월 진행 중일 때
+const CACHE_TTL_LIVE = 30 * 60;            // 30min — 현재 월 진행 중 (5min → 30min: 잦은 외부 API 실패 방지)
 
 // ─────────────────────────────────────────
 // May+ 동적 계산 헬퍼
@@ -680,6 +680,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(response);
   } catch (err) {
     console.error("[portfolio/performance GET]", err);
+
+    // stale-while-revalidate: 외부 API 실패 시 만료된 캐시라도 반환하여 500 에러 방지
+    // 캐시가 전혀 없을 때만 실제 500 에러를 반환
+    const stale = await readStaleCache<PortfolioPerformanceResponse>(CACHE_KEY);
+    if (stale) {
+      console.warn("[portfolio/performance] 오류 발생 — 만료 캐시 반환 (stale-while-revalidate)");
+      return NextResponse.json(stale);
+    }
+
     return NextResponse.json(
       { error: "성과 분석 데이터 조회 실패" },
       { status: 500 }
