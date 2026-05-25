@@ -1,21 +1,23 @@
 "use client";
 
 // 중장기 투자 계좌 대시보드 — 메인 컨테이너 컴포넌트
-// 6개 탭:
-//   대시보드   — KR/US 섹션 KPI 카드 + TOP3 종목
-//   포지션     — 보유 종목 + 현재가 인라인 편집
-//   거래 내역  — 검색·필터 + 거래 추가 + Excel 임포트
-//   종목별     — 종목별 이력 accordion (총 매수/매도/잔량/손익 소계)
-//   성과 분석  — KR/US 별도 Equity Curve + 히트맵 + KPI
-//   리밸런싱   — 목표 비중 입력 + 제안 테이블
+// 7개 탭:
+//   대시보드     — KR/US 섹션 KPI 카드 + TOP3 종목
+//   포지션       — 보유 종목 + 현재가 인라인 편집
+//   거래 내역    — 검색·필터 + 거래 추가 + Excel 임포트
+//   Executed Trade — 전량 매도 완료 종목 실현손익 집계
+//   종목별       — 종목별 이력 accordion (총 매수/매도/잔량/손익 소계)
+//   성과 분석    — KR/US 별도 Equity Curve + 히트맵 + KPI
+//   리밸런싱     — 목표 비중 입력 + 제안 테이블
 //
 // 계좌 필터: 전체 | 4802 (주식) | 1635 (ETF) | 1402 (중장기+) | 8654 (펀드)
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -23,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CloudDownload, CloudUpload, RefreshCw } from "lucide-react";
+import { CloudDownload, CloudUpload, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { AccountSummaryCards } from "./AccountSummaryCards";
 import { PortfolioAllocationChart } from "./PortfolioAllocationChart";
@@ -47,6 +50,59 @@ import type {
 import type { LongtermSummary } from "@/lib/portfolio/longterm-calc";
 import type { PerformanceSummary } from "@/types/portfolio";
 import type { HoldingPerformance } from "@/lib/portfolio/holdings-performance";
+
+// ─────────────────────────────────────────
+// Executed Trade — 전량 매도 완료 종목 1건 타입
+// (잔량 0인 종목을 종목+계좌 단위로 집계)
+// ─────────────────────────────────────────
+interface ExecutedTrade {
+  key: string;               // `${stockCode}::${stockName}::${accountNo}`
+  stockCode: string;
+  stockName: string;
+  accountNo: "4802" | "1635" | "1402" | "8654";
+  market: "KR" | "US";
+  assetType: "STOCK" | "ETF" | "FUND";
+  currency: "KRW" | "USD";
+  buyDate: string;           // 최초 매수일
+  sellDate: string;          // 최종 매도일
+  avgBuyPrice: number;       // 총매수금액 / 총매수수량
+  avgSellPrice: number;      // 총매도금액 / 총매도수량
+  totalQty: number;          // 매도 수량(= 매수 수량)
+  totalBuyAmt: number;       // 총 매수금액
+  profitLoss: number;        // 실현손익 합계
+  profitLossPct: number;     // 실현수익률 (%)
+  holdingDays: number;       // 보유 일수
+  monthlyGeoReturn: number | null; // 월별 기하수익률: (1 + r)^(30.4375/days) - 1
+}
+
+// ─────────────────────────────────────────
+// 손익 색상 헬퍼 (국내 관례: 상승=적색, 하락=청색)
+// ─────────────────────────────────────────
+function exPlColor(n: number): string {
+  return n > 0 ? "text-red-500" : n < 0 ? "text-blue-500" : "text-muted-foreground";
+}
+
+// KRW/USD 숫자 포매터
+function exFmt(n: number, ccy: "KRW" | "USD"): string {
+  return ccy === "USD"
+    ? n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : Math.round(n).toLocaleString("ko-KR");
+}
+
+function exFmtPct(n: number): string {
+  return (n >= 0 ? "+" : "") + n.toFixed(2) + "%";
+}
+
+// 성과 요약 카드 서브컴포넌트
+function ExCard({ label, value, sub, valueClass }: { label: string; value: string; sub?: string; valueClass?: string }) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2 space-y-0.5">
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      <p className={cn("text-sm font-semibold tabular-nums", valueClass)}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground">{sub}</p>}
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────
 // 로컬스토리지 현재가 저장 키
@@ -155,10 +211,184 @@ export function LongtermDashboardClient() {
     () => (searchParams.get("market") as "KR" | "US") ?? "KR"
   );
 
+  // ── Executed Trade 탭 필터·정렬 ───────────────────────
+  type ExTradeSortCol = "stockName" | "accountNo" | "market" | "assetType" | "buyDate" | "sellDate" | "avgBuyPrice" | "totalQty" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "monthlyGeoReturn" | "holdingDays";
+  const [exTradeSort, setExTradeSort] = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
+  const [exTradeMarket,  setExTradeMarket]  = useState<"all" | "KR" | "US">("all");
+  const [exTradeAcct,    setExTradeAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [exTradeAsset,   setExTradeAsset]   = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
+
   // currentPricesRef를 state와 항상 동기화 (fetchPositions에서 deps 없이 최신값 읽기 위해)
   useEffect(() => {
     currentPricesRef.current = currentPrices;
   }, [currentPrices]);
+
+  // ────────────────────────────────────────────────
+  // Executed Trade — transactions에서 파생
+  //
+  // StockHistoryTable과 동일한 그룹 키(stockCode::stockName::accountNo)로 묶고,
+  // 잔량 0 (전량 매도 완료) + 매도 이력 있는 종목만 Executed Trade로 집계.
+  // positions가 로드된 뒤 잔량을 직접 확인; 로드 전에는 트랜잭션 집계치 사용.
+  // ────────────────────────────────────────────────
+  const executedTrades = useMemo((): ExecutedTrade[] => {
+    // 종목+계좌 복합키로 그룹화
+    const groupMap = new Map<string, {
+      stockCode: string; stockName: string;
+      accountNo: "4802" | "1635" | "1402" | "8654";
+      market: "KR" | "US"; assetType: "STOCK" | "ETF" | "FUND";
+      currency: "KRW" | "USD"; txs: LongtermTransaction[];
+    }>();
+
+    for (const tx of transactions) {
+      const key = `${tx.stockCode}::${tx.stockName}::${tx.accountNo}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          stockCode: tx.stockCode, stockName: tx.stockName,
+          accountNo: tx.accountNo, market: tx.market,
+          assetType: tx.assetType, currency: tx.currency, txs: [],
+        });
+      }
+      groupMap.get(key)!.txs.push(tx);
+    }
+
+    const result: ExecutedTrade[] = [];
+
+    for (const [key, g] of groupMap) {
+      // 날짜 오름차순 (잔량 추적 정확성)
+      g.txs.sort((a, b) => a.date.localeCompare(b.date));
+
+      const buys  = g.txs.filter((t) => t.tradeType === "BUY");
+      const sells = g.txs.filter((t) => t.tradeType === "SELL");
+
+      // 매도 이력 없으면 제외
+      if (sells.length === 0) continue;
+
+      const totalBuyQty  = buys.reduce((s, t) => s + t.quantity, 0);
+      const totalSellQty = sells.reduce((s, t) => s + t.quantity, 0);
+
+      // positions에서 잔량 확인; positions 미로드 시 트랜잭션 계산치로 대체
+      const pos = positions.find(
+        (p) => p.stockCode === g.stockCode && p.accountNo === g.accountNo
+      );
+      const balance = pos?.quantity ?? Math.max(0, totalBuyQty - totalSellQty);
+
+      // 잔량이 남아있으면 아직 미완료 → 제외
+      if (balance !== 0) continue;
+
+      const totalBuyAmt  = buys.reduce((s, t) => s + t.amount, 0);
+      const totalSellAmt = sells.reduce((s, t) => s + t.amount, 0);
+      const avgBuyPrice  = totalBuyQty  > 0 ? totalBuyAmt  / totalBuyQty  : 0;
+      const avgSellPrice = totalSellQty > 0 ? totalSellAmt / totalSellQty : 0;
+
+      const buyDate  = buys[0]?.date                    ?? sells[0]?.date ?? "";
+      const sellDate = sells[sells.length - 1]?.date    ?? "";
+
+      // 실현손익: SELL에 realizedPL 저장된 경우 우선 사용, 없으면 FIFO로 직접 계산
+      let profitLoss   = 0;
+      let sellCostBase = 0;
+      let runQty = 0, runCost = 0;
+      for (const t of g.txs) {
+        if (t.tradeType === "BUY") {
+          runQty  += t.quantity;
+          runCost += t.amount;
+        } else if (t.tradeType === "SELL") {
+          const avg = runQty > 0 ? runCost / runQty : 0;
+          sellCostBase += avg * t.quantity;
+          if (t.realizedPL !== undefined) {
+            profitLoss += t.realizedPL;
+          } else {
+            profitLoss += (t.amount - (t.fee ?? 0)) - avg * t.quantity;
+          }
+          runCost = Math.max(0, runCost - avg * t.quantity);
+          runQty  = Math.max(0, runQty  - t.quantity);
+        }
+      }
+
+      const profitLossPct = sellCostBase > 0 ? (profitLoss / sellCostBase) * 100 : 0;
+      const holdingDays   = buyDate && sellDate
+        ? Math.max(0, Math.round(
+            (new Date(sellDate).getTime() - new Date(buyDate).getTime()) / 86400000
+          ))
+        : 0;
+
+      // 월별 기하수익률: (1 + totalReturn)^(30.4375/holdingDays) - 1
+      // holdingDays < 1이면 계산 불가 → null
+      const monthlyGeoReturn = holdingDays >= 1
+        ? (Math.pow(1 + profitLossPct / 100, 30.4375 / holdingDays) - 1) * 100
+        : null;
+
+      result.push({
+        key,
+        stockCode: g.stockCode, stockName: g.stockName,
+        accountNo: g.accountNo, market: g.market,
+        assetType: g.assetType, currency: g.currency,
+        buyDate, sellDate,
+        avgBuyPrice:  g.currency === "KRW" ? Math.round(avgBuyPrice)  : Math.round(avgBuyPrice * 100) / 100,
+        avgSellPrice: g.currency === "KRW" ? Math.round(avgSellPrice) : Math.round(avgSellPrice * 100) / 100,
+        totalQty: totalSellQty, totalBuyAmt,
+        profitLoss:    Math.round(profitLoss),
+        profitLossPct: Math.round(profitLossPct * 100) / 100,
+        holdingDays,
+        monthlyGeoReturn: monthlyGeoReturn !== null ? Math.round(monthlyGeoReturn * 100) / 100 : null,
+      });
+    }
+
+    // 기본 정렬: 최종 매도일 내림차순
+    return result.sort((a, b) => b.sellDate.localeCompare(a.sellDate));
+  }, [transactions, positions]);
+
+  // Executed Trade 성과 요약 (Win/Lose 통계)
+  // result 필드 없이 profitLoss 부호로 직접 분류
+  const executedSummary = useMemo(() => {
+    if (executedTrades.length === 0) return null;
+    const wins   = executedTrades.filter((t) => t.profitLoss >= 0);
+    const losses = executedTrades.filter((t) => t.profitLoss < 0);
+    const totalWinPL  = wins.reduce((s, t) => s + t.profitLoss, 0);
+    const totalLossPL = Math.abs(losses.reduce((s, t) => s + t.profitLoss, 0));
+    const winRate     = executedTrades.length > 0 ? wins.length / executedTrades.length : 0;
+    const pf          = totalLossPL > 0 ? totalWinPL / totalLossPL : Infinity;
+    const avgWinPct   = wins.length   > 0 ? wins.reduce((s, t) => s + t.profitLossPct, 0) / wins.length   : 0;
+    const avgLossPct  = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
+    return { totalTrades: executedTrades.length, winCount: wins.length, lossCount: losses.length, winRate, pf, avgWinPct, avgLossPct };
+  }, [executedTrades]);
+
+  // TPI = winRate × (PF + 1)
+  const exTpi = useMemo(() => {
+    if (!executedSummary || executedSummary.totalTrades === 0) return null;
+    const pf = isFinite(executedSummary.pf) ? executedSummary.pf : 0;
+    return Math.round(executedSummary.winRate * (pf + 1) * 10000) / 10000;
+  }, [executedSummary]);
+
+  const exTotalBuy = executedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
+  const exTotalPL  = executedTrades.reduce((s, t) => s + t.profitLoss, 0);
+
+  // 필터 + 정렬 적용
+  const filteredExecutedTrades = useMemo(() => {
+    let arr = [...executedTrades];
+    if (exTradeMarket !== "all") arr = arr.filter((t) => t.market === exTradeMarket);
+    if (exTradeAcct   !== "all") arr = arr.filter((t) => t.accountNo === exTradeAcct);
+    if (exTradeAsset  !== "all") arr = arr.filter((t) => t.assetType === exTradeAsset);
+
+    return arr.sort((a, b) => {
+      let cmp = 0;
+      switch (exTradeSort.col) {
+        case "stockName":     cmp = a.stockName.localeCompare(b.stockName, "ko"); break;
+        case "accountNo":     cmp = a.accountNo.localeCompare(b.accountNo);       break;
+        case "market":        cmp = a.market.localeCompare(b.market);             break;
+        case "assetType":     cmp = a.assetType.localeCompare(b.assetType);       break;
+        case "buyDate":       cmp = a.buyDate.localeCompare(b.buyDate);           break;
+        case "sellDate":      cmp = a.sellDate.localeCompare(b.sellDate);         break;
+        case "avgBuyPrice":      cmp = a.avgBuyPrice  - b.avgBuyPrice;                                               break;
+        case "totalQty":         cmp = a.totalQty     - b.totalQty;                                                break;
+        case "avgSellPrice":     cmp = a.avgSellPrice - b.avgSellPrice;                                            break;
+        case "profitLoss":       cmp = a.profitLoss   - b.profitLoss;                                              break;
+        case "profitLossPct":    cmp = a.profitLossPct - b.profitLossPct;                                          break;
+        case "monthlyGeoReturn": cmp = (a.monthlyGeoReturn ?? -Infinity) - (b.monthlyGeoReturn ?? -Infinity);      break;
+        case "holdingDays":      cmp = a.holdingDays  - b.holdingDays;                                             break;
+      }
+      return exTradeSort.dir === "asc" ? cmp : -cmp;
+    });
+  }, [executedTrades, exTradeMarket, exTradeAcct, exTradeAsset, exTradeSort]);
 
   // ────────────────────────────────────────────────
   // 거래 내역 조회
@@ -726,13 +956,14 @@ export function LongtermDashboardClient() {
         </div>
       )}
 
-      {/* ══ 6개 탭 ═════════════════════════════════ */}
+      {/* ══ 7개 탭 ═════════════════════════════════ */}
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); updateUrlParam("tab", v); }}>
-        <TabsList className="grid w-full grid-cols-6 bg-blue-500/5 border">
+        <TabsList className="grid w-full grid-cols-7 bg-blue-500/5 border">
           {[
             { value: "overview",     label: "대시보드" },
             { value: "positions",    label: "Open Positions",    count: positions.length },
             { value: "transactions", label: "Transactions", count: transactions.length },
+            { value: "executed",     label: "Executed Trade", count: executedTrades.length },
             { value: "stocks",       label: "종목별" },
             { value: "performance",  label: "Performance Analysis" },
             { value: "rebalancing",  label: "리밸런싱" },
@@ -829,7 +1060,234 @@ export function LongtermDashboardClient() {
         </TabsContent>
 
         {/* ────────────────────────────────────────────
-            탭 4: 종목별 이력 (accordion + 소계)
+            탭 4: Executed Trade — 전량 매도 완료 종목
+            시장(KR/US) · 계좌 · 종류 필터 포함
+        ──────────────────────────────────────────── */}
+        <TabsContent value="executed" className="mt-4 space-y-3">
+
+          {/* 계좌 총합 요약 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <ExCard label="총 매수금액"
+              value={`${Math.round(exTotalBuy).toLocaleString("ko-KR")}`}
+            />
+            <ExCard label="총 실현 손익"
+              value={`${exTotalPL >= 0 ? "+" : ""}${Math.round(exTotalPL).toLocaleString("ko-KR")}`}
+              valueClass={exPlColor(exTotalPL)}
+            />
+            <ExCard label="실현 수익률"
+              value={exTotalBuy > 0 ? exFmtPct((exTotalPL / exTotalBuy) * 100) : "-"}
+              valueClass={exPlColor(exTotalPL)}
+            />
+          </div>
+
+          {/* 필터 바 — 시장 / 계좌 / 종류 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 시장 필터 */}
+            <div className="flex rounded-md border overflow-hidden text-[10px]">
+              {(["all", "KR", "US"] as const).map((m) => (
+                <button key={m} onClick={() => setExTradeMarket(m)}
+                  className={cn("px-2.5 py-1 transition-colors",
+                    exTradeMarket === m ? "bg-blue-600 text-white" : "hover:bg-muted/50"
+                  )}>
+                  {m === "all" ? "전체" : m}
+                </button>
+              ))}
+            </div>
+
+            {/* 계좌 필터 */}
+            <div className="flex rounded-md border overflow-hidden text-[10px]">
+              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+                <button key={a} onClick={() => setExTradeAcct(a)}
+                  className={cn("px-2.5 py-1 transition-colors",
+                    exTradeAcct === a ? "bg-blue-600 text-white" : "hover:bg-muted/50"
+                  )}>
+                  {a === "all" ? "전체계좌" : a}
+                </button>
+              ))}
+            </div>
+
+            {/* 종류 필터 */}
+            <div className="flex rounded-md border overflow-hidden text-[10px]">
+              {(["all", "STOCK", "ETF", "FUND"] as const).map((t) => (
+                <button key={t} onClick={() => setExTradeAsset(t)}
+                  className={cn("px-2.5 py-1 transition-colors",
+                    exTradeAsset === t ? "bg-blue-600 text-white" : "hover:bg-muted/50"
+                  )}>
+                  {t === "all" ? "전체" : t}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-[10px] text-muted-foreground">{filteredExecutedTrades.length}건 표시</span>
+          </div>
+
+          {/* 거래 테이블 */}
+          {filteredExecutedTrades.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">
+              {executedTrades.length === 0
+                ? "전량 매도 완료된 종목이 없습니다."
+                : "필터 조건에 해당하는 거래가 없습니다."}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-[10px] text-muted-foreground bg-muted/20">
+                        {([
+                          { col: "stockName"       as ExTradeSortCol, label: "종목",       align: "left"   },
+                          { col: "accountNo"       as ExTradeSortCol, label: "계좌",       align: "left"   },
+                          { col: "market"          as ExTradeSortCol, label: "시장",       align: "center" },
+                          { col: "assetType"       as ExTradeSortCol, label: "종류",       align: "center" },
+                          { col: "buyDate"         as ExTradeSortCol, label: "매수일",     align: "right"  },
+                          { col: "avgBuyPrice"     as ExTradeSortCol, label: "매수가",     align: "right"  },
+                          { col: "sellDate"        as ExTradeSortCol, label: "매도일",     align: "right"  },
+                          { col: "avgSellPrice"    as ExTradeSortCol, label: "매도가",     align: "right"  },
+                          { col: "totalQty"        as ExTradeSortCol, label: "수량",       align: "right"  },
+                          { col: "profitLoss"      as ExTradeSortCol, label: "손익",       align: "right"  },
+                          { col: "profitLossPct"   as ExTradeSortCol, label: "%",          align: "right"  },
+                          { col: "monthlyGeoReturn" as ExTradeSortCol, label: "월기하",    align: "right"  },
+                          { col: "holdingDays"     as ExTradeSortCol, label: "보유",       align: "right"  },
+                        ] as const).map(({ col, label, align }) => (
+                          <th key={col}
+                            className={cn(
+                              "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
+                              align === "left" ? "text-left pl-3" : align === "right" ? "text-right" : "text-center"
+                            )}
+                            onClick={() => setExTradeSort((prev) =>
+                              prev.col === col
+                                ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+                                : { col, dir: "desc" }
+                            )}
+                          >
+                            <span className={cn("inline-flex items-center gap-0.5",
+                              align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""
+                            )}>
+                              {label}
+                              {exTradeSort.col === col
+                                ? exTradeSort.dir === "asc"
+                                  ? <ArrowUp   className="h-3 w-3 text-blue-600" />
+                                  : <ArrowDown className="h-3 w-3 text-blue-600" />
+                                : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {filteredExecutedTrades.map((t) => (
+                        <tr key={t.key} className="hover:bg-muted/30">
+                          {/* 종목명 + 코드 */}
+                          <td className="p-2 pl-3">
+                            <div className="font-medium">{t.stockName}</div>
+                            <div className="text-[10px] text-muted-foreground">{t.stockCode}</div>
+                          </td>
+                          {/* 계좌 배지 */}
+                          <td className="p-2">
+                            <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                              {t.accountNo}
+                            </span>
+                          </td>
+                          {/* 시장 배지 */}
+                          <td className="p-2 text-center">
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium",
+                              t.market === "KR"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-orange-100 text-orange-700"
+                            )}>
+                              {t.market}
+                            </span>
+                          </td>
+                          {/* 종류 배지 */}
+                          <td className="p-2 text-center">
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium",
+                              t.assetType === "ETF"
+                                ? "bg-violet-100 text-violet-700"
+                                : t.assetType === "FUND"
+                                ? "bg-yellow-100 text-yellow-700"
+                                : "bg-gray-100 text-gray-700"
+                            )}>
+                              {t.assetType}
+                            </span>
+                          </td>
+                          {/* 매수일 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">{t.buyDate}</td>
+                          {/* 평균 매수가 */}
+                          <td className="text-right p-2 tabular-nums">{exFmt(t.avgBuyPrice, t.currency)}</td>
+                          {/* 매도일 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">{t.sellDate}</td>
+                          {/* 평균 매도가 */}
+                          <td className="text-right p-2 tabular-nums">{exFmt(t.avgSellPrice, t.currency)}</td>
+                          {/* 수량 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">
+                            {t.totalQty.toLocaleString()}
+                          </td>
+                          {/* 실현손익 */}
+                          <td className={cn("text-right p-2 tabular-nums font-medium", exPlColor(t.profitLoss))}>
+                            {t.profitLoss >= 0 ? "+" : ""}{exFmt(t.profitLoss, t.currency)}
+                          </td>
+                          {/* 수익률 */}
+                          <td className={cn("text-right p-2 tabular-nums font-semibold", exPlColor(t.profitLossPct))}>
+                            {exFmtPct(t.profitLossPct)}
+                          </td>
+                          {/* 월별 기하수익률 */}
+                          <td className={cn("text-right p-2 tabular-nums", t.monthlyGeoReturn !== null ? exPlColor(t.monthlyGeoReturn) : "text-muted-foreground")}>
+                            {t.monthlyGeoReturn !== null ? exFmtPct(t.monthlyGeoReturn) : "—"}
+                          </td>
+                          {/* 보유일수 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">
+                            {t.holdingDays}일
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {/* 합계 행 — 필터 적용 결과 기준 */}
+                    {(() => {
+                      const sumQty   = filteredExecutedTrades.reduce((s, t) => s + t.totalQty, 0);
+                      const sumBuy   = filteredExecutedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
+                      const sumPL    = filteredExecutedTrades.reduce((s, t) => s + t.profitLoss, 0);
+                      const sumPLPct = sumBuy > 0 ? (sumPL / sumBuy) * 100 : 0;
+                      const validMgr = filteredExecutedTrades.filter((t) => t.monthlyGeoReturn !== null);
+                      const avgMgr   = validMgr.length > 0
+                        ? validMgr.reduce((s, t) => s + (t.monthlyGeoReturn ?? 0), 0) / validMgr.length
+                        : null;
+                      const avgDays  = filteredExecutedTrades.length > 0
+                        ? Math.round(filteredExecutedTrades.reduce((s, t) => s + t.holdingDays, 0) / filteredExecutedTrades.length)
+                        : 0;
+                      return (
+                        <tfoot>
+                          <tr className="border-t-2 border-border bg-muted/30 text-xs font-semibold">
+                            <td className="p-2 pl-3">
+                              합계 <span className="text-muted-foreground font-normal">({filteredExecutedTrades.length}건)</span>
+                            </td>
+                            <td colSpan={7} />
+                            <td className="text-right p-2 tabular-nums">{sumQty.toLocaleString()}</td>
+                            <td className={cn("text-right p-2 tabular-nums", exPlColor(sumPL))}>
+                              {sumPL >= 0 ? "+" : ""}{Math.round(sumPL).toLocaleString("ko-KR")}
+                            </td>
+                            <td className={cn("text-right p-2 tabular-nums", exPlColor(sumPLPct))}>
+                              {exFmtPct(Math.round(sumPLPct * 100) / 100)}
+                            </td>
+                            <td className={cn("text-right p-2 tabular-nums", avgMgr !== null ? exPlColor(avgMgr) : "text-muted-foreground")}>
+                              {avgMgr !== null ? exFmtPct(Math.round(avgMgr * 100) / 100) : "—"}
+                            </td>
+                            <td className="text-right p-2 tabular-nums text-muted-foreground">
+                              {avgDays}일<span className="font-normal text-[10px] ml-0.5">(평균)</span>
+                            </td>
+                          </tr>
+                        </tfoot>
+                      );
+                    })()}
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ────────────────────────────────────────────
+            탭 5: 종목별 이력 (accordion + 소계)
         ──────────────────────────────────────────── */}
         <TabsContent value="stocks" className="mt-4">
           <StockHistoryTable
