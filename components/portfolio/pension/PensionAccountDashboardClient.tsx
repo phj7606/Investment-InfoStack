@@ -114,6 +114,29 @@ interface StockGroup {
 }
 
 // ─────────────────────────────────────────
+// Executed Trade — 완전 매도 완료 종목 1건 1행 타입
+// (잔량 0 = 전체 청산된 종목을 1개 엔트리로 집계)
+// ─────────────────────────────────────────
+interface PensionExecutedTrade {
+  key: string;               // `${stockCode}::${accountType}::${category ?? ""}`
+  stockCode: string;
+  stockName: string;
+  category?: string;
+  assetType: string;
+  accountType: PensionAccountType;
+  buyDate: string;           // 최초 매수일
+  sellDate: string;          // 최종 매도일
+  avgBuyPrice: number;       // 총매수금액 / 총매수수량
+  avgSellPrice: number;      // 총매도금액 / 총매도수량
+  totalQty: number;          // 매도 수량(= 매수 수량)
+  totalBuyAmt: number;
+  profitLoss: number;        // 실현손익 합계
+  profitLossPct: number;     // 실현수익률
+  holdingDays: number;
+  result: "Win" | "Lose";
+}
+
+// ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
 export function PensionAccountDashboardClient() {
@@ -190,6 +213,11 @@ export function PensionAccountDashboardClient() {
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupMsg,     setBackupMsg]     = useState<string | null>(null);
+
+  // ── Executed Trade 탭 정렬·필터 ────────────
+  type ExTradeSortCol = "stockName" | "accountType" | "buyDate" | "sellDate" | "avgBuyPrice" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "holdingDays" | "result";
+  const [exTradeSort,       setExTradeSort]       = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
+  const [exTradeAcctFilter, setExTradeAcctFilter] = useState<PensionAccountType | "all">("all");
 
   // ─────────────────────────────────────────
   // 데이터 로드
@@ -588,16 +616,170 @@ export function PensionAccountDashboardClient() {
   }, [transactions, enrichedPositions, stockAcctFilter]);
 
   // ─────────────────────────────────────────
+  // Executed Trade — transactions에서 파생
+  //
+  // 모든 계좌의 transactions를 종목+계좌+카테고리 단위로 그룹화하고,
+  // 잔량 0 (전량 매도 완료) + 매도 이력 있는 종목만 Executed Trade로 집계.
+  // 종목별 탭과 동일한 데이터소스이므로 거래 추가·수정 시 자동 업데이트.
+  // ─────────────────────────────────────────
+  const executedTrades = useMemo((): PensionExecutedTrade[] => {
+    // 계좌 필터 없이 전체 transactions 그룹화
+    const groupMap = new Map<string, {
+      stockCode: string; stockName: string; category?: string; assetType: string;
+      accountType: PensionAccountType; txs: PensionTransaction[];
+    }>();
+
+    for (const tx of transactions) {
+      const key = `${tx.stockCode}::${tx.accountType}::${tx.category ?? ""}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          stockCode: tx.stockCode, stockName: tx.stockName,
+          category: tx.category, assetType: tx.assetType,
+          accountType: tx.accountType, txs: [],
+        });
+      }
+      groupMap.get(key)!.txs.push(tx);
+    }
+
+    const result: PensionExecutedTrade[] = [];
+
+    for (const [key, g] of groupMap) {
+      // 날짜 오름차순 정렬 (잔량 추적 정확성 보장)
+      g.txs.sort((a, b) => a.date.localeCompare(b.date));
+
+      const buys  = g.txs.filter((t) => t.tradeType === "BUY");
+      const sells = g.txs.filter((t) => t.tradeType === "SELL");
+
+      // 매도 이력이 없으면 Executed Trade 아님
+      if (sells.length === 0) continue;
+
+      const totalBuyQty  = buys.reduce((s, t) => s + t.quantity, 0);
+      const totalSellQty = sells.reduce((s, t) => s + t.quantity, 0);
+
+      // enrichedPositions에서 해당 종목의 현재 잔량 확인
+      const pos = enrichedPositions.find((p) =>
+        p.stockCode === g.stockCode &&
+        p.accountType === g.accountType &&
+        (p.category ?? "") === (g.category ?? "")
+      );
+      const balance = pos?.quantity ?? Math.max(0, totalBuyQty - totalSellQty);
+
+      // 잔량이 남아있으면 아직 미완료 → 제외
+      if (balance !== 0) continue;
+
+      const totalBuyAmt  = buys.reduce((s, t) => s + t.amount, 0);
+      const totalSellAmt = sells.reduce((s, t) => s + t.amount, 0);
+      const avgBuyPrice  = totalBuyQty  > 0 ? Math.round(totalBuyAmt  / totalBuyQty)  : 0;
+      const avgSellPrice = totalSellQty > 0 ? Math.round(totalSellAmt / totalSellQty) : 0;
+
+      const buyDate  = buys[0]?.date                ?? sells[0]?.date ?? "";
+      const sellDate = sells[sells.length - 1]?.date ?? "";
+
+      // 실현손익: SELL에 realizedPL 저장된 경우 사용, 없으면 직접 계산
+      let profitLoss   = 0;
+      let sellCostBase = 0;
+      let runQty = 0, runCost = 0;
+      for (const t of g.txs) {
+        if (t.tradeType === "BUY") {
+          runQty  += t.quantity;
+          runCost += t.amount;
+        } else if (t.tradeType === "SELL") {
+          const avg = runQty > 0 ? runCost / runQty : 0;
+          sellCostBase += avg * t.quantity;
+          if (t.realizedPL !== undefined) {
+            profitLoss += t.realizedPL;
+          } else {
+            profitLoss += (t.amount - (t.fee ?? 0)) - avg * t.quantity;
+          }
+          runCost = Math.max(0, runCost - avg * t.quantity);
+          runQty  = Math.max(0, runQty  - t.quantity);
+        }
+      }
+
+      const profitLossPct = sellCostBase > 0 ? (profitLoss / sellCostBase) * 100 : 0;
+      const holdingDays   = buyDate && sellDate
+        ? Math.max(0, Math.round(
+            (new Date(sellDate).getTime() - new Date(buyDate).getTime()) / 86400000
+          ))
+        : 0;
+
+      result.push({
+        key,
+        stockCode: g.stockCode, stockName: g.stockName,
+        category: g.category, assetType: g.assetType,
+        accountType: g.accountType,
+        buyDate, sellDate, avgBuyPrice, avgSellPrice,
+        totalQty: totalSellQty, totalBuyAmt,
+        profitLoss:    Math.round(profitLoss),
+        profitLossPct: Math.round(profitLossPct * 100) / 100,
+        holdingDays,
+        result: profitLoss >= 0 ? "Win" : "Lose",
+      });
+    }
+
+    // 기본 정렬: 최종 매도일 내림차순
+    return result.sort((a, b) => b.sellDate.localeCompare(a.sellDate));
+  }, [transactions, enrichedPositions]);
+
+  // Executed Trade 성과 요약 (Win/Lose 통계)
+  const executedSummary = useMemo(() => {
+    if (executedTrades.length === 0) return null;
+    const wins   = executedTrades.filter((t) => t.result === "Win");
+    const losses = executedTrades.filter((t) => t.result === "Lose");
+    const totalWinPL   = wins.reduce((s, t) => s + t.profitLoss, 0);
+    const totalLossPL  = Math.abs(losses.reduce((s, t) => s + t.profitLoss, 0));
+    const winRate      = executedTrades.length > 0 ? wins.length / executedTrades.length : 0;
+    const profitFactor = totalLossPL > 0 ? totalWinPL / totalLossPL : Infinity;
+    const avgWinPct    = wins.length   > 0 ? wins.reduce((s, t)   => s + t.profitLossPct, 0) / wins.length   : 0;
+    const avgLossPct   = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
+    return { totalTrades: executedTrades.length, winCount: wins.length, lossCount: losses.length, winRate, profitFactor, avgWinPct, avgLossPct };
+  }, [executedTrades]);
+
+  // TPI = winRate × (PF + 1)
+  const exTpi = useMemo(() => {
+    if (!executedSummary || executedSummary.totalTrades === 0) return null;
+    const pf = isFinite(executedSummary.profitFactor) ? executedSummary.profitFactor : 0;
+    return Math.round(executedSummary.winRate * (pf + 1) * 10000) / 10000;
+  }, [executedSummary]);
+
+  const exTradeTotalBuy = executedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
+  const exTradeTotalPL  = executedTrades.reduce((s, t) => s + t.profitLoss, 0);
+
+  // 필터 + 정렬 적용
+  const filteredExecutedTrades = useMemo(() => {
+    let arr = [...executedTrades];
+    if (exTradeAcctFilter !== "all") arr = arr.filter((t) => t.accountType === exTradeAcctFilter);
+    return arr.sort((a, b) => {
+      let cmp = 0;
+      switch (exTradeSort.col) {
+        case "stockName":    cmp = a.stockName.localeCompare(b.stockName, "ko"); break;
+        case "accountType":  cmp = a.accountType.localeCompare(b.accountType); break;
+        case "buyDate":      cmp = a.buyDate.localeCompare(b.buyDate); break;
+        case "sellDate":     cmp = a.sellDate.localeCompare(b.sellDate); break;
+        case "avgBuyPrice":  cmp = a.avgBuyPrice  - b.avgBuyPrice;  break;
+        case "avgSellPrice": cmp = a.avgSellPrice - b.avgSellPrice; break;
+        case "profitLoss":   cmp = a.profitLoss   - b.profitLoss;   break;
+        case "profitLossPct": cmp = a.profitLossPct - b.profitLossPct; break;
+        case "holdingDays":  cmp = a.holdingDays  - b.holdingDays;  break;
+        case "result":       cmp = a.result.localeCompare(b.result); break;
+      }
+      return exTradeSort.dir === "asc" ? cmp : -cmp;
+    });
+  }, [executedTrades, exTradeAcctFilter, exTradeSort]);
+
+  // ─────────────────────────────────────────
   // 렌더
   // ─────────────────────────────────────────
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
+      {/* 탭 3개 → 4개: 리밸런싱 | Transactions | Executed Trade | 종목별 */}
       <Tabs defaultValue="rebalancing">
-        <TabsList className="grid w-full grid-cols-3 bg-emerald-500/5 border">
+        <TabsList className="grid w-full grid-cols-4 bg-emerald-500/5 border">
           {[
-            { value: "rebalancing",  label: "리밸런싱" },
-            { value: "transactions", label: "Executed Trade", count: transactions.length },
-            { value: "stocks",       label: "종목별",   count: stockGroups.length },
+            { value: "rebalancing",  label: "Open Positions", count: undefined },
+            { value: "transactions", label: "Transactions",   count: transactions.length },
+            { value: "executed",     label: "Executed Trade", count: executedTrades.length },
+            { value: "stocks",       label: "종목별",          count: stockGroups.length },
           ].map(({ value, label, count }) => (
             <TabsTrigger
               key={value} value={value}
@@ -647,11 +829,6 @@ export function PensionAccountDashboardClient() {
                 onClick={() => void fetchPrices(positions)} disabled={priceLoading || positions.length === 0}>
                 <RefreshCw className={cn("h-3 w-3", priceLoading && "animate-spin")} />
                 현재가 조회
-              </Button>
-              <Button size="sm" className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                onClick={() => { setTxFormDefault(selectedAccount); setTxFormOpen(true); }}>
-                <Plus className="h-3 w-3" />
-                Add Trade
               </Button>
             </div>
           </div>
@@ -1202,7 +1379,194 @@ export function PensionAccountDashboardClient() {
         </TabsContent>
 
         {/* ══════════════════════════════════════
-            탭 3: 종목별 — Value Investment Account 스타일
+            탭 3: Executed Trade — 잔량 0인 종목 (전량 매도 완료)
+            종목별 탭과 동일한 데이터소스, 계좌 전체 집계
+        ══════════════════════════════════════ */}
+        <TabsContent value="executed" className="mt-4 space-y-3">
+
+          {/* 성과 요약 카드 — 거래 건수가 있을 때만 표시 */}
+          {executedSummary && executedSummary.totalTrades > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+              <ExSummaryCard label="총 완료 거래"
+                value={`${executedSummary.totalTrades}건`}
+                sub={`${executedSummary.winCount}승 ${executedSummary.lossCount}패`}
+              />
+              <ExSummaryCard label="승률"
+                value={`${Math.round(executedSummary.winRate * 100)}%`}
+              />
+              <ExSummaryCard label="누적 손익"
+                value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}원`}
+                valueClass={plColor(exTradeTotalPL)}
+              />
+              <ExSummaryCard label="손익비 (PF)"
+                value={isFinite(executedSummary.profitFactor) ? executedSummary.profitFactor.toFixed(2) : "∞"}
+              />
+              <ExSummaryCard label="평균 수익"
+                value={`+${executedSummary.avgWinPct.toFixed(1)}%`}
+                valueClass="text-red-500"
+              />
+              <ExSummaryCard label="평균 손실"
+                value={`-${executedSummary.avgLossPct.toFixed(1)}%`}
+                valueClass="text-blue-500"
+              />
+              <ExSummaryCard label="TPI"
+                value={exTpi !== null ? exTpi.toFixed(2) : "-"}
+                sub="winRate × (PF+1)"
+                valueClass={exTpi !== null ? (exTpi >= 1 ? "text-red-500" : "text-blue-500") : undefined}
+              />
+            </div>
+          )}
+
+          {/* 계좌 총합 */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <ExSummaryCard label="총 매수금액"   value={`${fmt(exTradeTotalBuy)}원`} />
+            <ExSummaryCard label="총 실현 손익"
+              value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}원`}
+              valueClass={plColor(exTradeTotalPL)}
+            />
+            <ExSummaryCard label="실현 수익률"
+              value={exTradeTotalBuy > 0 ? fmtPct((exTradeTotalPL / exTradeTotalBuy) * 100) : "-"}
+              valueClass={plColor(exTradeTotalPL)}
+            />
+          </div>
+
+          {/* 필터 바 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 계좌 필터 */}
+            <div className="flex rounded-md border overflow-hidden text-[10px]">
+              {(["all", "RETIREMENT", "SAVINGS", "IRP"] as const).map((acct) => (
+                <button key={acct} onClick={() => setExTradeAcctFilter(acct)}
+                  className={cn("px-2.5 py-1 transition-colors",
+                    exTradeAcctFilter === acct ? "bg-emerald-500 text-white" : "hover:bg-muted/50"
+                  )}>
+                  {acct === "all" ? "전체" : ACCT_LABELS[acct]}
+                </button>
+              ))}
+            </div>
+
+<span className="text-[10px] text-muted-foreground">{filteredExecutedTrades.length}건 표시</span>
+          </div>
+
+          {/* 거래 테이블 */}
+          {filteredExecutedTrades.length === 0 ? (
+            <EmptyState text={
+              executedTrades.length === 0
+                ? "전량 매도 완료된 종목이 없습니다."
+                : "필터 조건에 해당하는 거래가 없습니다."
+            } />
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-[10px] text-muted-foreground bg-muted/20">
+                        {/* 클릭 가능한 정렬 헤더 */}
+                        {([
+                          { col: "stockName"    as ExTradeSortCol, label: "종목",   align: "left"  },
+                          { col: "accountType"  as ExTradeSortCol, label: "계좌",   align: "left"  },
+                          { col: "buyDate"      as ExTradeSortCol, label: "매수일", align: "right" },
+                          { col: "avgBuyPrice"  as ExTradeSortCol, label: "매수가", align: "right" },
+                          { col: "sellDate"     as ExTradeSortCol, label: "매도일", align: "right" },
+                          { col: "avgSellPrice" as ExTradeSortCol, label: "매도가", align: "right" },
+                          { col: "profitLoss"   as ExTradeSortCol, label: "손익",   align: "right" },
+                          { col: "profitLossPct" as ExTradeSortCol, label: "%",     align: "right" },
+                          { col: "holdingDays"  as ExTradeSortCol, label: "보유",   align: "right" },
+                          { col: "result"       as ExTradeSortCol, label: "결과",   align: "center"},
+                        ] as const).map(({ col, label, align }) => (
+                          <th key={col}
+                            className={cn(
+                              "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
+                              align === "left" ? "text-left pl-3" : align === "right" ? "text-right" : "text-center"
+                            )}
+                            onClick={() => setExTradeSort((prev) =>
+                              prev.col === col
+                                ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+                                : { col, dir: "desc" }
+                            )}
+                          >
+                            <span className={cn("inline-flex items-center gap-0.5",
+                              align === "right" ? "justify-end" : align === "center" ? "justify-center" : ""
+                            )}>
+                              {label}
+                              {exTradeSort.col === col
+                                ? exTradeSort.dir === "asc"
+                                  ? <ArrowUp   className="h-3 w-3 text-emerald-600" />
+                                  : <ArrowDown className="h-3 w-3 text-emerald-600" />
+                                : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/30">
+                      {filteredExecutedTrades.map((t) => (
+                        <tr key={t.key} className="hover:bg-muted/30">
+                          {/* 종목명 + 코드 */}
+                          <td className="p-2 pl-3">
+                            <div className="font-medium">{t.stockName}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {t.stockCode}
+                              {t.category && (
+                                <span className={cn("ml-1 px-1 rounded",
+                                  t.category === "BOND"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-red-100 text-red-700"
+                                )}>
+                                  {CATEGORY_LABELS[t.category]}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {/* 계좌 배지 */}
+                          <td className="p-2">
+                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium">
+                              {ACCT_LABELS[t.accountType]}
+                            </span>
+                          </td>
+                          {/* 매수일 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">{t.buyDate}</td>
+                          {/* 평균 매수가 */}
+                          <td className="text-right p-2 tabular-nums">{fmt(t.avgBuyPrice)}</td>
+                          {/* 매도일 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">{t.sellDate}</td>
+                          {/* 평균 매도가 */}
+                          <td className="text-right p-2 tabular-nums">{fmt(t.avgSellPrice)}</td>
+                          {/* 실현손익 */}
+                          <td className={cn("text-right p-2 tabular-nums font-medium", plColor(t.profitLoss))}>
+                            {t.profitLoss >= 0 ? "+" : ""}{fmt(t.profitLoss)}
+                          </td>
+                          {/* 수익률 */}
+                          <td className={cn("text-right p-2 tabular-nums font-semibold", plColor(t.profitLossPct))}>
+                            {fmtPct(t.profitLossPct)}
+                          </td>
+                          {/* 보유일수 */}
+                          <td className="text-right p-2 tabular-nums text-muted-foreground">
+                            {t.holdingDays}일
+                          </td>
+                          {/* Win / Lose 배지 */}
+                          <td className="text-center p-2">
+                            <span className={cn(
+                              "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                              t.result === "Win"
+                                ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+                                : "bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                            )}>
+                              {t.result}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* ══════════════════════════════════════
+            탭 4: 종목별 — Value Investment Account 스타일
         ══════════════════════════════════════ */}
         <TabsContent value="stocks" className="mt-4 space-y-3">
           {/* 계좌 필터 */}
@@ -1880,6 +2244,23 @@ function RebalancingPanel({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+// ─────────────────────────────────────────
+// Executed Trade 탭 성과 요약 카드
+// ─────────────────────────────────────────
+function ExSummaryCard({
+  label, value, sub, valueClass,
+}: {
+  label: string; value: string; sub?: string; valueClass?: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2.5">
+      <p className="text-[11px] text-muted-foreground mb-1">{label}</p>
+      <p className={cn("text-sm font-semibold tabular-nums", valueClass)}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
+    </div>
   );
 }
 

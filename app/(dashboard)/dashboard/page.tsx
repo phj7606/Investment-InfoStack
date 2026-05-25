@@ -41,13 +41,7 @@ export default function DashboardPage() {
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative px-8 py-10 max-w-5xl mx-auto">
-          {/* 상단 태그라인 */}
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 mb-4">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-medium text-white/70 tracking-wide">1인 투자 하우스 시스템</span>
-          </div>
-
-          {/* 메인 타이틀 — 임팩트 있는 타이포그래피 */}
+{/* 메인 타이틀 — 임팩트 있는 타이포그래피 */}
           <h1 className="text-4xl font-black tracking-tight text-white leading-none">
             Investment<span className="text-indigo-400">+</span>
           </h1>

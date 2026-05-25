@@ -162,10 +162,6 @@ export function DashboardSidebar() {
             <span className="font-bold text-sm tracking-tight leading-none">
               {SITE_CONFIG.name}
             </span>
-            {/* 버전/상태 뱃지 */}
-            <span className="text-[9px] font-medium text-muted-foreground tracking-wide mt-0.5">
-              1인 투자 하우스
-            </span>
           </div>
         </Link>
       </SidebarHeader>

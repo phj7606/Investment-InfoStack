@@ -2,7 +2,7 @@
 // 퇴직연금 / 연금저축 / IRP 계좌별 포지션 + 리밸런싱 + 거래내역 + 종목별
 
 import { PageHeader } from "@/components/common/page-header";
-import { PensionAccountDashboardClient } from "@/components/portfolio/pension/PensionAccountDashboardClient";
+import { PensionDashboardNoSSR } from "@/components/portfolio/pension/PensionDashboardNoSSR";
 
 export const metadata = {
   title: "Pension Account | Investment+",
@@ -18,7 +18,7 @@ export default function PensionAccountPage() {
           description="퇴직연금 / 연금저축 / IRP — 보유 포지션, 거래 내역 및 리밸런싱"
         />
       </div>
-      <PensionAccountDashboardClient />
+      <PensionDashboardNoSSR />
     </div>
   );
 }
