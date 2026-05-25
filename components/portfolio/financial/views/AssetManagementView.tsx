@@ -478,6 +478,10 @@ function MonthlyInputDialog({
   const [cashForeignCad, setCashForeignCad] = useState(String(snapshot?.cashForeignCad ?? 0));
   const [fixedDepositKrw, setFixedDepositKrw] = useState(String(snapshot?.fixedDepositKrw ?? 0));
   const [fixedDepositUsd, setFixedDepositUsd] = useState(String(snapshot?.fixedDepositUsd ?? 0));
+
+  // 부채 — 임차보증금
+  const [leaseDeposit, setLeaseDeposit] = useState(String(snapshot?.leaseDeposit ?? 0));
+
   const [saving, setSaving] = useState(false);
 
   const setField = (acc: DepositAccount, field: "krw" | "usd", val: string) => {
@@ -500,6 +504,7 @@ function MonthlyInputDialog({
     setCashForeignCad(String(prevSnapshot.cashForeignCad ?? 0));
     setFixedDepositKrw(String(prevSnapshot.fixedDepositKrw ?? 0));
     setFixedDepositUsd(String(prevSnapshot.fixedDepositUsd ?? 0));
+    setLeaseDeposit(String(prevSnapshot.leaseDeposit ?? 0));
   };
 
   const handleSave = async () => {
@@ -521,6 +526,7 @@ function MonthlyInputDialog({
         cashForeignCad: Number(cashForeignCad) || 0,
         fixedDepositKrw: Number(fixedDepositKrw) || 0,
         fixedDepositUsd: Number(fixedDepositUsd) || 0,
+        leaseDeposit: Number(leaseDeposit) || 0,
       };
 
       const res = await fetch(`/api/portfolio/financial/snapshot/${month}`, {
@@ -619,6 +625,26 @@ function MonthlyInputDialog({
               />
             </div>
           ))}
+        </div>
+
+        {/* 부채 섹션 — 임차보증금 */}
+        <div className="space-y-3 py-2">
+          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">Liabilities</p>
+          <div className="grid grid-cols-2 items-center gap-2">
+            <Label className="text-xs text-right text-red-600">Lease Deposit (임차보증금)</Label>
+            <Input
+              type="number"
+              value={leaseDeposit}
+              onChange={(e) => setLeaseDeposit(e.target.value)}
+              className="h-7 text-xs border-red-300 focus-visible:ring-red-400"
+              placeholder="0"
+            />
+          </div>
+          {Number(leaseDeposit) > 0 && (
+            <p className="text-xs text-red-600 text-right">
+              −{Number(leaseDeposit).toLocaleString("ko-KR")}
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
@@ -921,9 +947,12 @@ export function AssetManagementView({
                   { label: "Investment Total", key: "investmentTotal" as const },
                   { label: "Cash and Equivalent Total", key: "cashTotal" as const },
                   { label: "Asset Total", key: "assetTotal" as const },
-                  { label: "Lease Deposit", key: "leaseDeposit" as const, isDebt: true },
+                  { label: "Lease Deposit", key: "leaseDeposit" as const, isDebt: true, isManualInput: true },
                   { label: "Net Debt/Surplus", key: "netDebtSurplus" as const, isPnl: true },
-                ].map(({ label, key, isDebt, isPnl }) => (
+                ].map(({ label, key, isDebt, isPnl, isManualInput }) => {
+                  // 직접입력 행(Lease Deposit): 데이터 셀 노란색 하이라이트
+                  const cellBg = isManualInput ? "bg-yellow-50/60 dark:bg-yellow-950/20" : "";
+                  return (
                   <tr key={key} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap">
                       {label}
@@ -933,7 +962,7 @@ export function AssetManagementView({
                       const cls = isPnl ? plClass(v) : isDebt ? "text-red-600 dark:text-red-400" : "";
                       return (
                         /* tabular-nums만 적용 — font-mono 제거 */
-                        <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls}`}>
+                        <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls} ${cellBg}`}>
                           {col.hasData
                             ? isDebt
                               ? `−${fmtKrw(Math.abs(v))}`
@@ -943,9 +972,10 @@ export function AssetManagementView({
                       );
                     })}
                     {/* YTD: Summary 섹션은 YTD 계산 미지원 — 공란 */}
-                    <td className="px-2 py-1 text-right text-xs text-muted-foreground/40">–</td>
+                    <td className={`px-2 py-1 text-right text-xs text-muted-foreground/40 ${cellBg}`}>–</td>
                   </tr>
-                ))}
+                  );
+                })}
 
                 {/* ── 환율 섹션 — 엑셀 Asset Management 87/88행 대응 ── */}
                 <tr className="bg-muted/60 border-t-2 border-border">
