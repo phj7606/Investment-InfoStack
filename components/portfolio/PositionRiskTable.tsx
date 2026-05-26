@@ -16,7 +16,7 @@
 //   investment_1R    = 1R_vol × bidPrice
 //   sl_account       = (1R_vol × riskPerShare) / totalCapital × 100
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ import type { RiskManagementConfig } from "@/types/portfolio";
 interface RiskRow {
   id: string;
   code: string;
+  name: string | null;     // 기업명 (API에서 자동 조회)
   price: number | null;    // 현재가 (자동 조회 또는 수동 입력)
   isLoading: boolean;
   error: string | null;
@@ -39,6 +40,7 @@ interface RiskRow {
 interface PersistedRow {
   id: string;
   code: string;
+  name: string | null;
   price: number | null;
 }
 
@@ -61,6 +63,7 @@ function createRow(): RiskRow {
   return {
     id: typeof crypto !== "undefined" ? crypto.randomUUID() : String(Date.now()),
     code: "",
+    name: null,
     price: null,
     isLoading: false,
     error: null,
@@ -79,6 +82,7 @@ function loadRows(key: string): RiskRow[] {
     return parsed.map((p) => ({
       id: p.id ?? (typeof crypto !== "undefined" ? crypto.randomUUID() : String(Date.now())),
       code: p.code ?? "",
+      name: p.name ?? null,
       price: p.price ?? null,
       isLoading: false,
       error: null,
@@ -90,7 +94,7 @@ function loadRows(key: string): RiskRow[] {
 
 /** rows에서 저장할 필드만 추출 */
 function toPersistedRows(rows: RiskRow[]): PersistedRow[] {
-  return rows.map(({ id, code, price }) => ({ id, code, price }));
+  return rows.map(({ id, code, name, price }) => ({ id, code, name, price }));
 }
 
 function fmt(v: number): string {
@@ -102,16 +106,33 @@ function fmt(v: number): string {
 // ─────────────────────────────────────────
 
 export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: PositionRiskTableProps) {
-  // lazy initializer — 마운트 시점에 localStorage에서 즉시 복원
+  // 클라이언트 마운트 후 localStorage에서 복원
+  // SSR 환경에서는 window가 없으므로 빈 행으로 시작하고, useEffect에서 클라이언트 로드
   const [rows, setRows] = useState<RiskRow[]>(() => loadRows(storageKey));
 
-  // storageKey 변경(계좌 전환) 시 해당 계좌의 저장 데이터로 재로드
+  // 이전 storageKey 추적 — 계좌 전환 시에만 재로드 (마운트 시 lazy init과 중복 방지)
+  const prevKeyRef = useRef(storageKey);
+  // 저장 허용 플래그 — 초기 렌더(SSR 빈 상태)나 storageKey 전환 직후에는 저장 스킵
+  const canSaveRef = useRef(false);
+
+  // storageKey 변경(계좌 전환) 시에만 재로드
+  // - 마운트 시는 lazy initializer가 처리하므로 이 effect는 스킵
+  // - canSaveRef를 false로 리셋해 이전 계좌 rows가 새 key에 저장되는 것을 방지
   useEffect(() => {
+    if (prevKeyRef.current === storageKey) return;
+    prevKeyRef.current = storageKey;
+    canSaveRef.current = false; // 다음 save effect가 이전 rows를 저장하지 않도록
     setRows(loadRows(storageKey));
   }, [storageKey]);
 
-  // rows 변경 시 localStorage에 저장 (isLoading 중인 행 제외하지 않음 — 코드/가격만 저장)
+  // rows 변경 시 localStorage에 저장
+  // - 첫 렌더(마운트)는 스킵 → SSR hydration 빈 상태가 저장된 데이터를 덮어쓰는 버그 방지
+  // - storageKey 전환 직후도 스킵 → 이전 계좌 rows가 새 key에 오염되지 않도록
   useEffect(() => {
+    if (!canSaveRef.current) {
+      canSaveRef.current = true;
+      return;
+    }
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(toPersistedRows(rows)));
@@ -127,7 +148,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
       ? Math.round(config.totalCapital / (config.unit + 1))
       : 0;
 
-  // ── 현재가 자동 조회 ────────────────────────
+  // ── 현재가 + 기업명 자동 조회 ────────────────────────
   const fetchPrice = useCallback(async (rowId: string, code: string) => {
     const trimmed = code.trim();
     if (!trimmed) return;
@@ -135,7 +156,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
     // 로딩 상태 진입
     setRows((prev) =>
       prev.map((r) =>
-        r.id === rowId ? { ...r, isLoading: true, error: null, price: null } : r
+        r.id === rowId ? { ...r, isLoading: true, error: null, price: null, name: null } : r
       )
     );
 
@@ -144,8 +165,13 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
         `/api/portfolio/risk/prices?codes=${encodeURIComponent(trimmed)}`
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { prices: Record<string, number> };
+      const data = (await res.json()) as {
+        prices: Record<string, number>;
+        names: Record<string, string>;
+      };
       const price = data.prices[trimmed] ?? null;
+      // 기업명: API가 반환한 names 맵에서 조회
+      const name = data.names?.[trimmed] ?? null;
 
       setRows((prev) =>
         prev.map((r) =>
@@ -153,6 +179,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
             ? {
                 ...r,
                 price,
+                name,
                 isLoading: false,
                 error: price === null ? "조회 실패 — 코드 확인 필요" : null,
               }
@@ -188,7 +215,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
     <Card>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold">포지션 사이징 테이블</CardTitle>
+          <CardTitle className="text-sm font-semibold">Position Sizing</CardTitle>
           <Button
             variant="ghost"
             size="sm"
@@ -272,7 +299,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
                                 setRows((prev) =>
                                   prev.map((r) =>
                                     r.id === row.id
-                                      ? { ...r, code: e.target.value, price: null, error: null }
+                                      ? { ...r, code: e.target.value, price: null, name: null, error: null }
                                       : r
                                   )
                                 )
@@ -298,6 +325,18 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
                               />
                             </button>
                           </div>
+                          {/* 기업명 — 조회 성공 시 네이버 주식 페이지 링크로 표시 */}
+                          {row.name && row.code.trim() && (
+                            <a
+                              href={`https://stock.naver.com/domestic/stock/${row.code.trim()}/price`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block mt-0.5 text-[10px] text-emerald-600 hover:text-emerald-700 hover:underline leading-tight truncate max-w-[90px]"
+                              title={row.name}
+                            >
+                              {row.name}
+                            </a>
+                          )}
                           {/* 오류 메시지 */}
                           {row.error && (
                             <p className="text-[10px] text-red-500 mt-0.5 leading-tight">

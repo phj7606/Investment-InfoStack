@@ -152,6 +152,17 @@ export async function searchNaverStockCode(stockName: string): Promise<string | 
  * closePrice 필드: "281,000" 형태 문자열 → parseInt 처리
  */
 export async function fetchNaverPriceViaCurl(stockCode: string): Promise<number | null> {
+  const result = await fetchNaverPriceAndName(stockCode);
+  return result.price;
+}
+
+/**
+ * Naver Finance basic API에서 현재가와 종목명을 동시에 조회
+ * API 응답에서 closePrice(현재가)와 stockName(종목명)을 추출
+ */
+export async function fetchNaverPriceAndName(
+  stockCode: string
+): Promise<{ price: number | null; name: string | null }> {
   const url = `https://m.stock.naver.com/api/stock/${stockCode}/basic`;
   try {
     const res = await fetch(url, {
@@ -162,16 +173,21 @@ export async function fetchNaverPriceViaCurl(stockCode: string): Promise<number 
       },
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { price: null, name: null };
     const text = await res.text();
-    if (!text.trim().startsWith("{")) return null;
+    if (!text.trim().startsWith("{")) return { price: null, name: null };
     const data = JSON.parse(text);
     const raw = data?.closePrice ?? data?.stockPrice;
-    if (!raw) return null;
+    if (!raw) return { price: null, name: null };
     const price = parseInt(String(raw).replace(/,/g, ""), 10);
-    return !isNaN(price) && price > 0 ? price : null;
+    // Naver basic API 응답: stockName 또는 itemName 필드
+    const name: string | null = data?.stockName ?? data?.itemName ?? null;
+    return {
+      price: !isNaN(price) && price > 0 ? price : null,
+      name: typeof name === "string" && name.length > 0 ? name : null,
+    };
   } catch {
-    return null;
+    return { price: null, name: null };
   }
 }
 

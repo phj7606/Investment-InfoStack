@@ -1,7 +1,7 @@
 /**
  * GET /api/portfolio/risk/prices?codes=005930,AAPL
  *
- * 리스크 관리 포지션 사이징 테이블용 현재가 조회 API.
+ * 리스크 관리 포지션 사이징 테이블용 현재가 + 기업명 조회 API.
  * 코드 형식으로 KR/US 자동 판별:
  *   - 전체 숫자 → KR (Naver Finance)
  *     · 6자리 미만: 앞에 0 패딩 → "58470" → "058470"
@@ -13,11 +13,11 @@
  *   codes: 쉼표 구분 종목코드/심볼 (최대 10개)
  *
  * 응답:
- *   { prices: Record<string, number>, fetchedAt: string }
+ *   { prices: Record<string, number>, names: Record<string, string>, fetchedAt: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
+import { fetchNaverCurrentPrices, fetchNaverPriceAndName } from "@/lib/fetchers/naver";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
 
 /**
@@ -65,23 +65,43 @@ export async function GET(req: NextRequest) {
     }
 
     // KR(Naver) + US(Yahoo) 병렬 조회
-    const [krPricesRaw, usPrices] = await Promise.all([
+    // KR: 현재가 + 기업명을 fetchNaverPriceAndName으로 한 번에 조회
+    const [krRawResults, usPrices] = await Promise.all([
       krNormCodes.length > 0
-        ? fetchNaverCurrentPrices(krNormCodes.map((c) => ({ code: c, name: c })))
-        : Promise.resolve({} as Record<string, number>),
+        ? Promise.all(
+            krNormCodes.map(async (norm) => {
+              const { price, name } = await fetchNaverPriceAndName(norm);
+              const orig = krNormMap[norm] ?? norm;
+              return { orig, norm, price, name };
+            })
+          )
+        : Promise.resolve([] as { orig: string; norm: string; price: number | null; name: string | null }[]),
       usCodes.length > 0
         ? fetchYahooCurrentPrices(usCodes)
         : Promise.resolve({} as Record<string, number>),
     ]);
 
-    // 정규화 코드 키를 원본 코드 키로 복원 (포지션 stockCode와 매핑 일치)
+    // 별칭 보정: 직접 조회 실패 시 기존 fetchNaverCurrentPrices(별칭 로직 포함)로 재시도
+    const krFailedCodes = krRawResults.filter((r) => r.price == null);
+    let krFallbackPrices: Record<string, number> = {};
+    if (krFailedCodes.length > 0) {
+      krFallbackPrices = await fetchNaverCurrentPrices(
+        krFailedCodes.map((r) => ({ code: r.norm, name: r.norm }))
+      );
+    }
+
+    // 결과 집계: 직접 조회 + 별칭 보정 결과 합산
     const krPrices: Record<string, number> = {};
-    for (const [norm, price] of Object.entries(krPricesRaw)) {
-      const orig = krNormMap[norm] ?? norm;
-      krPrices[orig] = price;
+    const krNames: Record<string, string> = {};
+    for (const { orig, norm, price, name } of krRawResults) {
+      const finalPrice = price ?? krFallbackPrices[norm] ?? null;
+      if (finalPrice != null) krPrices[orig] = finalPrice;
+      if (name) krNames[orig] = name;
     }
 
     const prices: Record<string, number> = { ...krPrices, ...usPrices };
+    // KR 기업명만 제공 (US는 추후 확장)
+    const names: Record<string, string> = { ...krNames };
 
     console.log(
       `[risk/prices] KR ${Object.keys(krPrices).length}/${krNormCodes.length}` +
@@ -90,6 +110,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       prices,
+      names,
       fetchedAt: new Date().toISOString(),
     });
   } catch (err) {
