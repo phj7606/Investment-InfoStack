@@ -18,6 +18,14 @@ interface PositionsTableProps {
   fetchedAt?: string;
 }
 
+// 종목코드 → 네이버 금융 URL 생성
+// 6자리 숫자: 국내 주식, 그 외: 해외 주식 검색
+function naverStockUrl(code: string): string {
+  return /^\d{6}$/.test(code)
+    ? `https://stock.naver.com/domestic/stock/${code}/price`
+    : `https://finance.naver.com/world/sise.nhn?symbol=${code}`;
+}
+
 // 수익률에 따른 색상 클래스
 function plColor(value: number): string {
   if (value > 0) return "text-red-500";    // 한국 주식: 상승=빨강
@@ -109,12 +117,19 @@ export function PositionsTable({
                       key={pos.stockCode}
                       className="hover:bg-muted/20 transition-colors"
                     >
-                      {/* 종목명 + 코드 */}
+                      {/* 종목명 + 코드 — 종목명 클릭 시 네이버 금융 이동 */}
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-1.5">
                           <PlIcon value={pos.profitLossPct} />
                           <div>
-                            <p className="font-medium">{pos.stockName}</p>
+                            <a
+                              href={naverStockUrl(pos.stockCode)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium hover:underline hover:text-emerald-600 transition-colors"
+                            >
+                              {pos.stockName}
+                            </a>
                             <p className="text-[10px] text-muted-foreground">{pos.stockCode}</p>
                           </div>
                         </div>

@@ -365,9 +365,20 @@ export function LongtermPositionsTable({
 
                   return (
                     <tr key={`${pos.stockCode}-${pos.accountNo}`} className="hover:bg-muted/20 transition-colors">
-                      {/* 종목명 + 코드 */}
+                      {/* 종목명 + 코드 — 종목명 클릭 시 네이버 금융 이동 */}
                       <td className="px-4 py-2.5">
-                        <p className="font-medium">{pos.stockName}</p>
+                        <a
+                          href={
+                            /^\d{6}$/.test(pos.stockCode)
+                              ? `https://stock.naver.com/domestic/stock/${pos.stockCode}/price`
+                              : `https://finance.naver.com/world/sise.nhn?symbol=${pos.stockCode}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium hover:underline hover:text-emerald-600 transition-colors"
+                        >
+                          {pos.stockName}
+                        </a>
                         <p className="text-[10px] text-muted-foreground">
                           {pos.stockCode}
                           <span className="ml-1 opacity-60">{pos.assetType}</span>

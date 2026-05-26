@@ -287,7 +287,18 @@ export function TrendAccountDashboardClient({ accountType }: TrendAccountDashboa
                       {positions.map((p) => (
                         <tr key={p.stockCode}>
                           <td className="py-1.5">
-                            <span className="font-medium">{p.stockName}</span>
+                            <a
+                              href={
+                                /^\d{6}$/.test(p.stockCode)
+                                  ? `https://stock.naver.com/domestic/stock/${p.stockCode}/price`
+                                  : `https://finance.naver.com/world/sise.nhn?symbol=${p.stockCode}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium hover:underline hover:text-emerald-600 transition-colors"
+                            >
+                              {p.stockName}
+                            </a>
                             <span className="ml-1 text-muted-foreground">{p.stockCode}</span>
                           </td>
                           <td className="text-right py-1.5 tabular-nums">
