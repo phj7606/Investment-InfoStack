@@ -9,6 +9,7 @@
 //   Risk Management  — 리스크 설정 + 포지션 사이징 계산기
 
 import { useState, useEffect, useCallback } from "react";
+import { naverStockUrl } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -288,11 +289,7 @@ export function TrendAccountDashboardClient({ accountType }: TrendAccountDashboa
                         <tr key={p.stockCode}>
                           <td className="py-1.5">
                             <a
-                              href={
-                                /^\d{6}$/.test(p.stockCode)
-                                  ? `https://stock.naver.com/domestic/stock/${p.stockCode}/price`
-                                  : `https://finance.naver.com/world/sise.nhn?symbol=${p.stockCode}`
-                              }
+                              href={naverStockUrl(p.stockCode)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium hover:underline hover:text-emerald-600 transition-colors"

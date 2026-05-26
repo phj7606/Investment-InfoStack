@@ -20,7 +20,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Plus, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 import type { RiskManagementConfig } from "@/types/portfolio";
 
 // ─────────────────────────────────────────
@@ -328,7 +328,7 @@ export function PositionRiskTable({ config, storageKey = DEFAULT_STORAGE_KEY }: 
                           {/* 기업명 — 조회 성공 시 네이버 주식 페이지 링크로 표시 */}
                           {row.name && row.code.trim() && (
                             <a
-                              href={`https://stock.naver.com/domestic/stock/${row.code.trim()}/price`}
+                              href={naverStockUrl(row.code.trim())}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="block mt-0.5 text-[10px] text-emerald-600 hover:text-emerald-700 hover:underline leading-tight truncate max-w-[90px]"

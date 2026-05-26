@@ -8,7 +8,7 @@
 import { TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 import type { KiwoomPosition } from "@/types/portfolio";
 
 interface PositionsTableProps {
@@ -16,14 +16,6 @@ interface PositionsTableProps {
   isLoading: boolean;
   onRefresh: () => void;
   fetchedAt?: string;
-}
-
-// 종목코드 → 네이버 금융 URL 생성
-// 6자리 숫자: 국내 주식, 그 외: 해외 주식 검색
-function naverStockUrl(code: string): string {
-  return /^\d{6}$/.test(code)
-    ? `https://stock.naver.com/domestic/stock/${code}/price`
-    : `https://finance.naver.com/world/sise.nhn?symbol=${code}`;
 }
 
 // 수익률에 따른 색상 클래스

@@ -10,7 +10,7 @@ import { useState, useMemo } from "react";
 import { Pencil, Check, X, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 import type { LongtermPosition } from "@/types/portfolio";
 
 interface LongtermPositionsTableProps {
@@ -368,11 +368,7 @@ export function LongtermPositionsTable({
                       {/* 종목명 + 코드 — 종목명 클릭 시 네이버 금융 이동 */}
                       <td className="px-4 py-2.5">
                         <a
-                          href={
-                            /^\d{6}$/.test(pos.stockCode)
-                              ? `https://stock.naver.com/domestic/stock/${pos.stockCode}/price`
-                              : `https://finance.naver.com/world/sise.nhn?symbol=${pos.stockCode}`
-                          }
+                          href={naverStockUrl(pos.stockCode)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium hover:underline hover:text-emerald-600 transition-colors"
