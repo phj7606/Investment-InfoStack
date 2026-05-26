@@ -1110,7 +1110,7 @@ export function PensionAccountDashboardClient() {
                           <tfoot>
                             <tr className={cn("border-t bg-muted/20 font-medium text-xs")}>
                               <td className="px-4 py-2 text-muted-foreground"
-                                colSpan={hasCat ? 6 : 5}>합계</td>
+                                colSpan={hasCat ? 5 : 4}>합계</td>
                               {/* 평가금액 */}
                               <td className="px-3 py-2 text-right tabular-nums">
                                 {fmt(totalEval)}원
