@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { ShorttermAccountDashboardClient } from "@/components/portfolio/shortterm/ShorttermAccountDashboardClient";
 
 export const metadata = {
-  title: "Short-term Account | Investment+",
+  title: "Short-term Account",
   description: "단기투자 계좌(2805) 보유 포지션, 거래 내역 및 Risk Management",
 };
 

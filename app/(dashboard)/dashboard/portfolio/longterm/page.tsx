@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { LongtermDashboardClient } from "@/components/portfolio/longterm/LongtermDashboardClient";
 
 export const metadata = {
-  title: "Value Investment Account | Investment+",
+  title: "Value Investment Account",
   description: "Value Investment Account 포트폴리오 관리 — 포지션, 거래 내역, 성과 분석, 리밸런싱",
 };
 

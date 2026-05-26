@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { EducationAccountDashboardClient } from "@/components/portfolio/education/EducationAccountDashboardClient";
 
 export const metadata = {
-  title: "Education Account | Investment+",
+  title: "Education Account",
   description: "교육 계좌(1470) 보유 포지션 및 거래내역 — 수동 기입 관리",
 };
 

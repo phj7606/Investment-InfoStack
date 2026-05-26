@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { PensionDashboardNoSSR } from "@/components/portfolio/pension/PensionDashboardNoSSR";
 
 export const metadata = {
-  title: "Pension Account | Investment+",
+  title: "Pension Account",
   description: "퇴직연금 / 연금저축 / IRP 계좌 통합 관리 및 리밸런싱 분석",
 };
 

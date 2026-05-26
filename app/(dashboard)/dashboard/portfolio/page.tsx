@@ -49,7 +49,7 @@ const ACCOUNTS = [
 ];
 
 export const metadata = {
-  title: "Investment Management | Investment+",
+  title: "Investment Management",
   description: "계좌별 포트폴리오 대시보드 — 추세추종·장기투자·연금 계좌 통합 관리",
 };
 

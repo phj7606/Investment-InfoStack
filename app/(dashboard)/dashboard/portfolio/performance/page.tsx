@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { PerformanceDashboardClient } from "@/components/portfolio/performance/PerformanceDashboardClient";
 
 export const metadata = {
-  title: "성과 분석 | Investment+",
+  title: "성과 분석",
   description: "포트폴리오 월별 수익률 · 벤치마크 비교 · Jan 2026~ KR/US 분리 분석",
 };
 

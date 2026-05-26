@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { FinancialStatementClient } from "@/components/portfolio/financial/FinancialStatementClient";
 
 export const metadata = {
-  title: "Financial Statement | Investment+",
+  title: "Financial Statement",
   description: "월별 현금흐름, 자산관리, 종합 재무제표 — 월말 확정 기반 자산 추적",
 };
 
