@@ -1,16 +1,17 @@
 /**
- * Short-term 계좌 데이터 읽기/쓰기 헬퍼
- * Supabase app_data 테이블의 'shortterm_transactions' 키에 저장
+ * Education 계좌 거래내역 데이터 읽기/쓰기 헬퍼
+ * Supabase app_data 테이블의 'education_transactions' 키에 저장
  *
  * LongtermTransaction 단건 모델(BUY/SELL/DIVIDEND) 사용 — longterm-store 패턴 동일
+ * 기존 education_account(EducationPosition+EducationTrade)와 분리된 독립 키
  * Next.js App Router RSC/Route Handler에서만 사용 (서버 전용)
  */
 
 import { readKey, writeKey } from "@/lib/db";
 import type { LongtermTransaction } from "@/types/portfolio";
 
-// Education 계좌(shortterm_account)와 분리된 독립 키
-const DATA_KEY = "shortterm_transactions";
+// Short-term 계좌(shortterm_transactions)와 분리된 독립 키
+const DATA_KEY = "education_transactions";
 
 // ─────────────────────────────────────────
 // 기본 CRUD

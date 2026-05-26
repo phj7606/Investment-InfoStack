@@ -29,8 +29,8 @@ import {
   writeAccountData as writeEducation,
 } from "@/lib/portfolio/educationData";
 import {
-  readAccountData as readShortterm,
-  writeAccountData as writeShortterm,
+  readTransactions as readShortterm,
+  writeTransactions as writeShortterm,
 } from "@/lib/portfolio/shorttermData";
 import type { FinancialSnapshot } from "@/types/financial";
 import type {
@@ -65,11 +65,10 @@ interface FullBackupData {
     positions: EducationPosition[];
     trades: EducationTrade[];
   };
+  // shortterm은 v2에서 LongtermTransaction[] 기반으로 마이그레이션
   shortterm: {
-    positionCount: number;
-    tradeCount: number;
-    positions: EducationPosition[];
-    trades: EducationTrade[];
+    count: number;
+    transactions: LongtermTransaction[];
   };
 }
 
@@ -114,10 +113,8 @@ export async function GET() {
         trades: educationData.trades,
       },
       shortterm: {
-        positionCount: shorttermData.positions.length,
-        tradeCount: shorttermData.trades.length,
-        positions: shorttermData.positions,
-        trades: shorttermData.trades,
+        count: shorttermData.length,
+        transactions: shorttermData,
       },
     };
 
@@ -289,36 +286,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── 단기 계좌 복원 ────────────────────────────────
+    // ── 단기 계좌 복원 (v2: LongtermTransaction 기반) ────────
     if (body.modules.includes("shortterm")) {
       tasks.push(
         (async () => {
-          const { positions: inPos, trades: inTrades } = body.data.shortterm;
+          const incoming = body.data.shortterm.transactions;
           if (body.mode === "overwrite") {
-            await writeShortterm({ positions: inPos, trades: inTrades });
-            results.shortterm = {
-              restored: inPos.length + inTrades.length,
-              skipped: 0,
-            };
+            await writeShortterm(incoming);
+            results.shortterm = { restored: incoming.length, skipped: 0 };
           } else {
-            const current = await readShortterm();
-            const existingCodes = new Set(current.positions.map((p) => p.stockCode));
-            const newPos = inPos.filter((p) => !existingCodes.has(p.stockCode));
-            const existingTrades = new Set(
-              current.trades.map(
-                (t) => `${t.buyDate}::${t.sellDate}::${t.stockCode}::${t.quantity}`
+            // 중복 기준: date::stockCode::tradeType::quantity::price
+            const existing = await readShortterm();
+            const existingKeys = new Set(
+              existing.map(
+                (t) => `${t.date}::${t.stockCode}::${t.tradeType}::${t.quantity}::${t.price}`
               )
             );
-            const newTrades = inTrades.filter(
-              (t) => !existingTrades.has(`${t.buyDate}::${t.sellDate}::${t.stockCode}::${t.quantity}`)
-            );
-            await writeShortterm({
-              positions: [...current.positions, ...newPos],
-              trades: [...current.trades, ...newTrades],
+            const toAdd = incoming.filter((t) => {
+              const k = `${t.date}::${t.stockCode}::${t.tradeType}::${t.quantity}::${t.price}`;
+              return !existingKeys.has(k);
             });
+            if (toAdd.length > 0) await writeShortterm([...existing, ...toAdd]);
             results.shortterm = {
-              restored: newPos.length + newTrades.length,
-              skipped: inPos.length - newPos.length + inTrades.length - newTrades.length,
+              restored: toAdd.length,
+              skipped: incoming.length - toAdd.length,
             };
           }
         })()

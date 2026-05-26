@@ -1,71 +1,50 @@
 "use client";
 
-// Short-term 계좌(2805) 대시보드 — 파일 기반 수동 관리 컴포넌트
-// 3탭: 포지션 | 거래내역 | Risk Management
+// Short-term 계좌 대시보드
 //
-// Education 계좌와 동일한 구조, shortterm API 엔드포인트 사용
-// 포지션: 현재가 API 자동 조회, 계좌 총합, 손익 실시간 표시
-// 거래내역: 성과 요약 상단 + 정렬/필터 기능
-// Risk Management: RiskManagementPanel + PositionRiskTable
+// 탭 구성:
+//   1. Open Positions  — LongtermPositionsTable (Value Investment Account와 동일 포맷)
+//   2. Transactions    — TransactionTable + TransactionForm (계좌/시장 필터 숨김)
+//   3. Executed Trade  — StockHistoryTable (balance=0 종목)
+//   4. 종목별           — StockHistoryTable (전체)
+//   5. Risk Management — RiskManagementPanel + PositionRiskTable
+//
+// 데이터 모델: LongtermTransaction (단일 계좌 2805, 주로 KR)
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, CloudUpload, CloudDownload } from "lucide-react";
+import { Plus, CloudUpload, CloudDownload, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 import { RiskManagementPanel } from "@/components/portfolio/RiskManagementPanel";
 import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
-import { AddPositionDialog } from "./AddPositionDialog";
-import { SellPositionDialog } from "./SellPositionDialog";
-import { AddTradeDialog } from "./AddTradeDialog";
-import { EditPositionDialog } from "@/components/portfolio/shared/EditPositionDialog";
-import { EditTradeDialog } from "@/components/portfolio/shared/EditTradeDialog";
+import { LongtermPositionsTable } from "@/components/portfolio/longterm/LongtermPositionsTable";
+import { TransactionTable } from "@/components/portfolio/longterm/TransactionTable";
+import { TransactionForm } from "@/components/portfolio/longterm/TransactionForm";
+import { StockHistoryTable } from "@/components/portfolio/longterm/StockHistoryTable";
 import type {
-  EducationPosition,
+  LongtermTransaction,
+  LongtermPosition,
+  RiskManagementConfig,
   EducationTrade,
   PerformanceSummary,
-  RiskManagementConfig,
 } from "@/types/portfolio";
 import { DEFAULT_RISK_CONFIG } from "@/types/portfolio";
 
 // ─────────────────────────────────────────
-// 상수 — localStorage 키를 Education과 분리
-// ─────────────────────────────────────────
-const RISK_STORAGE_KEY   = "portfolio-risk-management-config-shortterm-v1";
-const POSITION_TABLE_KEY = "portfolio-position-risk-table-shortterm-v1";
-
-// ─────────────────────────────────────────
-// 색상·포맷 헬퍼
-// ─────────────────────────────────────────
-function plColor(v: number) {
-  return v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
-}
-function fmt(v: number) { return v.toLocaleString(); }
-function fmtPct(v: number, d = 2) {
-  return `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
-}
-
-// ─────────────────────────────────────────
-// 정렬 유틸
+// Executed Trade 탭 — 정렬/헬퍼
 // ─────────────────────────────────────────
 type TradeCol =
   | "stockName" | "sector" | "buyDate" | "sellDate"
   | "buyPrice" | "sellPrice" | "quantity"
   | "profitLoss" | "profitLossPct" | "holdingDays" | "result";
 
-// 포지션 테이블 정렬 가능 컬럼
-type PosCol =
-  | "stockName" | "sector" | "buyDate"
-  | "avgPrice" | "quantity" | "buyAmount"
-  | "currentPrice" | "profitLoss" | "profitLossPct";
+type TradeSortDir = "asc" | "desc";
+interface TradeSortState { col: TradeCol; dir: TradeSortDir }
 
-type SortDir = "asc" | "desc";
-interface SortState { col: TradeCol; dir: SortDir }
-interface PosSortState { col: PosCol; dir: SortDir }
-
-function sortTrades(trades: EducationTrade[], sort: SortState): EducationTrade[] {
+function sortTrades(trades: EducationTrade[], sort: TradeSortState): EducationTrade[] {
   return [...trades].sort((a, b) => {
     const aVal = a[sort.col];
     const bVal = b[sort.col];
@@ -79,44 +58,47 @@ function sortTrades(trades: EducationTrade[], sort: SortState): EducationTrade[]
   });
 }
 
-// enrichedPosition 기준 정렬 — buyAmount는 avgPrice*quantity 계산값
-type EnrichedPos = EducationPosition & {
-  currentPrice: number; evalAmount: number;
-  profitLoss: number; profitLossPct: number;
-};
-function sortPositions(positions: EnrichedPos[], sort: PosSortState): EnrichedPos[] {
-  return [...positions].sort((a, b) => {
-    let aVal: number | string;
-    let bVal: number | string;
-    if (sort.col === "buyAmount") {
-      aVal = a.avgPrice * a.quantity;
-      bVal = b.avgPrice * b.quantity;
-    } else {
-      aVal = a[sort.col] as number | string;
-      bVal = b[sort.col] as number | string;
-    }
-    const v = typeof aVal === "number" && typeof bVal === "number"
-      ? aVal - bVal
-      : String(aVal ?? "").localeCompare(String(bVal ?? ""), "ko");
-    return sort.dir === "asc" ? v : -v;
-  });
+// 색상 헬퍼 (한국 컨벤션)
+function plColor(v: number) {
+  return v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
 }
+function fmt(v: number) { return Math.round(v).toLocaleString("ko-KR"); }
+function fmtPct(v: number, d = 2) {
+  return `${v >= 0 ? "+" : ""}${v.toFixed(d)}%`;
+}
+
+// ─────────────────────────────────────────
+// localStorage 키 — Education 계좌와 분리
+// ─────────────────────────────────────────
+const RISK_STORAGE_KEY   = "portfolio-risk-management-config-shortterm-v1";
+const POSITION_TABLE_KEY = "portfolio-position-risk-table-shortterm-v1";
+// 수동 현재가 오버라이드 캐시 (연필 아이콘으로 입력한 값)
+const CURRENT_PRICES_KEY = "portfolio-shortterm-current-prices-v1";
 
 // ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
-
 export function ShorttermAccountDashboardClient() {
-  // ── 데이터 ─────────────────────────────────
-  const [positions, setPositions] = useState<EducationPosition[]>([]);
-  const [trades, setTrades]       = useState<EducationTrade[]>([]);
-  const [summary, setSummary]     = useState<PerformanceSummary | null>(null);
-  const [loading, setLoading]     = useState(false);
+  // ── 거래 내역 ──────────────────────────────
+  const [transactions, setTransactions] = useState<LongtermTransaction[]>([]);
+  const [txLoading, setTxLoading]       = useState(false);
 
-  // ── 현재가 ──────────────────────────────────
-  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>({});
-  const [priceLoading, setPriceLoading]   = useState(false);
-  const [priceAt, setPriceAt]             = useState<string | null>(null);
+  // ── 포지션 ─────────────────────────────────
+  const [positions, setPositions]   = useState<LongtermPosition[]>([]);
+  const [posLoading, setPosLoading] = useState(false);
+
+  // ── 현재가 (자동 조회 + localStorage 수동 오버라이드) ──
+  const [currentPrices, setCurrentPrices] = useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem(CURRENT_PRICES_KEY);
+      return saved ? (JSON.parse(saved) as Record<string, number>) : {};
+    } catch { return {}; }
+  });
+  // ref로 유지 → 비동기 콜백에서 최신값 읽되 deps 순환 방지
+  const currentPricesRef = useRef(currentPrices);
+
+  const [pricesLoading, setPricesLoading]     = useState(false);
+  const [pricesFetchedAt, setPricesFetchedAt] = useState<string | null>(null);
 
   // ── Risk Management ─────────────────────────
   const [riskConfig, setRiskConfig] = useState<RiskManagementConfig>(() => {
@@ -128,182 +110,277 @@ export function ShorttermAccountDashboardClient() {
     return DEFAULT_RISK_CONFIG;
   });
 
-  // ── 다이얼로그 ─────────────────────────────
-  const [addPosOpen, setAddPosOpen]     = useState(false);
-  const [editPos, setEditPos]           = useState<EducationPosition | null>(null);
-  const [sellPos, setSellPos]           = useState<EducationPosition | null>(null);
-  const [addTradeOpen, setAddTradeOpen] = useState(false);
-  const [editTrade, setEditTrade]       = useState<EducationTrade | null>(null);
+  // ── TransactionForm 다이얼로그 ───────────────
+  const [showForm, setShowForm]   = useState(false);
+  const [editingTx, setEditingTx] = useState<LongtermTransaction | undefined>(undefined);
 
-  // ── 백업/복원 ───────────────────────────────
-  const backupFileRef = useRef<HTMLInputElement>(null);
-  const [backupLoading, setBackupLoading] = useState(false);
-
-  // ── 포지션 정렬 ────────────────────────────
-  const [posSort, setPosSort] = useState<PosSortState>({ col: "buyDate", dir: "desc" });
-
-  // ── 거래내역 정렬/필터 ─────────────────────
-  const [sort, setSort]                 = useState<SortState>({ col: "sellDate", dir: "desc" });
+  // ── Executed Trade 탭 필터/정렬 ─────────────
   const [resultFilter, setResultFilter] = useState<"all" | "Win" | "Lose">("all");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
+  const [tradeSort, setTradeSort] = useState<TradeSortState>({ col: "sellDate", dir: "desc" });
+
+  // ── 백업/복원 ────────────────────────────────
+  const backupFileRef  = useRef<HTMLInputElement>(null);
+  const [backupLoading, setBackupLoading] = useState(false);
+
+  // currentPricesRef 동기화
+  useEffect(() => { currentPricesRef.current = currentPrices; }, [currentPrices]);
 
   // ─────────────────────────────────────────
-  // 데이터 로드
+  // 거래 내역 조회
   // ─────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const fetchTransactions = useCallback(async () => {
+    setTxLoading(true);
     try {
-      const [posRes, tradeRes] = await Promise.all([
-        fetch("/api/portfolio/shortterm/positions"),
-        fetch("/api/portfolio/shortterm/trades"),
-      ]);
-      const posData   = await posRes.json()   as { positions: EducationPosition[] };
-      const tradeData = await tradeRes.json() as { trades: EducationTrade[]; summary: PerformanceSummary };
-      setPositions(posData.positions);
-      setTrades(tradeData.trades);
-      setSummary(tradeData.summary);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadData(); }, [loadData]);
-
-  // ─────────────────────────────────────────
-  // 현재가 일괄 조회 (KR: Naver Finance)
-  // ─────────────────────────────────────────
-  const fetchPrices = useCallback(async (posArr: EducationPosition[]) => {
-    if (posArr.length === 0) return;
-    setPriceLoading(true);
-    try {
-      const codes = posArr.map((p) => p.stockCode).join(",");
-      const res = await fetch(`/api/portfolio/risk/prices?codes=${encodeURIComponent(codes)}`);
+      const res = await fetch("/api/portfolio/shortterm/transactions");
       if (!res.ok) return;
-      const data = await res.json() as { prices: Record<string, number>; fetchedAt: string };
-      setCurrentPrices(data.prices);
-      setPriceAt(data.fetchedAt);
-    } finally {
-      setPriceLoading(false);
-    }
+      setTransactions(await res.json() as LongtermTransaction[]);
+    } finally { setTxLoading(false); }
   }, []);
 
-  // 포지션 로드 완료 시 자동 조회
+  // ─────────────────────────────────────────
+  // 포지션 조회 + 현재가 즉시 병합
+  // ─────────────────────────────────────────
+  const fetchPositions = useCallback(async () => {
+    setPosLoading(true);
+    try {
+      const res = await fetch("/api/portfolio/shortterm/positions");
+      if (!res.ok) return;
+      const d = await res.json() as { positions: LongtermPosition[] };
+      const snap = currentPricesRef.current;
+      setPositions(
+        d.positions.map((p) => {
+          const cp = snap[p.stockCode];
+          if (!cp) return p;
+          const evalAmount = cp * p.quantity;
+          const evalPL     = evalAmount - p.avgCost * p.quantity;
+          const evalPLPct  = p.avgCost > 0 ? (evalPL / (p.avgCost * p.quantity)) * 100 : 0;
+          return { ...p, currentPrice: cp, evalAmount, evalPL, evalPLPct };
+        })
+      );
+    } finally { setPosLoading(false); }
+  }, []);
+
+  // ─────────────────────────────────────────
+  // 현재가 API 조회 (Naver KR + Yahoo US)
+  // ─────────────────────────────────────────
+  const fetchLivePrices = useCallback(async () => {
+    setPricesLoading(true);
+    try {
+      const res = await fetch("/api/portfolio/shortterm/prices");
+      if (!res.ok) return;
+      const d = await res.json() as { prices: Record<string, number>; fetchedAt: string };
+      // API 가격 + 수동 오버라이드 병합 (수동값 우선)
+      const merged = { ...d.prices, ...currentPricesRef.current };
+      currentPricesRef.current = merged;
+      setCurrentPrices(merged);
+      setPricesFetchedAt(d.fetchedAt);
+      setPositions((prev) =>
+        prev.map((p) => {
+          const cp = merged[p.stockCode];
+          if (!cp) return p;
+          const evalAmount = cp * p.quantity;
+          const evalPL     = evalAmount - p.avgCost * p.quantity;
+          const evalPLPct  = p.avgCost > 0 ? (evalPL / (p.avgCost * p.quantity)) * 100 : 0;
+          return { ...p, currentPrice: cp, evalAmount, evalPL, evalPLPct };
+        })
+      );
+    } finally { setPricesLoading(false); }
+  }, []);
+
+  // ─────────────────────────────────────────
+  // 수동 현재가 오버라이드 (LongtermPositionsTable 연필 아이콘)
+  // ─────────────────────────────────────────
+  const handlePriceUpdate = useCallback((stockCode: string, price: number) => {
+    setCurrentPrices((prev) => {
+      const next = { ...prev, [stockCode]: price };
+      localStorage.setItem(CURRENT_PRICES_KEY, JSON.stringify(next));
+      return next;
+    });
+    setPositions((prev) =>
+      prev.map((p) => {
+        if (p.stockCode !== stockCode) return p;
+        const evalAmount = price * p.quantity;
+        const evalPL     = evalAmount - p.avgCost * p.quantity;
+        const evalPLPct  = p.avgCost > 0 ? (evalPL / (p.avgCost * p.quantity)) * 100 : 0;
+        return { ...p, currentPrice: price, evalAmount, evalPL, evalPLPct };
+      })
+    );
+  }, []);
+
+  // ─────────────────────────────────────────
+  // 초기 로드
+  // ─────────────────────────────────────────
   useEffect(() => {
-    if (positions.length > 0) void fetchPrices(positions);
-  }, [positions, fetchPrices]);
+    void fetchTransactions();
+    void fetchPositions();
+  }, [fetchTransactions, fetchPositions]);
+
+  // 포지션 로드 후 현재가 자동 조회 (최초 1회)
+  useEffect(() => {
+    if (positions.length > 0 && !pricesFetchedAt) void fetchLivePrices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions.length]);
 
   // ─────────────────────────────────────────
-  // 포지션 계산값
+  // Executed Trade — transactions(SELL)에서 파생
+  // Education Account와 동일한 방식
   // ─────────────────────────────────────────
-  const enrichedPositions = useMemo(() =>
-    positions.map((p) => {
-      const cur = currentPrices[p.stockCode] ?? 0;
-      const evalAmount    = cur > 0 ? cur * p.quantity : 0;
-      const buyAmount     = p.avgPrice * p.quantity;
-      const profitLoss    = cur > 0 ? evalAmount - buyAmount : 0;
-      const profitLossPct = cur > 0 ? (profitLoss / buyAmount) * 100 : 0;
-      return { ...p, currentPrice: cur, evalAmount, profitLoss, profitLossPct };
-    }),
-  [positions, currentPrices]);
+  const derivedTrades = useMemo((): EducationTrade[] => {
+    // 종목별 BUY 이력 (시간순) — buyDate 추정에 사용
+    const buysByStock = new Map<string, LongtermTransaction[]>();
+    for (const tx of transactions) {
+      if (tx.tradeType !== "BUY") continue;
+      const key = `${tx.stockCode}::${tx.accountNo}`;
+      if (!buysByStock.has(key)) buysByStock.set(key, []);
+      buysByStock.get(key)!.push(tx);
+    }
+    for (const [, buys] of buysByStock) {
+      buys.sort((a, b) => a.date.localeCompare(b.date));
+    }
 
-  const totalBuyAmount  = enrichedPositions.reduce((s, p) => s + p.avgPrice * p.quantity, 0);
-  const totalEvalAmount = enrichedPositions.reduce((s, p) => s + p.evalAmount, 0);
-  const totalPosPL      = totalEvalAmount - totalBuyAmount;
-  const totalPosPLPct   = totalBuyAmount > 0 ? (totalPosPL / totalBuyAmount) * 100 : 0;
-  const hasPrices       = Object.keys(currentPrices).length > 0;
+    return transactions
+      .filter((tx) => tx.tradeType === "SELL")
+      .map((tx): EducationTrade => {
+        const key = `${tx.stockCode}::${tx.accountNo}`;
+        const buys = buysByStock.get(key) ?? [];
+        const buysBefore = buys.filter((b) => b.date <= tx.date);
+        const buyDate = buysBefore.length > 0 ? buysBefore[0].date : tx.date;
 
-  // ─────────────────────────────────────────
-  // 거래내역 계산값
-  // ─────────────────────────────────────────
-  // TPI = winRate × (profitFactor + 1)
+        const holdingDays = Math.max(0, Math.round(
+          (new Date(tx.date).getTime() - new Date(buyDate).getTime()) / 86400000
+        ));
+
+        const buyPrice  = tx.avgCostAtSell ?? 0;
+        const buyAmount = Math.round(buyPrice * tx.quantity);
+        const pl    = tx.realizedPL ?? 0;
+        const plPct = tx.realizedPLPct ?? 0;
+        const unitMatch = tx.memo?.match(/^unit:(.+)$/);
+
+        return {
+          id: tx.id,
+          stockCode: tx.stockCode,
+          stockName: tx.stockName,
+          sector: tx.sector ?? "",
+          buyDate,
+          sellDate: tx.date,
+          buyPrice,
+          buyAmount,
+          sellPrice: tx.price,
+          sellAmount: tx.amount,
+          commission: tx.fee,
+          quantity: tx.quantity,
+          profitLoss: pl,
+          profitLossPct: plPct,
+          holdingDays,
+          unit: unitMatch ? unitMatch[1] : "",
+          result: pl >= 0 ? "Win" : "Lose",
+        };
+      })
+      .sort((a, b) => b.sellDate.localeCompare(a.sellDate));
+  }, [transactions]);
+
+  const derivedSummary = useMemo((): PerformanceSummary | null => {
+    if (derivedTrades.length === 0) return null;
+    const wins   = derivedTrades.filter((t) => t.result === "Win");
+    const losses = derivedTrades.filter((t) => t.result === "Lose");
+
+    const totalWinPL  = wins.reduce((s, t) => s + t.profitLoss, 0);
+    const totalLossPL = Math.abs(losses.reduce((s, t) => s + t.profitLoss, 0));
+    const winRate      = derivedTrades.length > 0 ? wins.length / derivedTrades.length : 0;
+    const profitFactor = totalLossPL > 0 ? totalWinPL / totalLossPL : Infinity;
+    const avgWinPct    = wins.length > 0
+      ? wins.reduce((s, t) => s + t.profitLossPct, 0) / wins.length : 0;
+    const avgLossPct   = losses.length > 0
+      ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
+
+    let maxConsecutiveLoss = 0, curLoss = 0;
+    const sortedAsc = [...derivedTrades].sort((a, b) => a.sellDate.localeCompare(b.sellDate));
+    for (const t of sortedAsc) {
+      if (t.result === "Lose") { curLoss++; maxConsecutiveLoss = Math.max(maxConsecutiveLoss, curLoss); }
+      else curLoss = 0;
+    }
+
+    let cumPL = 0;
+    const equityCurve = sortedAsc.map((t) => { cumPL += t.profitLoss; return { date: t.sellDate, value: cumPL }; });
+
+    let peak = 0, mdd = 0;
+    for (const pt of equityCurve) {
+      if (pt.value > peak) peak = pt.value;
+      if (peak > 0) { const dd = (pt.value - peak) / peak * 100; if (dd < mdd) mdd = dd; }
+    }
+
+    return {
+      totalTrades: derivedTrades.length,
+      winCount: wins.length,
+      lossCount: losses.length,
+      winRate,
+      profitFactor,
+      avgWinPct,
+      avgLossPct,
+      expectedValue: winRate * avgWinPct - (1 - winRate) * avgLossPct,
+      maxConsecutiveLoss,
+      cumulativeProfitLoss: cumPL,
+      mdd,
+      equityCurve,
+      monthlyReturns: [],
+    };
+  }, [derivedTrades]);
+
   const tpi = useMemo(() => {
-    if (!summary || summary.totalTrades === 0) return null;
-    const pf = isFinite(summary.profitFactor) ? summary.profitFactor : 0;
-    return Math.round(summary.winRate * (pf + 1) * 10000) / 10000;
-  }, [summary]);
+    if (!derivedSummary || derivedSummary.totalTrades === 0) return null;
+    const pf = isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor : 0;
+    return Math.round(derivedSummary.winRate * (pf + 1) * 10000) / 10000;
+  }, [derivedSummary]);
 
-  const tradeTotalBuy = trades.reduce((s, t) => s + t.buyAmount, 0);
-  const tradeTotalPL  = trades.reduce((s, t) => s + t.profitLoss, 0);
+  const tradeTotalBuy = derivedTrades.reduce((s, t) => s + t.buyAmount, 0);
+  const tradeTotalPL  = derivedTrades.reduce((s, t) => s + t.profitLoss, 0);
 
   const sectors = useMemo(() =>
-    ["all", ...Array.from(new Set(trades.map((t) => t.sector).filter(Boolean))).sort()],
-  [trades]);
+    ["all", ...Array.from(new Set(derivedTrades.map((t) => t.sector).filter(Boolean))).sort()],
+  [derivedTrades]);
 
   const filteredTrades = useMemo(() => {
-    let arr = [...trades];
+    let arr = [...derivedTrades];
     if (resultFilter !== "all") arr = arr.filter((t) => t.result === resultFilter);
     if (sectorFilter !== "all") arr = arr.filter((t) => t.sector === sectorFilter);
-    return sortTrades(arr, sort);
-  }, [trades, resultFilter, sectorFilter, sort]);
+    return sortTrades(arr, tradeSort);
+  }, [derivedTrades, resultFilter, sectorFilter, tradeSort]);
 
   // ─────────────────────────────────────────
-  // 정렬 헤더 — 거래내역 테이블
+  // 거래 추가/편집 핸들러
   // ─────────────────────────────────────────
-  function toggleSort(col: TradeCol) {
-    setSort((prev) =>
-      prev.col === col
-        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { col, dir: "desc" }
-    );
+  async function handleTxSubmit(tx: Omit<LongtermTransaction, "id"> | LongtermTransaction) {
+    const isEdit = "id" in tx && !!tx.id;
+    if (isEdit) {
+      await fetch(`/api/portfolio/shortterm/transactions/${(tx as LongtermTransaction).id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tx),
+      });
+    } else {
+      await fetch("/api/portfolio/shortterm/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(tx),
+      });
+    }
+    setShowForm(false);
+    setEditingTx(undefined);
+    void fetchTransactions();
+    void fetchPositions();
   }
 
-  function SortIcon({ col }: { col: TradeCol }) {
-    if (sort.col !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-0.5" />;
-    return sort.dir === "asc"
-      ? <ArrowUp className="h-3 w-3 ml-0.5 text-emerald-500" />
-      : <ArrowDown className="h-3 w-3 ml-0.5 text-emerald-500" />;
+  async function handleTxDelete(id: string) {
+    if (!confirm("이 거래를 삭제하시겠습니까?")) return;
+    await fetch(`/api/portfolio/shortterm/transactions/${id}`, { method: "DELETE" });
+    void fetchTransactions();
+    void fetchPositions();
   }
 
-  function ThSort({ col, label, align = "right" }: { col: TradeCol; label: string; align?: "left" | "right" }) {
-    return (
-      <th
-        className={cn(
-          "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
-          align === "right" ? "text-right" : "text-left"
-        )}
-        onClick={() => toggleSort(col)}
-      >
-        <span className={cn("inline-flex items-center gap-0.5", align === "right" ? "justify-end" : "")}>
-          {label}
-          <SortIcon col={col} />
-        </span>
-      </th>
-    );
-  }
-
-  // ─────────────────────────────────────────
-  // 정렬 헤더 — 포지션 테이블
-  // ─────────────────────────────────────────
-  function togglePosSort(col: PosCol) {
-    setPosSort((prev) =>
-      prev.col === col
-        ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { col, dir: "desc" }
-    );
-  }
-
-  function PosSortIcon({ col }: { col: PosCol }) {
-    if (posSort.col !== col) return <ArrowUpDown className="h-3 w-3 opacity-40 ml-0.5" />;
-    return posSort.dir === "asc"
-      ? <ArrowUp className="h-3 w-3 ml-0.5 text-emerald-500" />
-      : <ArrowDown className="h-3 w-3 ml-0.5 text-emerald-500" />;
-  }
-
-  function ThPosSort({ col, label, align = "right" }: { col: PosCol; label: string; align?: "left" | "right" }) {
-    return (
-      <th
-        className={cn(
-          "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
-          align === "right" ? "text-right" : "text-left"
-        )}
-        onClick={() => togglePosSort(col)}
-      >
-        <span className={cn("inline-flex items-center gap-0.5", align === "right" ? "justify-end" : "")}>
-          {label}
-          <PosSortIcon col={col} />
-        </span>
-      </th>
-    );
+  function handleTxEdit(tx: LongtermTransaction) {
+    setEditingTx(tx);
+    setShowForm(true);
   }
 
   // ─────────────────────────────────────────
@@ -339,48 +416,30 @@ export function ShorttermAccountDashboardClient() {
     setBackupLoading(true);
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text) as {
-        positions?: unknown[];
-        trades?: unknown[];
-      };
+      const parsed = JSON.parse(text) as { version?: number; transactions?: unknown[] };
 
-      if (!Array.isArray(parsed.positions) || !Array.isArray(parsed.trades)) {
-        alert("유효한 백업 파일이 아닙니다. (positions/trades 배열 없음)");
+      if (!Array.isArray(parsed.transactions) || parsed.transactions.length === 0) {
+        alert("유효한 백업 파일이 아닙니다. (transactions 배열 없음)");
         return;
       }
 
       const useOverwrite = window.confirm(
-        `백업 파일: 포지션 ${parsed.positions.length}건 / 거래 ${parsed.trades.length}건\n\n` +
-        `[확인] 전체 덮어쓰기 (overwrite) — 현재 데이터가 모두 교체됩니다.\n` +
-        `[취소] 병합 추가 (merge) — 중복 제외한 신규 건만 추가됩니다.`
+        `백업 파일: 거래 ${parsed.transactions.length}건\n\n` +
+        `[확인] 전체 덮어쓰기 — 현재 데이터가 모두 교체됩니다.\n` +
+        `[취소] 병합 추가 — 중복 제외한 신규 건만 추가됩니다.`
       );
 
       const res = await fetch("/api/portfolio/shortterm/backup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          positions: parsed.positions,
-          trades: parsed.trades,
-          mode: useOverwrite ? "overwrite" : "merge",
-        }),
+        body: JSON.stringify({ transactions: parsed.transactions, mode: useOverwrite ? "overwrite" : "merge" }),
       });
-
       if (!res.ok) throw new Error("복원 API 오류");
-      const result = await res.json() as {
-        ok: boolean;
-        restoredPositions: number;
-        restoredTrades: number;
-        skippedPositions: number;
-        skippedTrades: number;
-      };
+      const result = await res.json() as { ok: boolean; restored: number; skipped: number };
 
-      alert(
-        `복원 완료\n` +
-        `포지션: 저장 ${result.restoredPositions}건 / 건너뜀 ${result.skippedPositions}건\n` +
-        `거래:   저장 ${result.restoredTrades}건 / 건너뜀 ${result.skippedTrades}건`
-      );
-
-      void loadData();
+      alert(`복원 완료\n저장: ${result.restored}건 / 건너뜀: ${result.skipped}건`);
+      void fetchTransactions();
+      void fetchPositions();
     } catch (err) {
       console.error("JSON 복원 실패:", err);
       alert("JSON 복원에 실패했습니다. 파일 형식을 확인해 주세요.");
@@ -393,13 +452,9 @@ export function ShorttermAccountDashboardClient() {
   // ─────────────────────────────────────────
   // 렌더
   // ─────────────────────────────────────────
-
-  // loading 변수가 선언되어 있지만 탭 로딩 스피너는 생략 (데이터 적재 시 빠른 로드 예상)
-  void loading;
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
-      {/* 파일 선택 input — hidden, 복원 시 트리거 */}
+      {/* hidden file input — 복원 트리거 */}
       <input
         ref={backupFileRef}
         type="file"
@@ -409,14 +464,17 @@ export function ShorttermAccountDashboardClient() {
       />
 
       <Tabs defaultValue="positions">
-        <TabsList className="grid w-full grid-cols-3 bg-emerald-500/5 border">
+        <TabsList className={cn("grid w-full grid-cols-5 bg-emerald-500/5 border")}>
           {[
-            { value: "positions", label: "Open Positions",  count: positions.length },
-            { value: "trades",    label: "Executed Trade", count: trades.length },
-            { value: "account",   label: "Risk Management", count: undefined },
+            { value: "positions",    label: "Open Positions",  count: positions.length },
+            { value: "transactions", label: "Transactions",    count: transactions.length },
+            { value: "executed",     label: "Executed Trade",  count: derivedTrades.length },
+            { value: "history",      label: "종목별",           count: undefined },
+            { value: "risk",         label: "Risk Management", count: undefined },
           ].map(({ value, label, count }) => (
             <TabsTrigger
-              key={value} value={value}
+              key={value}
+              value={value}
               className="data-[state=active]:bg-emerald-500 data-[state=active]:text-white text-xs"
             >
               {label}
@@ -428,11 +486,12 @@ export function ShorttermAccountDashboardClient() {
         </TabsList>
 
         {/* ══════════════════════════════════════
-            탭 1: 포지션
+            탭 1: Open Positions
+            Value Investment Account와 동일한 LongtermPositionsTable 포맷
+            (종목/시장/계좌/수량/평균단가/현재가/평가금액/평가손익/수익률/누적실현/비중)
         ══════════════════════════════════════ */}
         <TabsContent value="positions" className="mt-4 space-y-3">
-
-          {/* ── 상단 툴바 ── */}
+          {/* 툴바: 종목수 + Restore/Backup (거래추가 없음) */}
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
             <div className="flex gap-2">
@@ -452,179 +511,153 @@ export function ShorttermAccountDashboardClient() {
                 <CloudUpload className="h-3 w-3" />
                 Backup
               </Button>
-              <Button variant="ghost" size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => void fetchPrices(positions)}
-                disabled={priceLoading || positions.length === 0}
-              >
-                <RefreshCw className={cn("h-3 w-3", priceLoading && "animate-spin")} />
-                현재가 조회
-              </Button>
-              <Button size="sm"
-                className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                onClick={() => setAddPosOpen(true)}
-              >
-                <Plus className="h-3 w-3" />
-                매수 추가
-              </Button>
             </div>
           </div>
 
-          {/* ── 계좌 총합 ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <SummaryCard label="총 매수금액" value={`${fmt(totalBuyAmount)}원`} />
-            <SummaryCard
-              label="총 평가금액"
-              value={hasPrices ? `${fmt(totalEvalAmount)}원` : "-"}
-              dim={!hasPrices}
-            />
-            <SummaryCard
-              label="총 평가손익"
-              value={hasPrices ? `${totalPosPL >= 0 ? "+" : ""}${fmt(totalPosPL)}원` : "-"}
-              valueClass={hasPrices ? plColor(totalPosPL) : undefined}
-              dim={!hasPrices}
-            />
-            <SummaryCard
-              label="수익률"
-              value={hasPrices ? fmtPct(totalPosPLPct) : "-"}
-              valueClass={hasPrices ? plColor(totalPosPLPct) : undefined}
-              dim={!hasPrices}
-              sub={priceAt ? `${new Date(priceAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} 기준` : undefined}
-            />
-          </div>
+          {/* KPI 요약 카드 — 총 매수금액 / 총 평가금액 / 총 평가손익 / 수익률
+              KRW 포지션만 합산 (USD 포지션은 환율 변환 없이 별도 표기하지 않음)
+              현재가가 입력된 종목만 평가금액·평가손익 계산에 반영 */}
+          {(() => {
+            const krwPos = positions.filter((p) => p.currency === "KRW");
+            const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
+            const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
+            const hasPrices = priced.length > 0;
+            const totalEval = priced.reduce((s, p) => s + p.evalAmount, 0);
+            const totalPL   = priced.reduce((s, p) => s + p.evalPL, 0);
+            const totalPLPct = totalCost > 0 ? (totalPL / totalCost) * 100 : null;
 
-          {/* ── 포지션 테이블 ── */}
-          {positions.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              보유 포지션이 없습니다.
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b text-[10px] text-muted-foreground bg-muted/20">
-                        <ThPosSort col="stockName"    label="종목"     align="left" />
-                        <ThPosSort col="sector"       label="섹터"     align="left" />
-                        <ThPosSort col="buyDate"      label="매수일" />
-                        <ThPosSort col="avgPrice"     label="매수가" />
-                        <ThPosSort col="quantity"     label="수량" />
-                        <ThPosSort col="buyAmount"    label="매수금액" />
-                        <th className="text-right p-2 font-medium">Unit</th>
-                        <ThPosSort col="currentPrice" label="현재가" />
-                        <ThPosSort col="profitLoss"   label="손익" />
-                        <th className="p-2 w-16" />
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/30">
-                      {sortPositions(enrichedPositions, posSort).map((p) => {
-                        const hasCur = p.currentPrice > 0;
-                        return (
-                          <tr key={p.id} className="hover:bg-muted/30">
-                            <td className="p-2 pl-3">
-                              <div className="font-medium">{p.stockName}</div>
-                              <div className="text-[10px] text-muted-foreground">{p.stockCode}</div>
-                            </td>
-                            <td className="p-2 text-muted-foreground">{p.sector || "-"}</td>
-                            <td className="text-right p-2 text-muted-foreground tabular-nums">{p.buyDate ?? "-"}</td>
-                            <td className="text-right p-2 tabular-nums">{fmt(p.avgPrice)}</td>
-                            <td className="text-right p-2 tabular-nums">{p.quantity}</td>
-                            <td className="text-right p-2 tabular-nums font-medium">{fmt(p.avgPrice * p.quantity)}</td>
-                            <td className="text-right p-2 text-muted-foreground">{p.unit || "-"}</td>
-                            <td className="text-right p-2 tabular-nums">
-                              {priceLoading ? (
-                                <span className="text-muted-foreground text-[10px]">조회 중…</span>
-                              ) : hasCur ? (
-                                <span className="font-medium">{fmt(p.currentPrice)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </td>
-                            <td className="text-right p-2 pr-3 tabular-nums">
-                              {hasCur ? (
-                                <div>
-                                  <div className={cn("font-semibold", plColor(p.profitLoss))}>
-                                    {p.profitLoss >= 0 ? "+" : ""}{fmt(p.profitLoss)}
-                                  </div>
-                                  <div className={cn("text-[10px]", plColor(p.profitLossPct))}>
-                                    {fmtPct(p.profitLossPct)}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="text-muted-foreground">-</span>
-                              )}
-                            </td>
-                            <td className="p-2">
-                              <div className="flex gap-1">
-                                <Button variant="outline" size="sm"
-                                  className="h-6 text-[10px] px-2"
-                                  onClick={() => setEditPos(p)}
-                                >
-                                  편집
-                                </Button>
-                                <Button variant="outline" size="sm"
-                                  className="h-6 text-[10px] px-2 border-blue-300 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                  onClick={() => setSellPos(p)}
-                                >
-                                  매도
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                    {/* 합계 행 */}
-                    {hasPrices && (
-                      <tfoot>
-                        <tr className="border-t-2 bg-muted/30 text-xs font-semibold">
-                          <td colSpan={5} className="p-2 pl-3 text-muted-foreground">합계</td>
-                          <td className="text-right p-2 tabular-nums">{fmt(totalBuyAmount)}</td>
-                          <td />
-                          <td className="text-right p-2 tabular-nums">{fmt(totalEvalAmount)}</td>
-                          <td className={cn("text-right p-2 pr-3 tabular-nums", plColor(totalPosPL))}>
-                            {totalPosPL >= 0 ? "+" : ""}{fmt(totalPosPL)}
-                            <div className={cn("text-[10px] font-medium", plColor(totalPosPLPct))}>
-                              {fmtPct(totalPosPLPct)}
-                            </div>
-                          </td>
-                          <td />
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
+            // 한국식 정수 포맷 (쉼표 구분, 소수점 없음)
+            const fmt = (n: number) => Math.round(n).toLocaleString("ko-KR");
+            // 한국 수익 색상 규칙: 양수=red-500, 음수=blue-500
+            const plColor  = totalPL  >= 0 ? "text-red-500"  : "text-blue-500";
+            const pctColor = (totalPLPct ?? 0) >= 0 ? "text-red-500" : "text-blue-500";
+            const fetchedStr = pricesFetchedAt
+              ? new Date(pricesFetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+              : null;
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {/* 총 매수금액 */}
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 매수금액</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmt(totalCost)}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                {/* 총 평가금액 — 현재가 입력 전에는 대시 표시 */}
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 평가금액</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {hasPrices ? fmt(totalEval) : "—"}
+                  </p>
+                </div>
+                {/* 총 평가손익 */}
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 평가손익</p>
+                  <p className={`text-sm font-semibold tabular-nums ${hasPrices ? plColor : ""}`}>
+                    {hasPrices
+                      ? `${totalPL >= 0 ? "+" : ""}${fmt(totalPL)}`
+                      : "—"}
+                  </p>
+                </div>
+                {/* 수익률 + 시세 기준 시각 */}
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">수익률</p>
+                  <p className={`text-sm font-semibold tabular-nums ${hasPrices && totalPLPct !== null ? pctColor : ""}`}>
+                    {hasPrices && totalPLPct !== null
+                      ? `${totalPLPct >= 0 ? "+" : ""}${totalPLPct.toFixed(2)}%`
+                      : "—"}
+                  </p>
+                  {fetchedStr && hasPrices && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{fetchedStr} 기준</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* LongtermPositionsTable — 섹터 컬럼, KR/US 필터 없음 (단일 시장 계좌) */}
+          <LongtermPositionsTable
+            positions={positions}
+            isLoading={posLoading}
+            pricesLoading={pricesLoading}
+            pricesFetchedAt={pricesFetchedAt}
+            onPriceUpdate={handlePriceUpdate}
+            onPricesRefresh={fetchLivePrices}
+            showSector
+            hideMarketFilter
+          />
         </TabsContent>
 
         {/* ══════════════════════════════════════
-            탭 2: 거래내역
+            탭 2: Transactions
+            단일 계좌(2805) — 계좌/시장 필터 숨김
         ══════════════════════════════════════ */}
-        <TabsContent value="trades" className="mt-4 space-y-3">
+        <TabsContent value="transactions" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">{transactions.length}건</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => backupFileRef.current?.click()}
+                disabled={backupLoading}
+              >
+                <CloudDownload className="h-3 w-3" />
+                Restore
+              </Button>
+              <Button variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => void handleJsonBackup()}
+                disabled={backupLoading}
+              >
+                <CloudUpload className="h-3 w-3" />
+                Backup
+              </Button>
+              <Button size="sm"
+                className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
+                onClick={() => { setEditingTx(undefined); setShowForm(true); }}
+              >
+                <Plus className="h-3 w-3" />
+                거래 추가
+              </Button>
+            </div>
+          </div>
 
-          {/* ── 성과 요약 ── */}
-          {summary && summary.totalTrades > 0 && (
+          <TransactionTable
+            transactions={transactions}
+            isLoading={txLoading}
+            onDelete={(id) => void handleTxDelete(id)}
+            onEdit={handleTxEdit}
+            hideAccountFilter
+            hideMarketFilter
+            hideFundFilter
+          />
+        </TabsContent>
+
+        {/* ══════════════════════════════════════
+            탭 3: Executed Trade — Education Account와 동일 포맷
+            SELL 거래를 EducationTrade로 파생해 성과 요약 + 상세 테이블 표시
+        ══════════════════════════════════════ */}
+        <TabsContent value="executed" className="mt-4 space-y-3">
+
+          {/* ── 성과 요약 카드 ── */}
+          {derivedSummary && derivedSummary.totalTrades > 0 && (
             <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
-              <SummaryCard label="총 완료 거래" value={`${summary.totalTrades}건`}
-                sub={`${summary.winCount}승 ${summary.lossCount}패`}
+              <SummaryCard label="총 완료 거래" value={`${derivedSummary.totalTrades}건`}
+                sub={`${derivedSummary.winCount}승 ${derivedSummary.lossCount}패`}
               />
-              <SummaryCard label="승률" value={`${Math.round(summary.winRate * 100)}%`} />
+              <SummaryCard label="승률" value={`${Math.round(derivedSummary.winRate * 100)}%`} />
               <SummaryCard label="누적 손익"
                 value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}원`}
                 valueClass={plColor(tradeTotalPL)}
               />
               <SummaryCard label="손익비 (PF)"
-                value={isFinite(summary.profitFactor) ? summary.profitFactor.toFixed(2) : "∞"}
+                value={isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor.toFixed(2) : "∞"}
               />
               <SummaryCard label="평균 수익"
-                value={`+${summary.avgWinPct.toFixed(1)}%`}
+                value={`+${derivedSummary.avgWinPct.toFixed(1)}%`}
                 valueClass="text-red-500"
               />
               <SummaryCard label="평균 손실"
-                value={`-${summary.avgLossPct.toFixed(1)}%`}
+                value={`-${derivedSummary.avgLossPct.toFixed(1)}%`}
                 valueClass="text-blue-500"
               />
               <SummaryCard label="TPI"
@@ -648,7 +681,7 @@ export function ShorttermAccountDashboardClient() {
             />
           </div>
 
-          {/* ── 필터 + 백업/추가 버튼 ── */}
+          {/* ── 필터 ── */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 flex-wrap">
               {/* 결과 필터 */}
@@ -669,7 +702,6 @@ export function ShorttermAccountDashboardClient() {
                   </button>
                 ))}
               </div>
-
               {/* 섹터 필터 */}
               <select
                 value={sectorFilter}
@@ -680,41 +712,14 @@ export function ShorttermAccountDashboardClient() {
                   <option key={s} value={s}>{s === "all" ? "전체 섹터" : s}</option>
                 ))}
               </select>
-
               <span className="text-[10px] text-muted-foreground">{filteredTrades.length}건 표시</span>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => backupFileRef.current?.click()}
-                disabled={backupLoading}
-              >
-                <CloudDownload className="h-3 w-3" />
-                Restore
-              </Button>
-              <Button variant="outline" size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => void handleJsonBackup()}
-                disabled={backupLoading}
-              >
-                <CloudUpload className="h-3 w-3" />
-                Backup
-              </Button>
-              <Button size="sm"
-                className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                onClick={() => setAddTradeOpen(true)}
-              >
-                <Plus className="h-3 w-3" />
-                Add Trade
-              </Button>
             </div>
           </div>
 
-          {/* ── 거래내역 테이블 ── */}
+          {/* ── 거래 테이블 ── */}
           {filteredTrades.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              {trades.length === 0 ? "완료된 거래가 없습니다." : "필터 조건에 해당하는 거래가 없습니다."}
+              {derivedTrades.length === 0 ? "완료된 거래가 없습니다." : "필터 조건에 해당하는 거래가 없습니다."}
             </div>
           ) : (
             <Card>
@@ -723,18 +728,48 @@ export function ShorttermAccountDashboardClient() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b text-[10px] text-muted-foreground bg-muted/20">
-                        <ThSort col="stockName" label="종목" align="left" />
-                        <ThSort col="sector"    label="섹터" align="left" />
-                        <ThSort col="buyDate"   label="매수일" />
-                        <ThSort col="buyPrice"  label="매수가" />
-                        <ThSort col="sellDate"  label="매도일" />
-                        <ThSort col="sellPrice" label="매도가" />
-                        <ThSort col="quantity"  label="수량" />
-                        <ThSort col="profitLoss"    label="손익" />
-                        <ThSort col="profitLossPct" label="%" />
-                        <ThSort col="holdingDays"   label="보유" />
-                        <ThSort col="result"        label="결과" />
-                        <th className="p-2 w-8" />
+                        {/* 정렬 가능한 헤더 — 인라인으로 구현 */}
+                        {(
+                          [
+                            { col: "stockName",    label: "종목",  align: "left"  },
+                            { col: "sector",       label: "섹터",  align: "left"  },
+                            { col: "buyDate",      label: "매수일", align: "right" },
+                            { col: "buyPrice",     label: "매수가", align: "right" },
+                            { col: "sellDate",     label: "매도일", align: "right" },
+                            { col: "sellPrice",    label: "매도가", align: "right" },
+                            { col: "quantity",     label: "수량",  align: "right" },
+                            { col: "profitLoss",   label: "손익",  align: "right" },
+                            { col: "profitLossPct",label: "%",     align: "right" },
+                            { col: "holdingDays",  label: "보유",  align: "right" },
+                            { col: "result",       label: "결과",  align: "center"},
+                          ] as { col: TradeCol; label: string; align: string }[]
+                        ).map(({ col, label, align }) => (
+                          <th
+                            key={col}
+                            className={cn(
+                              "p-2 font-medium cursor-pointer select-none hover:text-foreground transition-colors",
+                              align === "right" ? "text-right" : align === "center" ? "text-center" : "text-left"
+                            )}
+                            onClick={() => setTradeSort((prev) =>
+                              prev.col === col
+                                ? { col, dir: prev.dir === "asc" ? "desc" : "asc" }
+                                : { col, dir: "desc" }
+                            )}
+                          >
+                            <span className={cn("inline-flex items-center gap-0.5",
+                              align === "right" ? "justify-end w-full" : align === "center" ? "justify-center w-full" : ""
+                            )}>
+                              {label}
+                              {tradeSort.col === col
+                                ? tradeSort.dir === "asc"
+                                  ? <ArrowUp className="h-3 w-3 text-emerald-500" />
+                                  : <ArrowDown className="h-3 w-3 text-emerald-500" />
+                                : <ArrowUpDown className="h-3 w-3 opacity-40" />
+                              }
+                            </span>
+                          </th>
+                        ))}
+                        <th className="p-2 w-4" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
@@ -749,7 +784,7 @@ export function ShorttermAccountDashboardClient() {
                           <td className="text-right p-2 tabular-nums">{fmt(t.buyPrice)}</td>
                           <td className="text-right p-2 tabular-nums">{t.sellDate}</td>
                           <td className="text-right p-2 tabular-nums">{fmt(t.sellPrice)}</td>
-                          <td className="text-right p-2 tabular-nums">{t.quantity}</td>
+                          <td className="text-right p-2 tabular-nums">{t.quantity.toLocaleString()}</td>
                           <td className={cn("text-right p-2 tabular-nums font-medium", plColor(t.profitLoss))}>
                             {t.profitLoss >= 0 ? "+" : ""}{fmt(t.profitLoss)}
                           </td>
@@ -764,35 +799,13 @@ export function ShorttermAccountDashboardClient() {
                                 ? "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
                                 : "bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
                             )}>
-                              {t.result || "-"}
+                              {t.result}
                             </span>
                           </td>
-                          <td className="p-2">
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={() => setEditTrade(t)}
-                                className="text-[10px] text-muted-foreground hover:text-foreground"
-                                title="편집"
-                              >
-                                ✏
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  if (!confirm(`[${t.stockName}] 거래를 삭제하시겠습니까?`)) return;
-                                  await fetch(`/api/portfolio/shortterm/trades?id=${t.id}`, { method: "DELETE" });
-                                  void loadData();
-                                }}
-                                className="text-[10px] text-red-400 hover:text-red-600"
-                                title="삭제"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </td>
+                          <td className="p-2 w-4" />
                         </tr>
                       ))}
                     </tbody>
-                    {/* 합계 행 */}
                     <tfoot>
                       <tr className="border-t-2 bg-muted/30 text-xs font-semibold">
                         <td colSpan={7} className="p-2 pl-3 text-muted-foreground">
@@ -826,12 +839,20 @@ export function ShorttermAccountDashboardClient() {
         </TabsContent>
 
         {/* ══════════════════════════════════════
-            탭 3: Risk Management
+            탭 4: 종목별 — 전체 거래
         ══════════════════════════════════════ */}
-        <TabsContent value="account" className="mt-4 space-y-4">
+        <TabsContent value="history" className="mt-4">
+          {/* 섹터 배지 + 국내/해외 필터 없음 */}
+          <StockHistoryTable transactions={transactions} isLoading={txLoading} showSector hideMarketFilter />
+        </TabsContent>
+
+        {/* ══════════════════════════════════════
+            탭 5: Risk Management
+        ══════════════════════════════════════ */}
+        <TabsContent value="risk" className="mt-4 space-y-4">
           <RiskManagementPanel
             positions={[]}
-            winRate={summary?.winRate ?? 0}
+            winRate={derivedSummary?.winRate ?? 0}
             storageKey={RISK_STORAGE_KEY}
             onConfigChange={setRiskConfig}
           />
@@ -839,52 +860,34 @@ export function ShorttermAccountDashboardClient() {
         </TabsContent>
       </Tabs>
 
-      {/* ── 다이얼로그 ── */}
-      <AddPositionDialog open={addPosOpen} onOpenChange={setAddPosOpen}
-        onSaved={() => { void loadData(); }} />
-      {sellPos && (
-        <SellPositionDialog open={!!sellPos} position={sellPos}
-          onOpenChange={(open) => { if (!open) setSellPos(null); }}
-          onSaved={() => { setSellPos(null); void loadData(); }}
-        />
-      )}
-      <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen}
-        onSaved={() => { void loadData(); }} />
-      {editPos && (
-        <EditPositionDialog
-          open={!!editPos} position={editPos}
-          apiBase="/api/portfolio/shortterm/positions"
-          onOpenChange={(open) => { if (!open) setEditPos(null); }}
-          onSaved={() => { setEditPos(null); void loadData(); }}
-        />
-      )}
-      {editTrade && (
-        <EditTradeDialog
-          open={!!editTrade} trade={editTrade}
-          apiBase="/api/portfolio/shortterm/trades"
-          onOpenChange={(open) => { if (!open) setEditTrade(null); }}
-          onSaved={() => { setEditTrade(null); void loadData(); }}
-        />
-      )}
+      {/* 거래 추가/편집 폼 — 섹터 입력 필드 활성화 */}
+      <TransactionForm
+        open={showForm}
+        onOpenChange={(open) => { setShowForm(open); if (!open) setEditingTx(undefined); }}
+        initialTx={editingTx}
+        onSubmit={(tx) => void handleTxSubmit(tx)}
+        showSectorField
+      />
     </div>
   );
 }
 
 // ─────────────────────────────────────────
-// 요약 카드
+// 요약 카드 (Education Account와 동일)
 // ─────────────────────────────────────────
 function SummaryCard({
-  label, value, sub, valueClass, dim,
+  label, value, sub, valueClass,
 }: {
-  label: string; value: string; sub?: string;
-  valueClass?: string; dim?: boolean;
+  label: string;
+  value: string;
+  sub?: string;
+  valueClass?: string;
+  dim?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-muted/40 p-2.5 text-center">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className={cn("text-sm font-bold mt-0.5 tabular-nums", valueClass, dim && "text-muted-foreground")}>
-        {value}
-      </p>
+    <div className="rounded-lg border bg-card px-3 py-2.5">
+      <p className="text-[10px] text-muted-foreground mb-0.5">{label}</p>
+      <p className={cn("text-sm font-semibold tabular-nums", valueClass)}>{value}</p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );

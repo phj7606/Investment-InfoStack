@@ -235,6 +235,7 @@ export interface LongtermTransaction {
   realizedPLPct?: number;               // 실현 수익률 %
   avgCostAtSell?: number;               // 매도 시점의 가중평균단가 (기록용)
   memo?: string;
+  sector?: string;                       // 섹터 (Short-term 계좌용)
 }
 
 /** 현재 보유 포지션 (거래 이력 집계 결과) */
@@ -254,6 +255,7 @@ export interface LongtermPosition {
   totalRealizedPL: number;               // 이 종목의 누적 실현손익 합계
   targetWeight?: number;                // 리밸런싱 목표 비중 (0~1)
   currentWeight: number;                // 전체 포트폴리오 내 현재 비중
+  sector?: string;                       // 섹터 (Short-term 계좌용)
 }
 
 /** 리밸런싱 목표 비중 설정 (localStorage 저장) */

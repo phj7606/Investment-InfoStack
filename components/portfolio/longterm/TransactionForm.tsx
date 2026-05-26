@@ -31,6 +31,7 @@ interface FormState {
   amount: string;   // 자동 계산 (수동 입력도 허용)
   fee: string;      // 수수료 (선택)
   memo: string;
+  sector: string;   // 섹터 (Short-term 계좌용, 선택)
 }
 
 interface TransactionFormProps {
@@ -46,6 +47,8 @@ interface TransactionFormProps {
    * 편집 모드: id 포함 전체 트랜잭션 반환
    */
   onSubmit: (tx: Omit<LongtermTransaction, "id"> | LongtermTransaction) => void;
+  /** true이면 섹터 입력 필드 표시 (Short-term 계좌용) */
+  showSectorField?: boolean;
 }
 
 // 공통 인풋 스타일
@@ -68,6 +71,7 @@ const defaultForm: FormState = {
   amount: "",
   fee: "",
   memo: "",
+  sector: "",
 };
 
 // LongtermTransaction → FormState 변환 (편집 모드 초기값)
@@ -85,10 +89,11 @@ function txToFormState(tx: LongtermTransaction): FormState {
     amount: String(tx.amount),
     fee: tx.fee != null ? String(tx.fee) : "",
     memo: tx.memo ?? "",
+    sector: tx.sector ?? "",
   };
 }
 
-export function TransactionForm({ open, onOpenChange, initialTx, onSubmit }: TransactionFormProps) {
+export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showSectorField = false }: TransactionFormProps) {
   const isEditMode = !!initialTx;
 
   const [form, setForm] = useState<FormState>(
@@ -143,6 +148,7 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit }: Tra
       amount,
       fee: form.fee ? parseFloat(form.fee) : undefined,
       memo: form.memo.trim() || undefined,
+      sector: form.sector.trim() || undefined,
     };
 
     if (isEditMode && initialTx) {
@@ -342,6 +348,23 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit }: Tra
               />
             </div>
           </div>
+
+          {/* ── 섹터 (Short-term 계좌 전용, showSectorField=true일 때만 표시) ── */}
+          {showSectorField && (
+            <div>
+              <label className="text-[11px] font-medium text-muted-foreground">
+                섹터
+                <span className="ml-0.5 text-[10px] text-muted-foreground">(선택)</span>
+              </label>
+              <input
+                type="text"
+                value={form.sector}
+                onChange={(e) => setForm({ ...form, sector: e.target.value })}
+                placeholder="예: 반도체, IT, 금융..."
+                className={inputClass}
+              />
+            </div>
+          )}
 
           {/* ── 메모 (선택) ── */}
           <div>

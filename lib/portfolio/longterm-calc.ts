@@ -44,6 +44,7 @@ export function calcPositions(
     totalCost: number;     // BUY 누적 금액 (수수료 포함)
     totalRealizedPL: number;
     targetWeight?: number;
+    sector?: string;       // 섹터 (Short-term 계좌용, 최초 BUY에서 전파)
   }>();
 
   // 날짜 오름차순으로 정렬 후 처리
@@ -66,6 +67,7 @@ export function calcPositions(
         quantity: 0,
         totalCost: 0,
         totalRealizedPL: 0,
+        sector: tx.sector,  // 최초 BUY 거래에서 섹터 전파
       };
       posMap.set(key, pos);
     }
@@ -128,6 +130,7 @@ export function calcPositions(
       evalPLPct: Math.round(evalPLPct * 100) / 100,
       totalRealizedPL: Math.round(p.totalRealizedPL),
       currentWeight: Math.round(currentWeight * 10000) / 10000,
+      sector: p.sector,
     });
   }
 

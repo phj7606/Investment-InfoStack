@@ -21,7 +21,8 @@ import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
 import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
 import { readAccountData as readEducationData } from "@/lib/portfolio/educationData";
-import { readAccountData as readShorttermData } from "@/lib/portfolio/shorttermData";
+import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
+import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
 import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
 import { fetchExchangeRates } from "@/lib/fetchers/exchange-rate";
@@ -39,11 +40,14 @@ export async function GET(req: NextRequest) {
 
   try {
     // ── 1. 모든 포트폴리오 데이터 + 현재 환율 병렬 로드 ─────
-    const [educationData, shorttermData, liveRates] = await Promise.all([
+    const [educationData, shorttermTxs, liveRates] = await Promise.all([
       readEducationData(),
-      readShorttermData(),
+      readShorttermTxs(),
       fetchExchangeRates(),  // 현재 환율 — DRAFT 월 자산관리 II 계산에 사용
     ]);
+
+    // Shortterm 포지션 계산 (가격 없이 avgCost 기준 — 현재가는 prices 로드 후 반영)
+    const rawShorttermPositions = calcShorttermPositions(shorttermTxs);
 
     // Longterm: 거래내역 로드 후 포지션 계산 (가격 없이 먼저 계산하여 종목 목록 추출)
     const longtermTxs = await readLongtermTxs();
@@ -59,7 +63,7 @@ export async function GET(req: NextRequest) {
     // education/shortterm 종목을 longterm과 합산 (중복 제거)
     const eduShortStocks = [
       ...educationData.positions.map((p: { stockCode: string; stockName: string }) => ({ code: p.stockCode, name: p.stockName })),
-      ...shorttermData.positions.map((p: { stockCode: string; stockName: string }) => ({ code: p.stockCode, name: p.stockName })),
+      ...rawShorttermPositions.map((p) => ({ code: p.stockCode, name: p.stockName })),
     ].filter((s) => !krStocks.some((k) => k.code === s.code));
     const allKrStocks = [...krStocks, ...eduShortStocks];
 
@@ -122,19 +126,14 @@ export async function GET(req: NextRequest) {
 
     // ── 5. Stock Deposit (예수금) ─────────────────────────
     // Shortterm 계좌를 주식계좌 KRW 예수금으로 사용
-    // prices에 실시간 가격이 있으면 사용, 없으면 avgPrice fallback
-    const stockDepositKrw = shorttermData.positions.reduce(
-      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
-      0
-    );
+    // prices에 실시간 가격이 있으면 사용, 없으면 avgCost(evalAmount) fallback
+    const shorttermPositions = calcShorttermPositions(shorttermTxs, prices);
+    const stockDepositKrw = shorttermPositions.reduce((s, p) => s + p.evalAmount, 0);
 
     // ── 5-B. Shortterm 포지션 집계 (자산관리 II 표시용) ──
-    const shorttermStockBalance = shorttermData.positions.reduce(
-      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
-      0
-    );
-    const shorttermPrincipal = shorttermData.positions.reduce(
-      (s, p) => s + p.avgPrice * p.quantity,
+    const shorttermStockBalance = shorttermPositions.reduce((s, p) => s + p.evalAmount, 0);
+    const shorttermPrincipal = shorttermPositions.reduce(
+      (s, p) => s + p.avgCost * p.quantity,
       0
     );
 

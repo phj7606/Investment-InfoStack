@@ -25,6 +25,7 @@ interface StockSummary {
   assetType: "STOCK" | "ETF" | "FUND";
   accountNo: string;
   currency: "KRW" | "USD";
+  sector?: string;    // 섹터 (Short-term 계좌용)
   transactions: LongtermTransaction[];
   totalBuyQty: number;
   totalBuyAmt: number;   // 매수금액 합계 (수수료 제외)
@@ -111,6 +112,7 @@ function groupByStock(transactions: LongtermTransaction[]): StockSummary[] {
       stockCode: first.stockCode,  // 복합 키가 아닌 실제 종목코드
       stockName: first.stockName, market: first.market,
       assetType: first.assetType, accountNo: first.accountNo, currency: first.currency,
+      sector: first.sector,       // 섹터 (Short-term 계좌용, BUY 첫 거래에서 전파)
       transactions: sorted,
       totalBuyQty, totalBuyAmt, totalBuyFee,
       totalSellQty, totalSellAmt, totalSellFee,
@@ -135,7 +137,7 @@ function fmtPct(n: number): string {
 // ─────────────────────────────────────────
 // 개별 종목 아코디언
 // ─────────────────────────────────────────
-function StockAccordion({ stock }: { stock: StockSummary }) {
+function StockAccordion({ stock, showSector = false }: { stock: StockSummary; showSector?: boolean }) {
   const [open, setOpen] = useState(false);
   const ccy  = stock.currency;
   const unit = ccy === "KRW" ? "원" : "$";
@@ -160,9 +162,12 @@ function StockAccordion({ stock }: { stock: StockSummary }) {
             <span className="text-[10px] text-muted-foreground shrink-0">({stock.stockCode})</span>
           </div>
 
-          {/* 배지 */}
+          {/* 배지: showSector면 시장 배지 대신 섹터 배지 표시 */}
           <div className="hidden sm:flex items-center gap-1 shrink-0">
-            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${mktCls}`}>{stock.market}</span>
+            {showSector
+              ? <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 max-w-[80px] truncate">{stock.sector ?? "-"}</span>
+              : <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${mktCls}`}>{stock.market}</span>
+            }
             <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${assCls}`}>{stock.assetType}</span>
             <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">{stock.accountNo}</span>
           </div>
@@ -320,9 +325,13 @@ function StockAccordion({ stock }: { stock: StockSummary }) {
 interface StockHistoryTableProps {
   transactions: LongtermTransaction[];
   isLoading?: boolean;
+  /** true이면 시장(KR/US) 배지 대신 섹터 배지 표시 (Short-term 계좌용) */
+  showSector?: boolean;
+  /** true이면 국내/해외/전체 시장 필터 버튼 숨김 (단일 시장 계좌용) */
+  hideMarketFilter?: boolean;
 }
 
-export function StockHistoryTable({ transactions, isLoading }: StockHistoryTableProps) {
+export function StockHistoryTable({ transactions, isLoading, showSector = false, hideMarketFilter = false }: StockHistoryTableProps) {
   const [marketFilter, setMarketFilter] = useState<"ALL" | "KR" | "US">("ALL");
 
   if (isLoading) {
@@ -345,27 +354,33 @@ export function StockHistoryTable({ transactions, isLoading }: StockHistoryTable
 
   return (
     <div className="space-y-3">
-      {/* 시장 필터 */}
-      <div className="flex gap-2 text-xs">
-        {(["ALL", "KR", "US"] as const).map((m) => (
-          <button
-            key={m}
-            onClick={() => setMarketFilter(m)}
-            className={`px-3 py-1 rounded-full border transition-colors ${
-              marketFilter === m
-                ? "bg-blue-600 text-white border-blue-600"
-                : "border-input hover:bg-muted"
-            }`}
-          >
-            {m === "ALL" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
-          </button>
-        ))}
-      </div>
+      {/* 시장 필터 — hideMarketFilter=true 이면 숨김 (단일 시장 계좌용) */}
+      {!hideMarketFilter && (
+        <div className="flex gap-2 text-xs">
+          {(["ALL", "KR", "US"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMarketFilter(m)}
+              className={`px-3 py-1 rounded-full border transition-colors ${
+                marketFilter === m
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "border-input hover:bg-muted"
+              }`}
+            >
+              {m === "ALL" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 종목 목록 — lg 이상에서 2컬럼 그리드, items-start로 각 박스가 독립 높이 유지 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
         {filtered.map((stock) => (
-          <StockAccordion key={`${stock.stockCode}::${stock.stockName}::${stock.accountNo}`} stock={stock} />
+          <StockAccordion
+            key={`${stock.stockCode}::${stock.stockName}::${stock.accountNo}`}
+            stock={stock}
+            showSector={showSector}
+          />
         ))}
       </div>
     </div>

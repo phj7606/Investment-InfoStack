@@ -1,12 +1,12 @@
 /**
- * GET /api/portfolio/shortterm/positions
+ * GET /api/portfolio/education/lt-positions
  *
- * 거래 이력 집계 → 현재 보유 포지션 계산 후 반환
+ * Education 계좌 거래 이력 집계 → 현재 보유 포지션 계산 후 반환
  * calcPositions / calcLongtermSummary (longterm-calc) 재사용
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { readTransactions } from "@/lib/portfolio/shorttermData";
+import { readTransactions } from "@/lib/portfolio/educationTransactionsData";
 import { calcPositions, calcLongtermSummary } from "@/lib/portfolio/longterm-calc";
 import type { LongtermTransaction } from "@/types/portfolio";
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
       fetchedAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[shortterm/positions GET]", err);
+    console.error("[education/lt-positions GET]", err);
     return NextResponse.json({ error: "포지션 조회 실패" }, { status: 500 });
   }
 }

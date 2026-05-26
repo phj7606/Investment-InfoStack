@@ -20,6 +20,12 @@ interface TransactionTableProps {
   isLoading: boolean;
   onDelete: (id: string) => void;
   onEdit: (tx: LongtermTransaction) => void;
+  /** 단일 계좌 환경에서 계좌 필터 UI 숨김 */
+  hideAccountFilter?: boolean;
+  /** 단일 시장 환경에서 시장 필터 UI 숨김 */
+  hideMarketFilter?: boolean;
+  /** true이면 종류 필터에서 FUND 버튼 숨김 (Short-term 계좌용) */
+  hideFundFilter?: boolean;
 }
 
 // 필터 상태 타입
@@ -65,6 +71,9 @@ export function TransactionTable({
   isLoading,
   onDelete,
   onEdit,
+  hideAccountFilter = false,
+  hideMarketFilter = false,
+  hideFundFilter = false,
 }: TransactionTableProps) {
   // ── 검색어 상태 ──
   const [search, setSearch] = useState("");
@@ -215,49 +224,55 @@ export function TransactionTable({
 
         {/* ── 필터 버튼 그룹 ── */}
         <div className="flex flex-wrap gap-2 mt-2">
-          {/* 계좌 필터 */}
-          <div className="flex gap-1">
-            {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
-              <Button
-                key={f}
-                variant={accountFilter === f ? "default" : "outline"}
-                size="sm"
-                className={filterBtnClass(accountFilter === f)}
-                onClick={() => setAccountFilter(f)}
-              >
-                {f === "all" ? "전체계좌" : f}
-              </Button>
-            ))}
-          </div>
+          {/* 계좌 필터 — 단일 계좌 환경에서는 숨김 */}
+          {!hideAccountFilter && (
+            <div className="flex gap-1">
+              {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
+                <Button
+                  key={f}
+                  variant={accountFilter === f ? "default" : "outline"}
+                  size="sm"
+                  className={filterBtnClass(accountFilter === f)}
+                  onClick={() => setAccountFilter(f)}
+                >
+                  {f === "all" ? "전체계좌" : f}
+                </Button>
+              ))}
+            </div>
+          )}
 
-          {/* 시장 필터 */}
-          <div className="flex gap-1">
-            {(["all", "KR", "US"] as MarketFilter[]).map((f) => (
-              <Button
-                key={f}
-                variant={marketFilter === f ? "default" : "outline"}
-                size="sm"
-                className={filterBtnClass(marketFilter === f)}
-                onClick={() => setMarketFilter(f)}
-              >
-                {f === "all" ? "전체시장" : f}
-              </Button>
-            ))}
-          </div>
+          {/* 시장 필터 — 단일 시장 환경에서는 숨김 */}
+          {!hideMarketFilter && (
+            <div className="flex gap-1">
+              {(["all", "KR", "US"] as MarketFilter[]).map((f) => (
+                <Button
+                  key={f}
+                  variant={marketFilter === f ? "default" : "outline"}
+                  size="sm"
+                  className={filterBtnClass(marketFilter === f)}
+                  onClick={() => setMarketFilter(f)}
+                >
+                  {f === "all" ? "전체시장" : f}
+                </Button>
+              ))}
+            </div>
+          )}
 
-          {/* 종류 필터 */}
+          {/* 종류 필터 — hideFundFilter=true 이면 FUND 버튼 제외 */}
           <div className="flex gap-1">
-            {(["all", "STOCK", "FUND", "ETF"] as AssetTypeFilter[]).map((f) => (
-              <Button
-                key={f}
-                variant={assetTypeFilter === f ? "default" : "outline"}
-                size="sm"
-                className={filterBtnClass(assetTypeFilter === f)}
-                onClick={() => setAssetTypeFilter(f)}
-              >
-                {f === "all" ? "전체종류" : f}
-              </Button>
-            ))}
+            {(["all", "STOCK", "FUND", "ETF"] as AssetTypeFilter[])
+              .filter((f) => !(hideFundFilter && f === "FUND"))
+              .map((f) => (
+                <Button
+                  key={f}
+                  variant={assetTypeFilter === f ? "default" : "outline"}
+                  size="sm"
+                  className={filterBtnClass(assetTypeFilter === f)}
+                  onClick={() => setAssetTypeFilter(f)}
+                >
+                  {f === "all" ? "전체종류" : f}
+                </Button>
+              ))}
           </div>
 
           {/* 유형 필터 */}

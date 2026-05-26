@@ -26,7 +26,8 @@ import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-stor
 import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm-calc";
 import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
 import { readAccountData as readEducationData } from "@/lib/portfolio/educationData";
-import { readAccountData as readShorttermData } from "@/lib/portfolio/shorttermData";
+import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
+import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
 
 // POST — 월말 확정 처리
 export async function POST(
@@ -82,23 +83,19 @@ export async function POST(
   const usStocksBalanceKrw = Math.round(usStocksBalanceUsd * body.usdKrw);
 
   // Stock Deposit (주식계좌 예수금) — Shortterm 계좌
-  const shorttermData = await readShorttermData();
+  // LongtermTransaction 기반으로 포지션 계산 (현재가 없으면 avgCost 기준 evalAmount)
+  const shorttermTxs = await readShorttermTxs();
+  const shorttermPositions = calcShorttermPositions(shorttermTxs);
   const stockDepositKrw = Math.round(
-    shorttermData.positions.reduce(
-      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
-      0
-    )
+    shorttermPositions.reduce((s, p) => s + p.evalAmount, 0)
   );
 
   // 자산관리 II용 Shortterm 포지션 집계 (stockBalance + principal 분리)
   const shorttermStockBalance = Math.round(
-    shorttermData.positions.reduce(
-      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
-      0
-    )
+    shorttermPositions.reduce((s, p) => s + p.evalAmount, 0)
   );
   const shorttermPrincipal = Math.round(
-    shorttermData.positions.reduce((s, p) => s + p.avgPrice * p.quantity, 0)
+    shorttermPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0)
   );
 
   // ── 3. Pension 계좌별 집계 ────────────────────────────────

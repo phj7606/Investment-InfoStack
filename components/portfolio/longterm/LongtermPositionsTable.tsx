@@ -24,6 +24,10 @@ interface LongtermPositionsTableProps {
   onPriceUpdate: (stockCode: string, price: number) => void;
   /** 현재가 새로고침 콜백 */
   onPricesRefresh?: () => void;
+  /** true이면 "시장(KR/US)" 대신 "섹터" 컬럼 표시 (Short-term 계좌용) */
+  showSector?: boolean;
+  /** true이면 KR/US 시장 필터 버튼 숨김 + 전체 포지션 표시 (Short-term 단일 시장용) */
+  hideMarketFilter?: boolean;
 }
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
@@ -148,8 +152,11 @@ export function LongtermPositionsTable({
   pricesFetchedAt,
   onPriceUpdate,
   onPricesRefresh,
+  showSector = false,
+  hideMarketFilter = false,
 }: LongtermPositionsTableProps) {
   // 기본값 KR — 전체(all) 제거
+  // hideMarketFilter=true 이면 필터 자체가 없으므로 초기값은 참조되지 않음
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("KR");
 
   // 정렬 상태 (기본: 평가금액 내림차순)
@@ -192,8 +199,11 @@ export function LongtermPositionsTable({
   const totalUSDForSort = positions.filter((p) => p.currency === "USD").reduce((s, p) => s + p.evalAmount, 0);
 
   // 시장 필터 + 정렬 적용
+  // hideMarketFilter=true 이면 필터 적용 없이 전체 포지션 사용
   const filtered = useMemo(() => {
-    const arr = positions.filter((p) => p.market === marketFilter);
+    const arr = hideMarketFilter
+      ? [...positions]
+      : positions.filter((p) => p.market === marketFilter);
     arr.sort((a, b) => {
       let v = 0;
       switch (sort.col) {
@@ -241,7 +251,8 @@ export function LongtermPositionsTable({
     ? new Date(pricesFetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
     : null;
 
-  const currency = marketFilter === "KR" ? "KRW" : "USD";
+  // hideMarketFilter=true이면 혼합 통화 가능 — 합계 행은 KRW 기준으로 표시
+  const currency: "KRW" | "USD" = hideMarketFilter ? "KRW" : marketFilter === "KR" ? "KRW" : "USD";
 
   // 현재 필터의 합계 — 평가금액
   const filteredTotal = filtered.reduce((s, p) => s + p.evalAmount, 0);
@@ -286,20 +297,22 @@ export function LongtermPositionsTable({
           </div>
         </div>
 
-        {/* KR / US 필터 (전체 없음) */}
-        <div className="flex gap-1 mt-2">
-          {(["KR", "US"] as MarketFilter[]).map((f) => (
-            <Button
-              key={f}
-              variant={marketFilter === f ? "default" : "outline"}
-              size="sm"
-              className={filterBtnClass(marketFilter === f)}
-              onClick={() => setMarketFilter(f)}
-            >
-              {f}
-            </Button>
-          ))}
-        </div>
+        {/* KR / US 필터 — hideMarketFilter=true 이면 숨김 (단일 시장 계좌용) */}
+        {!hideMarketFilter && (
+          <div className="flex gap-1 mt-2">
+            {(["KR", "US"] as MarketFilter[]).map((f) => (
+              <Button
+                key={f}
+                variant={marketFilter === f ? "default" : "outline"}
+                size="sm"
+                className={filterBtnClass(marketFilter === f)}
+                onClick={() => setMarketFilter(f)}
+              >
+                {f}
+              </Button>
+            ))}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="p-0">
@@ -319,8 +332,10 @@ export function LongtermPositionsTable({
               <thead>
                 <tr className="border-b bg-muted/30 text-[10px]">
                   <Th col="stockName"       label="종목"     align="left" />
-                  {/* 시장 컬럼은 필터로 이미 고정 — 정렬 불필요 */}
-                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">시장</th>
+                  {/* 시장/섹터 컬럼: showSector 여부에 따라 헤더 전환 — 정렬 불필요 */}
+                  <th className="px-3 py-2 text-center font-medium text-muted-foreground">
+                    {showSector ? "섹터" : "시장"}
+                  </th>
                   <Th col="accountNo"       label="계좌"     align="left" />
                   <Th col="quantity"        label="수량" />
                   <Th col="avgCost"         label="평균단가" />
@@ -340,7 +355,7 @@ export function LongtermPositionsTable({
                   <Th col="evalAmount"      label="평가금액" />
                   <Th col="evalPL"          label="평가손익" />
                   <Th col="evalPLPct"       label="수익률" />
-                  <Th col="totalRealizedPL" label="누적실현" />
+                  <Th col="totalRealizedPL" label="실현수익" />
                   <Th col="weight"          label="비중" />
                 </tr>
               </thead>
@@ -359,9 +374,9 @@ export function LongtermPositionsTable({
                         </p>
                       </td>
 
-                      {/* 시장 */}
+                      {/* 시장 또는 섹터 (showSector prop에 따라 전환) */}
                       <td className="px-3 py-2.5 text-center text-muted-foreground">
-                        {pos.market}
+                        {showSector ? (pos.sector ?? "-") : pos.market}
                       </td>
 
                       {/* 계좌 */}
@@ -457,7 +472,7 @@ export function LongtermPositionsTable({
                         : "-"}
                     </td>
 
-                    {/* 누적실현 합계 */}
+                    {/* 실현수익 합계 */}
                     <td className={cn("px-3 py-2 text-right tabular-nums",
                       totalRealizedPL !== 0 ? plColor(totalRealizedPL) : "text-muted-foreground"
                     )}>
