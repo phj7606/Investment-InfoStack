@@ -103,8 +103,8 @@
     "amount": 49880000,
     "fee": 132180,
     "avgCostAtSell": 44446.15,
-    "realizedPL": -1809712,
-    "realizedPLPct": -3.51
+    "realizedPL": -1677532,
+    "realizedPLPct": -3.25
   },
   {
     "id": "4a169fa9-5188-4fcc-b0f2-14c9070d946b",
@@ -389,8 +389,8 @@
     "amount": 12740000,
     "fee": 27390,
     "avgCostAtSell": 127858.0,
-    "realizedPL": 10155450,
-    "realizedPLPct": 397.14
+    "realizedPL": 10182840,
+    "realizedPLPct": 398.21
   },
   {
     "id": "338c8d5d-d0c6-401f-832a-bf7f887c4ea4",
@@ -407,8 +407,8 @@
     "amount": 21294000,
     "fee": 45768,
     "avgCostAtSell": 127858.0,
-    "realizedPL": 18563214,
-    "realizedPLPct": 691.36
+    "realizedPL": 18608982,
+    "realizedPLPct": 693.07
   },
   {
     "id": "8c3fc84e-c065-4a7e-a535-ae721f17ab57",
@@ -484,8 +484,8 @@
     "amount": 11351500,
     "fee": 18666,
     "avgCostAtSell": 47513.36,
-    "realizedPL": 7864359,
-    "realizedPLPct": 226.74
+    "realizedPL": 7883025,
+    "realizedPLPct": 227.28
   },
   {
     "id": "aa6d0457-4d8a-4d1d-bd26-40ad78272cbc",
@@ -502,8 +502,8 @@
     "amount": 14600000,
     "fee": 31390,
     "avgCostAtSell": 47513.36,
-    "realizedPL": 11100135,
-    "realizedPLPct": 320.03
+    "realizedPL": 11131525,
+    "realizedPLPct": 320.93
   },
   {
     "id": "a21858c9-ec2a-4e1a-9f99-1fd89f9291a5",
@@ -625,8 +625,8 @@
     "amount": 15956500,
     "fee": 34302,
     "avgCostAtSell": 109714.0,
-    "realizedPL": 10765640,
-    "realizedPLPct": 208.78
+    "realizedPL": 10799942,
+    "realizedPLPct": 209.44
   },
   {
     "id": "1a6d4784-2fcf-48b4-85c4-6a9cdf4351c9",
@@ -823,8 +823,8 @@
     "amount": 22290500,
     "fee": 47920,
     "avgCostAtSell": 152208.98,
-    "realizedPL": 5651801,
-    "realizedPLPct": 34.07
+    "realizedPL": 5699721,
+    "realizedPLPct": 34.35
   },
   {
     "id": "7efcc912-fdaf-45c9-9d42-1fe9ee940ef7",
@@ -886,8 +886,8 @@
     "amount": 11099000,
     "fee": 23857,
     "avgCostAtSell": 771519.61,
-    "realizedPL": 2588427,
-    "realizedPLPct": 30.5
+    "realizedPL": 2612284,
+    "realizedPLPct": 30.78
   },
   {
     "id": "935da4fc-9b93-4571-8a88-8541aea92308",
@@ -1231,8 +1231,8 @@
     "amount": 8465025,
     "fee": 655930,
     "avgCostAtSell": 14106.11,
-    "realizedPL": 3647792,
-    "realizedPLPct": 87.66
+    "realizedPL": 4303722,
+    "realizedPLPct": 103.42
   },
   {
     "id": "b415df4a-22d2-4277-89d0-61860b8143f3",
@@ -1892,8 +1892,8 @@
     "amount": 16845.989999999998,
     "fee": 42.300000000000004,
     "avgCostAtSell": 132.87,
-    "realizedPL": 5643,
-    "realizedPLPct": 50.56
+    "realizedPL": 5685,
+    "realizedPLPct": 50.94
   },
   {
     "id": "c1d9f8c7-7c41-4128-8ded-dc426a63ca03",
@@ -2193,8 +2193,8 @@
     "amount": 647.6,
     "fee": 1.61,
     "avgCostAtSell": 214.37,
-    "realizedPL": -1069,
-    "realizedPLPct": -62.33
+    "realizedPL": -1067,
+    "realizedPLPct": -62.24
   },
   {
     "id": "32626dc5-dfb6-4b3a-a7ff-0c6e0678dd3d",

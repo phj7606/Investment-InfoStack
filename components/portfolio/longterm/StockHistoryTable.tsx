@@ -34,9 +34,11 @@ interface StockSummary {
   totalSellAmt: number;  // 매도금액 합계 (수수료 제외)
   totalSellFee: number;  // 매도수수료 합계 (실현손익에서 차감)
   balance: number;
-  avgCost: number;       // 평균단가 = (매수금액 + 매수수수료) / 매수수량
-  fixedPL: number;       // 실현손익 = 순매도수익(수수료 차감) - 매입원가
+  avgCost: number;       // 평균단가 (수수료 제외) = 잔량원가 / 잔량수량
+  fixedPL: number;       // 행별 실현손익 합계 (수수료 미포함, 저장된 realizedPL 기준)
   fixedPLPct: number;
+  footerPL: number;      // 테이블 하단 실현손익 (수수료 포함): 총매도 - 취득원가 - 매수수수료 - 매도수수료
+  footerPLPct: number;
   totalDividend: number;
 }
 
@@ -71,41 +73,51 @@ function groupByStock(transactions: LongtermTransaction[]): StockSummary[] {
     const totalSellFee = sells.reduce((s, t) => s + (t.fee ?? 0), 0);
     const balance      = totalBuyQty - totalSellQty;
 
-    // ── 잔량 기준 가중평균단가 계산 ──────────────────────
+    // ── 잔량 기준 가중평균단가 + 수수료 비례 배분 계산 ──────────────────────
     // 단순 totalBuyAmt/totalBuyQty는 이미 매도한 수량의 원가까지 포함하여 틀림.
-    // 거래를 시간순으로 추적하며, SELL 시 현재 평균단가 기준으로 원가를 차감해야
-    // 잔량 수량에 해당하는 실제 취득원가를 구할 수 있다.
-    let runQty  = 0;
-    let runCost = 0;  // 잔량 원가 누계 (수수료 제외)
-    let sellCostBase = 0;  // 매도된 수량의 원가 합계 (실현손익률 분모)
+    // 거래를 시간순으로 추적하며 SELL 시 현재 평균단가/평균수수료 기준으로 비례 차감.
+    let runQty       = 0;
+    let runCost      = 0;  // 잔량 원가 누계 (수수료 제외)
+    let runFee       = 0;  // 잔량 매수수수료 누계 (비례 배분용)
+    let sellCostBase = 0;  // 매도수량 취득원가 합계 (fee 미포함, 행별 손익률 분모)
+    let sellFeeBase  = 0;  // 매도수량에 배분된 매수수수료 합계 (footer 손익 계산용)
 
     for (const t of sorted) {
       if (t.tradeType === "BUY") {
         runQty  += t.quantity;
         runCost += t.amount;
+        runFee  += t.fee ?? 0;
       } else if (t.tradeType === "SELL") {
-        const avgAtSell = runQty > 0 ? runCost / runQty : 0;
-        sellCostBase += avgAtSell * t.quantity;
-        runCost = Math.max(0, runCost - avgAtSell * t.quantity);
-        runQty  = Math.max(0, runQty - t.quantity);
+        const avgAtSell    = runQty > 0 ? runCost / runQty : 0;
+        const avgFeeAtSell = runQty > 0 ? runFee  / runQty : 0;
+        sellCostBase += avgAtSell    * t.quantity;
+        sellFeeBase  += avgFeeAtSell * t.quantity;
+        runCost = Math.max(0, runCost - avgAtSell    * t.quantity);
+        runFee  = Math.max(0, runFee  - avgFeeAtSell * t.quantity);
+        runQty  = Math.max(0, runQty  - t.quantity);
       }
     }
 
-    // 잔량 평균단가 = 잔량 원가 / 잔량 수량
+    // 잔량 평균단가 = 잔량 원가 / 잔량 수량 (수수료 제외 — 행별 실현손익과 동일 기준)
     const avgCost = balance > 0 ? runCost / balance : 0;
 
-    // 실현손익:
-    //   ① enrichSellTransaction이 저장한 realizedPL 우선 사용 (서버에서 정확히 계산됨)
-    //   ② 없으면 fallback: 순매도수익(수수료 차감) - 매입원가(avgAtSell × 수량)
+    // 행별 실현손익 합계: enrichSellTransaction이 저장한 realizedPL 우선 사용
     const fixedPL = sells.reduce((s, t) => {
       if (t.realizedPL !== undefined) return s + t.realizedPL;
-      // fallback: avgCostAtSell이 없으면 현재 avgCost를 근사치로 사용
-      const refAvg = (t.avgCostAtSell ?? avgCost);
-      return s + (t.amount - (t.fee ?? 0)) - refAvg * t.quantity;
+      // fallback: avgCostAtSell이 없으면 현재 avgCost 근사치 사용
+      const refAvg = t.avgCostAtSell ?? avgCost;
+      return s + (t.price - refAvg) * t.quantity;
     }, 0);
-
-    // 실현손익률 기준: 매도수량의 취득원가 (runCost 추적 중 계산된 sellCostBase)
     const fixedPLPct = sellCostBase > 0 ? (fixedPL / sellCostBase) * 100 : 0;
+
+    // 테이블 하단 실현손익 (수수료 포함):
+    //   총매도금액 - 매도수량취득원가(fee제외) - 매도수량배분매수수수료 - 매도수수료
+    const footerPL    = totalSellAmt - sellCostBase - sellFeeBase - totalSellFee;
+    // 손익률 분모: 매도수량 취득원가 + 배분된 매수수수료
+    const footerPLPct = (sellCostBase + sellFeeBase) > 0
+      ? (footerPL / (sellCostBase + sellFeeBase)) * 100
+      : 0;
+
     const totalDividend = divs.reduce((s, t) => s + t.amount, 0);
 
     result.push({
@@ -116,7 +128,9 @@ function groupByStock(transactions: LongtermTransaction[]): StockSummary[] {
       transactions: sorted,
       totalBuyQty, totalBuyAmt, totalBuyFee,
       totalSellQty, totalSellAmt, totalSellFee,
-      balance, avgCost, fixedPL, fixedPLPct, totalDividend,
+      balance, avgCost, fixedPL, fixedPLPct,
+      footerPL, footerPLPct,
+      totalDividend,
     });
   }
   return result.sort((a, b) => a.stockName.localeCompare(b.stockName, "ko"));
@@ -176,9 +190,9 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
           <div className="flex flex-col items-end text-[10px] shrink-0 ml-1">
             <span className="text-muted-foreground">잔량 <span className="font-medium text-foreground">{stock.balance.toLocaleString()}</span>주</span>
             {stock.totalSellQty > 0 && (
-              <span className={stock.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
-                {stock.fixedPL >= 0 ? "+" : ""}{fmt(stock.fixedPL, ccy)}{unit}
-                <span className="opacity-70 ml-0.5">({fmtPct(stock.fixedPLPct)})</span>
+              <span className={stock.footerPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
+                {stock.footerPL >= 0 ? "+" : ""}{fmt(stock.footerPL, ccy)}{unit}
+                <span className="opacity-70 ml-0.5">({fmtPct(stock.footerPLPct)})</span>
               </span>
             )}
             {stock.totalDividend > 0 && (
@@ -296,13 +310,13 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
               <p className="font-medium tabular-nums">{stock.balance.toLocaleString()}주</p>
               <p className="tabular-nums">{fmt(stock.avgCost, ccy)}{unit}</p>
             </div>
-            {/* 실현손익 = 순매도수익(수수료차감) - 매입원가(평균단가×수량) */}
+            {/* 실현손익 = 총매도 - 취득원가(fee제외) - 배분매수수수료 - 매도수수료 */}
             <div>
               <p className="text-muted-foreground text-[10px] mb-0.5">실현손익 / 배당</p>
               {stock.totalSellQty > 0 ? (
-                <p className={`font-medium tabular-nums ${stock.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
-                  {stock.fixedPL >= 0 ? "+" : ""}{fmt(stock.fixedPL, ccy)}{unit}
-                  <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(stock.fixedPLPct)})</span>
+                <p className={`font-medium tabular-nums ${stock.footerPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                  {stock.footerPL >= 0 ? "+" : ""}{fmt(stock.footerPL, ccy)}{unit}
+                  <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(stock.footerPLPct)})</span>
                 </p>
               ) : (
                 <p className="text-muted-foreground tabular-nums">—</p>

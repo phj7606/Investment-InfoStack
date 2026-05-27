@@ -177,7 +177,7 @@ export function enrichSellTransaction(
 ): PensionTransaction {
   if (tx.tradeType !== "SELL") return tx;
 
-  // 동일 종목+계좌+카테고리의 이전 거래 (날짜순)
+  // 동일 종목+계좌+카테고리의 이전 거래 (날짜순, existingTxs에는 현재 tx 미포함)
   const relevant = existingTxs
     .filter(
       (t) =>
@@ -188,29 +188,29 @@ export function enrichSellTransaction(
     )
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  let qty = 0;
-  let totalCost = 0;
+  let qty     = 0;
+  let runCost = 0;  // fee-exclusive BUY 누적 원가 (잔량 기준)
 
   for (const t of relevant) {
     if (t.tradeType === "BUY") {
-      qty += t.quantity;
-      totalCost += t.amount;
+      qty     += t.quantity;
+      runCost += t.amount;
     } else if (t.tradeType === "SELL") {
-      if (qty > 0) totalCost = totalCost * ((qty - t.quantity) / qty);
+      if (qty > 0) runCost *= (qty - t.quantity) / qty;
       qty = Math.max(0, qty - t.quantity);
     }
   }
 
-  const avgCostAtSell = qty > 0 ? totalCost / qty : 0;
-  const netSellProceeds = tx.amount - (tx.fee ?? 0);
-  const costBasis = avgCostAtSell * tx.quantity;
-  const realizedPL = netSellProceeds - costBasis;
-  const realizedPLPct = costBasis > 0 ? (realizedPL / costBasis) * 100 : 0;
+  // 행별 실현손익: (단가 - 평균단가) × 수량 — 수수료 미포함
+  // 수수료는 테이블 하단 총매수/총매도 기준 요약에서만 반영
+  const avgCostAtSell = qty > 0 ? runCost / qty : 0;
+  const realizedPL    = (tx.price - avgCostAtSell) * tx.quantity;
+  const realizedPLPct = avgCostAtSell > 0 ? ((tx.price - avgCostAtSell) / avgCostAtSell) * 100 : 0;
 
   return {
     ...tx,
     avgCostAtSell: Math.floor(avgCostAtSell),
-    realizedPL: Math.round(realizedPL),
+    realizedPL:    Math.round(realizedPL),
     realizedPLPct: Math.round(realizedPLPct * 100) / 100,
   };
 }
