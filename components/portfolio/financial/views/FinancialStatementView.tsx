@@ -34,9 +34,16 @@ interface FinancialStatementViewProps {
 // 포맷 유틸
 // ─────────────────────────────────────────
 
-/** USD 금액 표시 (소수점 2자리) */
+/** KRW 금액 표시 — 음수는 회계 관행에 따라 (1,234) 괄호 표기 */
+function fmtAmt(v: number): string {
+  if (v < 0) return `(${Math.abs(v).toLocaleString()})`;
+  return v.toLocaleString();
+}
+
+/** USD 금액 표시 (소수점 2자리, 음수 괄호 표기) */
 function fmtUsd(v: number): string {
-  return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v < 0 ? `(${abs})` : abs;
 }
 
 // ─────────────────────────────────────────
@@ -64,7 +71,7 @@ function BSRow({
       <span className={indent && !bold ? "text-muted-foreground" : ""}>{label}</span>
       <div className="text-right">
         <span className={`tabular-nums ${colorClass}`}>
-          {amount.toLocaleString()}
+          {fmtAmt(amount)}
         </span>
         {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
       </div>
@@ -95,7 +102,7 @@ function TotalRow({ label, amount, colorClass = "" }: { label: string; amount: n
   return (
     <div className={`flex justify-between py-1.5 font-semibold text-sm border-t border-border/50 mt-1 ${colorClass}`}>
       <span>{label}</span>
-      <span className="tabular-nums">{amount.toLocaleString()}</span>
+      <span className="tabular-nums">{fmtAmt(amount)}</span>
     </div>
   );
 }
@@ -266,7 +273,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
             {/* TOTAL ASSETS */}
             <div className="flex justify-between py-2 font-bold text-base border-t-2 border-border">
               <span>TOTAL ASSETS</span>
-              <span className="tabular-nums">{assets.totalAssets.toLocaleString()}</span>
+              <span className="tabular-nums">{fmtAmt(assets.totalAssets)}</span>
             </div>
           </CardContent>
         </Card>
@@ -303,7 +310,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
             {/* LIABILITY TOTAL */}
             <div className="flex justify-between py-1.5 font-bold text-sm text-red-600">
               <span>LIABILITY TOTAL</span>
-              <span className="tabular-nums">{lbt.totalDebt.toLocaleString()}</span>
+              <span className="tabular-nums">{fmtAmt(lbt.totalDebt)}</span>
             </div>
 
             <Separator />
@@ -364,7 +371,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
             {/* TOTAL LIABILITY & CAPITAL */}
             <div className="flex justify-between py-2 font-bold text-base border-t-2 border-border">
               <span>TOTAL LIABILITY & CAPITAL</span>
-              <span className="tabular-nums">{(lbt.totalDebt + netWorth).toLocaleString()}</span>
+              <span className="tabular-nums">{fmtAmt(lbt.totalDebt + netWorth)}</span>
             </div>
 
           </CardContent>
