@@ -20,6 +20,8 @@ import {
 
 interface RebalancingPanelProps {
   positions: LongtermPosition[];
+  /** 리밸런싱 제안 테이블 유형 필터 — BUY/SELL/HOLD 중 선택 */
+  actionFilter?: "all" | "BUY" | "SELL" | "HOLD";
 }
 
 // 비중 차이에 따른 색상 결정
@@ -52,7 +54,7 @@ function formatSuggestionAmount(amount: number): string {
   return abs.toLocaleString();
 }
 
-export function RebalancingPanel({ positions }: RebalancingPanelProps) {
+export function RebalancingPanel({ positions, actionFilter = "all" }: RebalancingPanelProps) {
   // 목표 비중 입력값 (종목코드 → 퍼센트 문자열)
   const [targetInputs, setTargetInputs] = useState<Record<string, string>>({});
   // localStorage에서 저장된 목표 비중 초기화
@@ -241,7 +243,13 @@ export function RebalancingPanel({ positions }: RebalancingPanelProps) {
       </Card>
 
       {/* ── 리밸런싱 제안 테이블 ── */}
-      {suggestions.length > 0 && (
+      {/* actionFilter로 BUY/SELL/HOLD 중 하나만 표시 가능 */}
+      {suggestions.length > 0 && (() => {
+        const filtered = actionFilter === "all"
+          ? suggestions
+          : suggestions.filter((s) => s.action === actionFilter);
+        if (filtered.length === 0) return null;
+        return (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">리밸런싱 제안</CardTitle>
@@ -263,7 +271,7 @@ export function RebalancingPanel({ positions }: RebalancingPanelProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {suggestions.map((s, i) => (
+                  {filtered.map((s, i) => (
                     <tr key={`${s.stockCode}-${i}`} className="hover:bg-muted/20 transition-colors">
                       {/* 종목명 */}
                       <td className="px-4 py-2.5">
@@ -310,7 +318,8 @@ export function RebalancingPanel({ positions }: RebalancingPanelProps) {
             </div>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
     </div>
   );
 }

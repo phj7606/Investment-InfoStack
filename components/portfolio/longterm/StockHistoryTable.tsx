@@ -322,6 +322,8 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
 // ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
+
 interface StockHistoryTableProps {
   transactions: LongtermTransaction[];
   isLoading?: boolean;
@@ -329,10 +331,34 @@ interface StockHistoryTableProps {
   showSector?: boolean;
   /** true이면 국내/해외/전체 시장 필터 버튼 숨김 (단일 시장 계좌용) */
   hideMarketFilter?: boolean;
+  /** 외부에서 시장 필터 제어 — 제공 시 내부 상태 대신 이 값 사용 */
+  marketFilter?: "ALL" | "KR" | "US";
+  onMarketFilterChange?: (v: "ALL" | "KR" | "US") => void;
+  /** 외부에서 계좌 필터 제어 — 제공 시 내부 상태 대신 이 값 사용 */
+  accountFilter?: AccountFilter;
+  onAccountFilterChange?: (v: AccountFilter) => void;
 }
 
-export function StockHistoryTable({ transactions, isLoading, showSector = false, hideMarketFilter = false }: StockHistoryTableProps) {
-  const [marketFilter, setMarketFilter] = useState<"ALL" | "KR" | "US">("ALL");
+export function StockHistoryTable({
+  transactions, isLoading, showSector = false, hideMarketFilter = false,
+  marketFilter: externalMarket, onMarketFilterChange,
+  accountFilter: externalAccount, onAccountFilterChange,
+}: StockHistoryTableProps) {
+  // 외부 제어가 없으면 내부 상태 사용
+  const [internalMarket, setInternalMarket] = useState<"ALL" | "KR" | "US">("ALL");
+  const [internalAccount, setInternalAccount] = useState<AccountFilter>("all");
+
+  const marketFilter = externalMarket ?? internalMarket;
+  const accountFilter = externalAccount ?? internalAccount;
+
+  function handleMarketChange(v: "ALL" | "KR" | "US") {
+    if (onMarketFilterChange) onMarketFilterChange(v);
+    else setInternalMarket(v);
+  }
+  function handleAccountChange(v: AccountFilter) {
+    if (onAccountFilterChange) onAccountFilterChange(v);
+    else setInternalAccount(v);
+  }
 
   if (isLoading) {
     return <div className="py-12 text-center text-sm text-muted-foreground">로딩 중...</div>;
@@ -346,30 +372,56 @@ export function StockHistoryTable({ transactions, isLoading, showSector = false,
   }
 
   const allGroups = groupByStock(transactions);
-  const filtered  = marketFilter === "ALL"
-    ? allGroups
-    : allGroups.filter((g) => g.market === marketFilter);
+  // 시장 + 계좌 복합 필터
+  const filtered = allGroups
+    .filter((g) => marketFilter === "ALL" || g.market === marketFilter)
+    .filter((g) => accountFilter === "all" || g.accountNo === accountFilter);
   const krCount = allGroups.filter((g) => g.market === "KR").length;
   const usCount = allGroups.filter((g) => g.market === "US").length;
 
+  // 외부에서 필터를 제어하는 경우 내부 버튼 숨김 (부모가 직접 렌더링)
+  const showInternalFilters = !externalMarket && !externalAccount;
+
   return (
     <div className="space-y-3">
-      {/* 시장 필터 — hideMarketFilter=true 이면 숨김 (단일 시장 계좌용) */}
-      {!hideMarketFilter && (
-        <div className="flex gap-2 text-xs">
-          {(["ALL", "KR", "US"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMarketFilter(m)}
-              className={`px-3 py-1 rounded-full border transition-colors ${
-                marketFilter === m
-                  ? "bg-blue-600 text-white border-blue-600"
-                  : "border-input hover:bg-muted"
-              }`}
-            >
-              {m === "ALL" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
-            </button>
-          ))}
+      {/* 내부 필터 — 외부 제어 시 숨김 (부모가 필터 버튼 렌더링) */}
+      {showInternalFilters && (
+        <div className="flex flex-wrap gap-2">
+          {/* 시장 필터 — hideMarketFilter=true 이면 숨김 */}
+          {!hideMarketFilter && (
+            <div className="flex gap-2 text-xs">
+              {(["ALL", "KR", "US"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => handleMarketChange(m)}
+                  className={`px-3 py-1 rounded-full border transition-colors ${
+                    marketFilter === m
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-input hover:bg-muted"
+                  }`}
+                >
+                  {m === "ALL" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 계좌 필터 */}
+          <div className="flex gap-2 text-xs">
+            {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((a) => (
+              <button
+                key={a}
+                onClick={() => handleAccountChange(a)}
+                className={`px-3 py-1 rounded-full border transition-colors ${
+                  accountFilter === a
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-input hover:bg-muted"
+                }`}
+              >
+                {a === "all" ? "전체계좌" : a}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

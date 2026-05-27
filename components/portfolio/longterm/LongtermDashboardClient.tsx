@@ -238,6 +238,19 @@ export function LongtermDashboardClient() {
   const [exTradeMarket,  setExTradeMarket]  = useState<"all" | "KR" | "US">("all");
   const [exTradeAsset,   setExTradeAsset]   = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
 
+  // ── 종목별 탭 필터 ─────────────────────────────────
+  const [stocksMarket,  setStocksMarket]  = useState<"ALL" | "KR" | "US">("ALL");
+  const [stocksAcct,    setStocksAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+
+  // ── Performance 탭 계좌 필터 ────────────────────────
+  const [perfAcct, setPerfAcct] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+
+  // ── 리밸런싱 탭 필터 ────────────────────────────────
+  const [rebMarket,  setRebMarket]  = useState<"all" | "KR" | "US">("all");
+  const [rebAcct,    setRebAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [rebType,    setRebType]    = useState<"all" | "STOCK" | "FUND" | "ETF">("all");
+  const [rebAction,  setRebAction]  = useState<"all" | "BUY" | "SELL" | "HOLD">("all");
+
   // currentPricesRef를 state와 항상 동기화 (fetchPositions에서 deps 없이 최신값 읽기 위해)
   useEffect(() => {
     currentPricesRef.current = currentPrices;
@@ -1366,10 +1379,61 @@ export function LongtermDashboardClient() {
             탭 5: 종목별 이력 (accordion + 소계)
         ──────────────────────────────────────────── */}
         <TabsContent value="stocks" className="mt-4 space-y-3">
-          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
+          {/* 필터 — 우선순위: 시장 → 계좌 */}
+          <div className="flex flex-wrap gap-2">
+            {/* 시장 필터 */}
+            <div className="flex gap-2 text-xs">
+              {(["ALL", "KR", "US"] as const).map((m) => {
+                const all = transactions;
+                const kr = all.filter((t) => t.market === "KR");
+                const us = all.filter((t) => t.market === "US");
+                const label = m === "ALL"
+                  ? `전체 (${new Set(all.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`
+                  : m === "KR"
+                  ? `국내 (${new Set(kr.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`
+                  : `해외 (${new Set(us.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`;
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setStocksMarket(m)}
+                    className={`px-3 py-1 rounded-full border transition-colors ${
+                      stocksMarket === m
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "border-input hover:bg-muted"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 계좌 필터 */}
+            <div className="flex gap-2 text-xs">
+              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+                <button
+                  key={a}
+                  onClick={() => setStocksAcct(a)}
+                  className={`px-3 py-1 rounded-full border transition-colors ${
+                    stocksAcct === a
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "border-input hover:bg-muted"
+                  }`}
+                >
+                  {a === "all" ? "전체계좌" : a}
+                </button>
+              ))}
+            </div>
+          </div>
+
+
           <StockHistoryTable
             transactions={transactions}
             isLoading={txLoading}
+            marketFilter={stocksMarket}
+            onMarketFilterChange={setStocksMarket}
+            accountFilter={stocksAcct}
+            onAccountFilterChange={setStocksAcct}
           />
         </TabsContent>
 
@@ -1377,63 +1441,159 @@ export function LongtermDashboardClient() {
             탭 5: Performance Analysis (KR / US 탭 분리)
         ──────────────────────────────────────────── */}
         <TabsContent value="performance" className="mt-4 space-y-4">
-          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
-          {/* KR / US 서브 탭 */}
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant={perfCurrency === "KRW" ? "default" : "outline"}
-              className="h-7 text-xs px-3"
-              onClick={() => { setPerfCurrency("KRW"); updateUrlParam("perf", "KRW"); }}
-            >
-              국내 (KRW)
-            </Button>
-            <Button
-              size="sm"
-              variant={perfCurrency === "USD" ? "default" : "outline"}
-              className="h-7 text-xs px-3"
-              onClick={() => { setPerfCurrency("USD"); updateUrlParam("perf", "USD"); }}
-            >
-              해외 (USD)
-            </Button>
-          </div>
-
-          {/* ── 보유 종목별 성과 (TWR / Alpha) ──────────────────── */}
-          {/* 섹션 헤더: 제목 + 로딩 상태 표시 */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h3 className="text-sm font-semibold">보유 종목 성과</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  TWR · Alpha · 연환산 Alpha · Hit Rate · MDD
-                  {holdingsPerfLoading && (
-                    <span className="ml-2 text-blue-500 animate-pulse">
-                      Yahoo 히스토리 조회 중...
-                    </span>
-                  )}
-                </p>
-              </div>
+          {/* 필터 — 우선순위: 시장(KRW/USD) → 계좌 */}
+          <div className="flex flex-wrap gap-2">
+            {/* 시장 필터 (국내/해외) */}
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant={perfCurrency === "KRW" ? "default" : "outline"}
+                className="h-7 text-xs px-3"
+                onClick={() => { setPerfCurrency("KRW"); updateUrlParam("perf", "KRW"); }}
+              >
+                국내 (KRW)
+              </Button>
+              <Button
+                size="sm"
+                variant={perfCurrency === "USD" ? "default" : "outline"}
+                className="h-7 text-xs px-3"
+                onClick={() => { setPerfCurrency("USD"); updateUrlParam("perf", "USD"); }}
+              >
+                해외 (USD)
+              </Button>
             </div>
-            <HoldingsPerformanceTable
-              holdings={holdingsPerf}
-              isLoading={holdingsPerfLoading}
-              currency={perfCurrency}
-            />
+
+            {/* 계좌 필터 */}
+            <div className="flex gap-1">
+              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+                <Button
+                  key={a}
+                  size="sm"
+                  variant={perfAcct === a ? "default" : "outline"}
+                  className={cn("h-7 px-2.5 text-[11px]", perfAcct === a && "bg-blue-600 hover:bg-blue-700 text-white")}
+                  onClick={() => setPerfAcct(a)}
+                >
+                  {a === "all" ? "전체계좌" : a}
+                </Button>
+              ))}
+            </div>
           </div>
 
-          {/* ── Alpha 바 차트 — 종목별 Alpha 그래픽 시각화 ── */}
-          <HoldingsAlphaBarChart
-            holdings={holdingsPerf}
-            currency={perfCurrency}
-          />
+          {/* 계좌 필터 적용된 보유 성과 데이터 */}
+          {(() => {
+            const filteredPerf = perfAcct === "all"
+              ? holdingsPerf
+              : holdingsPerf.filter((h) => h.accountNo === perfAcct);
+
+            return (
+              <>
+                {/* ── 보유 종목별 성과 (TWR / Alpha) ──────────────────── */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="text-sm font-semibold">보유 종목 성과</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        TWR · Alpha · 연환산 Alpha · Hit Rate · MDD
+                        {holdingsPerfLoading && (
+                          <span className="ml-2 text-blue-500 animate-pulse">
+                            Yahoo 히스토리 조회 중...
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <HoldingsPerformanceTable
+                    holdings={filteredPerf}
+                    isLoading={holdingsPerfLoading}
+                    currency={perfCurrency}
+                  />
+                </div>
+
+                {/* ── Alpha 바 차트 — 종목별 Alpha 그래픽 시각화 ── */}
+                <HoldingsAlphaBarChart
+                  holdings={filteredPerf}
+                  currency={perfCurrency}
+                />
+              </>
+            );
+          })()}
         </TabsContent>
 
         {/* ────────────────────────────────────────────
             탭 6: 리밸런싱
         ──────────────────────────────────────────── */}
         <TabsContent value="rebalancing" className="mt-4 space-y-3">
-          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
-          <RebalancingPanel positions={positions} />
+          {/* 필터 — 우선순위: 시장 → 계좌 → 종류 → 유형 */}
+          <div className="flex flex-wrap gap-2">
+            {/* 시장 필터 */}
+            <div className="flex gap-1">
+              {(["all", "KR", "US"] as const).map((m) => (
+                <Button
+                  key={m}
+                  size="sm"
+                  variant={rebMarket === m ? "default" : "outline"}
+                  className={cn("h-7 px-2.5 text-[11px]", rebMarket === m && "bg-blue-600 hover:bg-blue-700 text-white")}
+                  onClick={() => setRebMarket(m)}
+                >
+                  {m === "all" ? "전체시장" : m}
+                </Button>
+              ))}
+            </div>
+
+            {/* 계좌 필터 */}
+            <div className="flex gap-1">
+              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+                <Button
+                  key={a}
+                  size="sm"
+                  variant={rebAcct === a ? "default" : "outline"}
+                  className={cn("h-7 px-2.5 text-[11px]", rebAcct === a && "bg-blue-600 hover:bg-blue-700 text-white")}
+                  onClick={() => setRebAcct(a)}
+                >
+                  {a === "all" ? "전체계좌" : a}
+                </Button>
+              ))}
+            </div>
+
+            {/* 종류 필터 */}
+            <div className="flex gap-1">
+              {(["all", "STOCK", "FUND", "ETF"] as const).map((t) => (
+                <Button
+                  key={t}
+                  size="sm"
+                  variant={rebType === t ? "default" : "outline"}
+                  className={cn("h-7 px-2.5 text-[11px]", rebType === t && "bg-blue-600 hover:bg-blue-700 text-white")}
+                  onClick={() => setRebType(t)}
+                >
+                  {t === "all" ? "전체종류" : t}
+                </Button>
+              ))}
+            </div>
+
+            {/* 유형 필터 — 리밸런싱 액션 (BUY/SELL/HOLD) */}
+            <div className="flex gap-1">
+              {(["all", "BUY", "SELL", "HOLD"] as const).map((a) => (
+                <Button
+                  key={a}
+                  size="sm"
+                  variant={rebAction === a ? "default" : "outline"}
+                  className={cn("h-7 px-2.5 text-[11px]", rebAction === a && "bg-blue-600 hover:bg-blue-700 text-white")}
+                  onClick={() => setRebAction(a)}
+                >
+                  {a === "all" ? "전체유형" : a}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <RebalancingPanel
+            positions={positions
+              .filter((p) => rebMarket === "all" || p.market === rebMarket)
+              .filter((p) => rebAcct === "all" || p.accountNo === rebAcct)
+              .filter((p) => rebType === "all" || p.assetType === rebType)
+            }
+            actionFilter={rebAction}
+          />
         </TabsContent>
       </Tabs>
     </div>
