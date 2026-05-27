@@ -18,13 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CloudDownload, CloudUpload, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -843,25 +836,26 @@ export function LongtermDashboardClient() {
 
       {/* ══ 상단 도구 모음 ══════════════════════════ */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* 계좌 필터 */}
-        <Select
-          value={accountFilter}
-          onValueChange={(v) => {
-            setAccountFilter(v as typeof accountFilter);
-            updateUrlParam("account", v);
-          }}
-        >
-          <SelectTrigger className="h-8 w-32 text-xs">
-            <SelectValue placeholder="계좌 선택" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">전체 계좌</SelectItem>
-            <SelectItem value="4802">4802 Stock</SelectItem>
-            <SelectItem value="1635">1635 ETF</SelectItem>
-            <SelectItem value="1402">1402 Mixed</SelectItem>
-            <SelectItem value="8654">8654 (펀드)</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* 계좌 필터 — Transactions 탭과 동일한 버튼 그룹 스타일 */}
+        <div className="flex gap-1">
+          {(["all", "4802", "1635", "1402", "8654"] as const).map((f) => (
+            <Button
+              key={f}
+              variant={accountFilter === f ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-7 px-2.5 text-[11px]",
+                accountFilter === f && "bg-blue-600 hover:bg-blue-700 text-white"
+              )}
+              onClick={() => {
+                setAccountFilter(f);
+                updateUrlParam("account", f);
+              }}
+            >
+              {f === "all" ? "전체계좌" : f}
+            </Button>
+          ))}
+        </div>
 
         {/* 새로고침 */}
         <Button
