@@ -232,6 +232,10 @@ export function LongtermDashboardClient() {
     () => (searchParams.get("market") as "KR" | "US") ?? "KR"
   );
 
+  // ── Open Positions 탭 필터 — KPI 블록과 연동을 위해 부모에서 관리 ────────
+  const [posMarket, setPosMarket] = useState<"KR" | "US">("KR");
+  const [posAcct,   setPosAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+
   // ── Executed Trade 탭 필터·정렬 ───────────────────────
   type ExTradeSortCol = "stockName" | "accountNo" | "market" | "assetType" | "buyDate" | "sellDate" | "avgBuyPrice" | "totalQty" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "monthlyGeoReturn" | "holdingDays";
   const [exTradeSort,   setExTradeSort]   = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
@@ -394,9 +398,6 @@ export function LongtermDashboardClient() {
     return Math.round(executedSummary.winRate * (pf + 1) * 10000) / 10000;
   }, [executedSummary]);
 
-  const exTotalBuy = executedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
-  const exTotalPL  = executedTrades.reduce((s, t) => s + t.profitLoss, 0);
-
   // 필터 + 정렬 적용
   const filteredExecutedTrades = useMemo(() => {
     let arr = [...executedTrades];
@@ -413,17 +414,21 @@ export function LongtermDashboardClient() {
         case "assetType":     cmp = a.assetType.localeCompare(b.assetType);       break;
         case "buyDate":       cmp = a.buyDate.localeCompare(b.buyDate);           break;
         case "sellDate":      cmp = a.sellDate.localeCompare(b.sellDate);         break;
-        case "avgBuyPrice":      cmp = a.avgBuyPrice  - b.avgBuyPrice;                                               break;
-        case "totalQty":         cmp = a.totalQty     - b.totalQty;                                                break;
-        case "avgSellPrice":     cmp = a.avgSellPrice - b.avgSellPrice;                                            break;
-        case "profitLoss":       cmp = a.profitLoss   - b.profitLoss;                                              break;
-        case "profitLossPct":    cmp = a.profitLossPct - b.profitLossPct;                                          break;
-        case "monthlyGeoReturn": cmp = (a.monthlyGeoReturn ?? -Infinity) - (b.monthlyGeoReturn ?? -Infinity);      break;
-        case "holdingDays":      cmp = a.holdingDays  - b.holdingDays;                                             break;
+        case "avgBuyPrice":      cmp = a.avgBuyPrice  - b.avgBuyPrice;            break;
+        case "totalQty":         cmp = a.totalQty     - b.totalQty;               break;
+        case "avgSellPrice":     cmp = a.avgSellPrice - b.avgSellPrice;           break;
+        case "profitLoss":       cmp = a.profitLoss   - b.profitLoss;             break;
+        case "profitLossPct":    cmp = a.profitLossPct - b.profitLossPct;         break;
+        case "monthlyGeoReturn": cmp = (a.monthlyGeoReturn ?? -Infinity) - (b.monthlyGeoReturn ?? -Infinity); break;
+        case "holdingDays":      cmp = a.holdingDays  - b.holdingDays;            break;
       }
       return exTradeSort.dir === "asc" ? cmp : -cmp;
     });
-  }, [executedTrades, exTradeMarket, exTradeAsset, exTradeSort]);
+  }, [executedTrades, exTradeMarket, exTradeAcct, exTradeAsset, exTradeSort]);
+
+  // KPI는 현재 필터 결과 기반으로 계산
+  const exTotalBuy = filteredExecutedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
+  const exTotalPL  = filteredExecutedTrades.reduce((s, t) => s + t.profitLoss, 0);
 
   // ────────────────────────────────────────────────
   // 거래 내역 조회
@@ -1064,10 +1069,12 @@ export function LongtermDashboardClient() {
           </div>
 
           {/* KPI 요약 카드 — 총 매수금액 / 총 평가금액 / 총 평가손익 / 수익률
-              KRW 포지션 기준으로 합산 (USD는 별도 통화로 혼산 방지)
+              posMarket(KR/US) + posAcct 필터 적용 후 합산
               현재가가 입력된 종목만 평가금액·평가손익 계산에 반영 */}
           {(() => {
-            const krwPos    = positions.filter((p) => p.currency === "KRW");
+            const krwPos    = positions
+              .filter((p) => p.market === posMarket)
+              .filter((p) => posAcct === "all" || p.accountNo === posAcct);
             const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
             const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
             const hasPrices = priced.length > 0;
@@ -1122,6 +1129,10 @@ export function LongtermDashboardClient() {
             pricesFetchedAt={pricesFetchedAt}
             onPriceUpdate={handlePriceUpdate}
             onPricesRefresh={fetchLivePrices}
+            marketFilter={posMarket}
+            onMarketFilterChange={setPosMarket}
+            accountFilter={posAcct}
+            onAccountFilterChange={setPosAcct}
           />
         </TabsContent>
 

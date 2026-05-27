@@ -28,6 +28,12 @@ interface LongtermPositionsTableProps {
   showSector?: boolean;
   /** true이면 KR/US 시장 필터 버튼 숨김 + 전체 포지션 표시 (Short-term 단일 시장용) */
   hideMarketFilter?: boolean;
+  /** 외부에서 시장 필터 제어 — KPI 블록과 연동 시 부모가 상태 보유 */
+  marketFilter?: MarketFilter;
+  onMarketFilterChange?: (v: MarketFilter) => void;
+  /** 외부에서 계좌 필터 제어 — KPI 블록과 연동 시 부모가 상태 보유 */
+  accountFilter?: AccountFilter;
+  onAccountFilterChange?: (v: AccountFilter) => void;
 }
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
@@ -154,12 +160,26 @@ export function LongtermPositionsTable({
   onPricesRefresh,
   showSector = false,
   hideMarketFilter = false,
+  marketFilter: externalMarket,
+  onMarketFilterChange,
+  accountFilter: externalAccount,
+  onAccountFilterChange,
 }: LongtermPositionsTableProps) {
-  // 기본값 KR — 전체(all) 제거
-  // hideMarketFilter=true 이면 필터 자체가 없으므로 초기값은 참조되지 않음
-  const [marketFilter, setMarketFilter] = useState<MarketFilter>("KR");
-  // 계좌 필터 — 선택 계좌만 표시 (전체 포지션 props 중 로컬 필터링)
-  const [accountFilter, setAccountFilter] = useState<AccountFilter>("all");
+  // 외부 props 없으면 내부 상태 사용 (standalone 사용 호환)
+  const [internalMarket, setInternalMarket] = useState<MarketFilter>("KR");
+  const [internalAccount, setInternalAccount] = useState<AccountFilter>("all");
+
+  const marketFilter  = externalMarket  ?? internalMarket;
+  const accountFilter = externalAccount ?? internalAccount;
+
+  function handleMarketChange(v: MarketFilter) {
+    if (onMarketFilterChange) onMarketFilterChange(v);
+    else setInternalMarket(v);
+  }
+  function handleAccountChange(v: AccountFilter) {
+    if (onAccountFilterChange) onAccountFilterChange(v);
+    else setInternalAccount(v);
+  }
 
   // 정렬 상태 (기본: 평가금액 내림차순)
   const [sort, setSort] = useState<SortState>({ col: "evalAmount", dir: "desc" });
@@ -309,7 +329,7 @@ export function LongtermPositionsTable({
                   variant={marketFilter === f ? "default" : "outline"}
                   size="sm"
                   className={filterBtnClass(marketFilter === f)}
-                  onClick={() => setMarketFilter(f)}
+                  onClick={() => handleMarketChange(f)}
                 >
                   {f}
                 </Button>
@@ -325,7 +345,7 @@ export function LongtermPositionsTable({
                 variant={accountFilter === f ? "default" : "outline"}
                 size="sm"
                 className={filterBtnClass(accountFilter === f)}
-                onClick={() => setAccountFilter(f)}
+                onClick={() => handleAccountChange(f)}
               >
                 {f === "all" ? "전체계좌" : f}
               </Button>
