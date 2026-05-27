@@ -57,25 +57,23 @@ interface AssetManagementViewProps {
 // 포맷 유틸 — 전체 수치 표시
 // ─────────────────────────────────────────
 
-/** KRW 금액: 쉼표 구분, 접미사 없음 (예: 1,482,352,065) */
+/** KRW 금액: 쉼표 구분, 음수는 괄호 표기 (예: 1,482,352,065 / (1,234)) */
 function fmtKrw(v: number): string {
   if (v === 0) return "–";
-  const neg = v < 0;
   const abs = Math.abs(v);
   const str = abs.toLocaleString("ko-KR");
-  return neg ? `−${str}` : str;
+  return v < 0 ? `(${str})` : str;
 }
 
-/** USD 금액: $ 접두사, 소수점 없음 (예: $131,426) */
+/** USD 금액: $ 접두사, 소수점 없음, 음수는 괄호 표기 (예: $131,426 / ($1,234)) */
 function fmtUsd(v: number): string {
   if (v === 0) return "–";
-  const neg = v < 0;
   const abs = Math.abs(v);
   const str = "$" + abs.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   });
-  return neg ? `−${str.slice(1)}` : str;
+  return v < 0 ? `(${str})` : str;
 }
 
 /** 수익률 포맷 */
@@ -642,7 +640,7 @@ function MonthlyInputDialog({
           </div>
           {Number(leaseDeposit) > 0 && (
             <p className="text-xs text-red-600 text-right">
-              −{Number(leaseDeposit).toLocaleString("ko-KR")}
+              ({Number(leaseDeposit).toLocaleString("ko-KR")})
             </p>
           )}
         </div>

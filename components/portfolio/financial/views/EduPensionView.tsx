@@ -39,22 +39,22 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 // 숫자 포맷 유틸
 // ─────────────────────────────────────────
 
-// 자산관리 탭과 동일한 en-dash(–) 사용 — em-dash(—) 아님
 function fmtKrw(v: number): string {
   if (v === 0) return "–";
-  return v.toLocaleString("ko-KR");
+  const abs = Math.abs(v).toLocaleString("ko-KR");
+  return v < 0 ? `(${abs})` : abs;
 }
 
 function fmtUsd(v: number): string {
   if (v === 0) return "–";
-  // 소수점 없이 정수 표시 (엑셀 달러 표기 동일)
-  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const abs = "$" + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return v < 0 ? `(${abs})` : abs;
 }
 
 function fmtCad(v: number): string {
   if (v === 0) return "–";
-  // 소수점 없이 정수 표시
-  return `C$${v.toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  const abs = "C$" + Math.abs(v).toLocaleString("en-CA", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return v < 0 ? `(${abs})` : abs;
 }
 
 function fmtPct(v: number): string {

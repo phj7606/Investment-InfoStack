@@ -321,9 +321,10 @@ export function MonthlyCFView({
     return Math.abs(val).toLocaleString();
   }
 
-  /** Income 셀: "+" 없이 숫자만, 음수일 때만 "-" */
+  /** Income 셀: 양수 그대로, 음수는 괄호 표기 */
   function fmtSigned(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
+    if (val < 0) return `(${Math.abs(val).toLocaleString()})`;
     return val.toLocaleString();
   }
 
@@ -469,7 +470,7 @@ export function MonthlyCFView({
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              ) : val !== 0 ? val.toLocaleString() : "—"}
+              ) : val !== 0 ? (val < 0 ? `(${Math.abs(val).toLocaleString()})` : val.toLocaleString()) : "—"}
             </td>
           );
         })}
