@@ -221,25 +221,8 @@ export function TransactionTable({
           )}
         </div>
 
-        {/* ── 필터 버튼 그룹 ── */}
+        {/* ── 필터 버튼 그룹 — 우선순위: 시장 → 계좌 → 종류 → 유형 ── */}
         <div className="flex flex-wrap gap-2 mt-2">
-          {/* 계좌 필터 — 단일 계좌 환경에서는 숨김 */}
-          {!hideAccountFilter && (
-            <div className="flex gap-1">
-              {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
-                <Button
-                  key={f}
-                  variant={accountFilter === f ? "default" : "outline"}
-                  size="sm"
-                  className={filterBtnClass(accountFilter === f)}
-                  onClick={() => setAccountFilter(f)}
-                >
-                  {f === "all" ? "전체계좌" : f}
-                </Button>
-              ))}
-            </div>
-          )}
-
           {/* 시장 필터 — 단일 시장 환경에서는 숨김 */}
           {!hideMarketFilter && (
             <div className="flex gap-1">
@@ -252,6 +235,23 @@ export function TransactionTable({
                   onClick={() => setMarketFilter(f)}
                 >
                   {f === "all" ? "전체시장" : f}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* 계좌 필터 — 단일 계좌 환경에서는 숨김 */}
+          {!hideAccountFilter && (
+            <div className="flex gap-1">
+              {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
+                <Button
+                  key={f}
+                  variant={accountFilter === f ? "default" : "outline"}
+                  size="sm"
+                  className={filterBtnClass(accountFilter === f)}
+                  onClick={() => setAccountFilter(f)}
+                >
+                  {f === "all" ? "전체계좌" : f}
                 </Button>
               ))}
             </div>

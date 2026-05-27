@@ -32,6 +32,7 @@ interface LongtermPositionsTableProps {
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
 type MarketFilter = "KR" | "US";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
 
 // 정렬 컬럼 타입
 type SortCol =
@@ -157,6 +158,8 @@ export function LongtermPositionsTable({
   // 기본값 KR — 전체(all) 제거
   // hideMarketFilter=true 이면 필터 자체가 없으므로 초기값은 참조되지 않음
   const [marketFilter, setMarketFilter] = useState<MarketFilter>("KR");
+  // 계좌 필터 — 선택 계좌만 표시 (전체 포지션 props 중 로컬 필터링)
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>("all");
 
   // 정렬 상태 (기본: 평가금액 내림차순)
   const [sort, setSort] = useState<SortState>({ col: "evalAmount", dir: "desc" });
@@ -197,12 +200,11 @@ export function LongtermPositionsTable({
   const totalKRWForSort = positions.filter((p) => p.currency === "KRW").reduce((s, p) => s + p.evalAmount, 0);
   const totalUSDForSort = positions.filter((p) => p.currency === "USD").reduce((s, p) => s + p.evalAmount, 0);
 
-  // 시장 필터 + 정렬 적용
-  // hideMarketFilter=true 이면 필터 적용 없이 전체 포지션 사용
+  // 시장 필터 + 계좌 필터 + 정렬 적용
+  // hideMarketFilter=true 이면 시장 필터 없이 전체 포지션 사용
   const filtered = useMemo(() => {
-    const arr = hideMarketFilter
-      ? [...positions]
-      : positions.filter((p) => p.market === marketFilter);
+    const arr = (hideMarketFilter ? [...positions] : positions.filter((p) => p.market === marketFilter))
+      .filter((p) => accountFilter === "all" || p.accountNo === accountFilter);
     arr.sort((a, b) => {
       let v = 0;
       switch (sort.col) {
@@ -296,22 +298,40 @@ export function LongtermPositionsTable({
           </div>
         </div>
 
-        {/* KR / US 필터 — hideMarketFilter=true 이면 숨김 (단일 시장 계좌용) */}
-        {!hideMarketFilter && (
-          <div className="flex gap-1 mt-2">
-            {(["KR", "US"] as MarketFilter[]).map((f) => (
+        {/* 필터 — 우선순위: 시장 → 계좌 */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          {/* 시장 필터 — hideMarketFilter=true 이면 숨김 (단일 시장 계좌용) */}
+          {!hideMarketFilter && (
+            <div className="flex gap-1">
+              {(["KR", "US"] as MarketFilter[]).map((f) => (
+                <Button
+                  key={f}
+                  variant={marketFilter === f ? "default" : "outline"}
+                  size="sm"
+                  className={filterBtnClass(marketFilter === f)}
+                  onClick={() => setMarketFilter(f)}
+                >
+                  {f}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* 계좌 필터 */}
+          <div className="flex gap-1">
+            {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
               <Button
                 key={f}
-                variant={marketFilter === f ? "default" : "outline"}
+                variant={accountFilter === f ? "default" : "outline"}
                 size="sm"
-                className={filterBtnClass(marketFilter === f)}
-                onClick={() => setMarketFilter(f)}
+                className={filterBtnClass(accountFilter === f)}
+                onClick={() => setAccountFilter(f)}
               >
-                {f}
+                {f === "all" ? "전체계좌" : f}
               </Button>
             ))}
           </div>
-        )}
+        </div>
       </CardHeader>
 
       <CardContent className="p-0">
