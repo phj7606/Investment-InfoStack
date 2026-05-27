@@ -399,7 +399,7 @@ export interface LongtermImportResult {
  */
 export async function importLongtermExcel(
   file: File,
-  accountNo: "4802" | "1635" | "1402" | "8654",
+  accountNo: "4802" | "1635" | "1402" | "1470",
   market: "KR" | "US",
   sheetType: "Stock Trading" | "Fund Trading",
   existingTxs: LongtermTransaction[] = []
@@ -490,7 +490,7 @@ export async function importLongtermExcel(
  */
 interface StockMeta {
   ticker: string;
-  accountNo: "4802" | "1635" | "1402" | "8654";
+  accountNo: "4802" | "1635" | "1402" | "1470";
   market: "KR" | "US";
   assetType: "STOCK" | "ETF" | "FUND";
 }
@@ -555,7 +555,7 @@ function buildStockLookup(
 ): Map<string, StockMeta> {
   const lookup = new Map<string, StockMeta>();
 
-  // Stock Investment 시트에 주식·ETF·펀드(8654 계좌) 모두 포함됨
+  // Stock Investment 시트에 주식·ETF·펀드(1470 계좌) 모두 포함됨
   const ws = wb.Sheets["Stock Investment"];
   if (!ws) return lookup;
 
@@ -574,7 +574,7 @@ function buildStockLookup(
     if (!accountRaw || accountRaw === "Account") continue;
 
     // 계좌번호 정규화
-    const accountNo = (["4802", "1635", "1402", "8654"] as const).find(
+    const accountNo = (["4802", "1635", "1402", "1470"] as const).find(
       (a) => accountRaw === a
     );
     if (!accountNo) continue;
@@ -587,15 +587,15 @@ function buildStockLookup(
     );
 
     // 계좌 기준 assetType 강제 보정
-    // 8654 = 펀드 계좌(KR FUND), 1635 = ETF 계좌 (KR ETF 또는 US ETF 모두 포함)
+    // 1470 = Education 계좌(KR FUND), 1635 = ETF 계좌 (KR ETF 또는 US ETF 모두 포함)
     // ※ market은 이름 패턴 감지 결과를 그대로 사용 — 계좌 번호로 강제 변경하지 않음
     //   (1635에 COPX, GRID, SOXX 같은 US ETF와 KODEX200 같은 KR ETF가 공존)
     const finalAssetType: StockMeta["assetType"] =
-      accountNo === "8654" ? "FUND" :
+      accountNo === "1470" ? "FUND" :
       accountNo === "1635" ? "ETF" :
       assetType;
     const finalMarket: StockMeta["market"] =
-      accountNo === "8654" ? "KR" : market;
+      accountNo === "1470" ? "KR" : market;
 
     const meta: StockMeta = {
       ticker: ticker || stockName,
@@ -839,14 +839,14 @@ export async function parseHierarchicalExcel(
           if (colA !== currentRawName) {
             lastTxDate = "";
             currentRawName = colA;
-            // Stock Investment 시트의 lookup에서 8654 계좌 메타 조회
+            // Stock Investment 시트의 lookup에서 1470(Education) 계좌 메타 조회
             const meta = lookup.get(colA) ?? lookup.get(colA.replace(/\s+/g, ""));
             if (meta) {
               currentMeta = meta;
               currentStockName = meta.ticker;
             } else {
-              // lookup 미등록 펀드 → 8654 계좌 기본값
-              currentMeta = { ticker: colA, accountNo: "8654", market: "KR", assetType: "FUND" };
+              // lookup 미등록 펀드 → 1470(Education) 계좌 기본값
+              currentMeta = { ticker: colA, accountNo: "1470", market: "KR", assetType: "FUND" };
               currentStockName = colA;
             }
           }

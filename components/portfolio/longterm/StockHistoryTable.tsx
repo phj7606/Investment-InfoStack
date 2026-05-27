@@ -322,7 +322,7 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
 // ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
 
 type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
 
@@ -420,7 +420,7 @@ export function StockHistoryTable({
 
           {/* 계좌 필터 */}
           <div className="flex gap-2 text-xs">
-            {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as AccountFilter[]).map((a) => (
               <button
                 key={a}
                 onClick={() => handleAccountChange(a)}

@@ -38,7 +38,8 @@ const COLOR_MAP: Record<string, string> = {
   "4802": "#10b981",  // emerald-500
   "1635": "#6366f1",  // indigo-500
   "1402": "#f59e0b",  // amber-500
-  "8654": "#8b5cf6",  // violet-500
+  "2805": "#8b5cf6",  // violet-500
+  "1470": "#ec4899",  // pink-500
   // 자산유형별
   "STOCK": "#10b981",
   "ETF":   "#6366f1",
@@ -53,7 +54,8 @@ const GROUP_LABELS: Record<string, string> = {
   "4802": "4802 Stock",
   "1635": "1635 ETF",
   "1402": "1402 Mixed",
-  "8654": "8654 Fund",
+  "2805": "2805 Short-term",
+  "1470": "1470",
   "STOCK": "개별주식",
   "ETF":   "ETF",
   "FUND":  "펀드",

@@ -29,7 +29,7 @@ interface TransactionTableProps {
 }
 
 // 필터 상태 타입
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
 type MarketFilter = "all" | "KR" | "US";
 type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
 type TradeTypeFilter = "all" | "BUY" | "SELL" | "DIVIDEND";
@@ -243,7 +243,7 @@ export function TransactionTable({
           {/* 계좌 필터 — 단일 계좌 환경에서는 숨김 */}
           {!hideAccountFilter && (
             <div className="flex gap-1">
-              {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
+              {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as AccountFilter[]).map((f) => (
                 <Button
                   key={f}
                   variant={accountFilter === f ? "default" : "outline"}

@@ -34,11 +34,15 @@ interface LongtermPositionsTableProps {
   /** 외부에서 계좌 필터 제어 — KPI 블록과 연동 시 부모가 상태 보유 */
   accountFilter?: AccountFilter;
   onAccountFilterChange?: (v: AccountFilter) => void;
+  /** 계좌 필터 목록 커스터마이징 — 기본값: ["all","4802","1635","1402","2805","1470"] */
+  accountOptions?: readonly AccountFilter[];
 }
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
 type MarketFilter = "KR" | "US";
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+
+const DEFAULT_ACCOUNT_OPTIONS: readonly AccountFilter[] = ["all", "4802", "1635", "1402", "2805", "1470", "8654"];
 
 // 정렬 컬럼 타입
 type SortCol =
@@ -164,6 +168,7 @@ export function LongtermPositionsTable({
   onMarketFilterChange,
   accountFilter: externalAccount,
   onAccountFilterChange,
+  accountOptions = DEFAULT_ACCOUNT_OPTIONS,
 }: LongtermPositionsTableProps) {
   // 외부 props 없으면 내부 상태 사용 (standalone 사용 호환)
   const [internalMarket, setInternalMarket] = useState<MarketFilter>("KR");
@@ -339,7 +344,7 @@ export function LongtermPositionsTable({
 
           {/* 계좌 필터 */}
           <div className="flex gap-1">
-            {(["all", "4802", "1635", "1402", "8654"] as AccountFilter[]).map((f) => (
+            {accountOptions.map((f) => (
               <Button
                 key={f}
                 variant={accountFilter === f ? "default" : "outline"}

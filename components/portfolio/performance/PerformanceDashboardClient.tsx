@@ -30,7 +30,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
   "4802": "4802 Stock",
   "1635": "1635 ETF",
   "1402": "1402 Mixed",
-  "8654": "8654",
+  "1470": "1470 Education",
 };
 
 function getAccountLabel(acct: string): string {
