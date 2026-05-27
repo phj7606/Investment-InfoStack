@@ -58,9 +58,8 @@ function sortTrades(trades: EducationTrade[], sort: TradeSortState): EducationTr
   });
 }
 
-// 색상 헬퍼 (한국 컨벤션)
 function plColor(v: number) {
-  return v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
+  return v > 0 ? "text-emerald-600 dark:text-emerald-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-muted-foreground";
 }
 function fmt(v: number) { return Math.round(v).toLocaleString("ko-KR"); }
 function fmtPct(v: number, d = 2) {
@@ -528,9 +527,8 @@ export function ShorttermAccountDashboardClient() {
 
             // 한국식 정수 포맷 (쉼표 구분, 소수점 없음)
             const fmt = (n: number) => Math.round(n).toLocaleString("ko-KR");
-            // 한국 수익 색상 규칙: 양수=red-500, 음수=blue-500
-            const plColor  = totalPL  >= 0 ? "text-red-500"  : "text-blue-500";
-            const pctColor = (totalPLPct ?? 0) >= 0 ? "text-red-500" : "text-blue-500";
+            const plColor  = totalPL  >= 0 ? "text-emerald-600 dark:text-emerald-400"  : "text-red-500 dark:text-red-400";
+            const pctColor = (totalPLPct ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
             const fetchedStr = pricesFetchedAt
               ? new Date(pricesFetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
               : null;
@@ -654,16 +652,16 @@ export function ShorttermAccountDashboardClient() {
               />
               <SummaryCard label="평균 수익"
                 value={`+${derivedSummary.avgWinPct.toFixed(1)}%`}
-                valueClass="text-red-500"
+                valueClass="text-emerald-600 dark:text-emerald-400"
               />
               <SummaryCard label="평균 손실"
                 value={`-${derivedSummary.avgLossPct.toFixed(1)}%`}
-                valueClass="text-blue-500"
+                valueClass="text-red-500 dark:text-red-400"
               />
               <SummaryCard label="TPI"
                 value={tpi !== null ? tpi.toFixed(2) : "-"}
                 sub="winRate × (PF+1)"
-                valueClass={tpi !== null ? (tpi >= 1 ? "text-red-500" : "text-blue-500") : undefined}
+                valueClass={tpi !== null ? (tpi >= 1 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400") : undefined}
               />
             </div>
           )}

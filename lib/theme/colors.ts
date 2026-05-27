@@ -2,29 +2,16 @@
  * 공용 색상 유틸리티
  *
  * 수익률·손익 색상을 프로젝트 전역에서 일관되게 적용하기 위해 중앙화.
- * 컴포넌트마다 개별적으로 색상 문자열을 정의하면 다크 모드 대응이 불일치하거나
- * 한국/미국 주식 색상 규칙이 제각각이 되는 문제를 방지한다.
- *
- * 한국 주식 규칙: 상승=빨강(text-red-500), 하락=파랑(text-blue-500)
- * 해외·일반 규칙: 상승=초록(text-emerald-*), 하락=빨강(text-red-*)
+ * 전 화면 통일: 수익=초록(emerald-600), 손실=빨강(red-500) + 다크 모드 대응
  */
 
 /**
  * 수익률/손익 부호에 따른 Tailwind 텍스트 색상 클래스 반환.
  *
  * @param value  표시할 숫자 (양수=수익, 음수=손실, 0=보합)
- * @param market 'kr' = 한국 주식 규칙 (상승 빨강/하락 파랑)
- *               'us' = 해외·일반 규칙 (상승 초록/하락 빨강, 다크 모드 대응)
  */
-export function getPLColor(value: number, market: "kr" | "us" = "us"): string {
+export function getPLColor(value: number): string {
   if (value === 0) return "text-muted-foreground";
-
-  if (market === "kr") {
-    // 한국 증시 관행: 상승은 빨강, 하락은 파랑
-    return value > 0 ? "text-red-500" : "text-blue-500";
-  }
-
-  // 해외·펀드·일반: 상승 초록 / 하락 빨강 + 다크 모드 대응
   return value > 0
     ? "text-emerald-600 dark:text-emerald-400"
     : "text-red-500 dark:text-red-400";

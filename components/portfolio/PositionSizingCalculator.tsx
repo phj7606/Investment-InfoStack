@@ -141,7 +141,7 @@ export function PositionSizingCalculator({ config }: PositionSizingCalculatorPro
 
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">실제 손실 (손절 시)</span>
-                  <span className="font-medium text-blue-500">
+                  <span className="font-medium text-red-500 dark:text-red-400">
                     -{actualLoss.toLocaleString()}원
                   </span>
                 </div>

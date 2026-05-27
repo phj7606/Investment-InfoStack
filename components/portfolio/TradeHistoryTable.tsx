@@ -71,7 +71,7 @@ export function TradeHistoryTable({
   const filteredPL = filtered.reduce((sum, p) => sum + p.profitLoss, 0);
 
   const plColor = (v: number) =>
-    v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
+    v > 0 ? "text-emerald-600 dark:text-emerald-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-muted-foreground";
 
   // 수동 매도 저장
   function handleAddSubmit() {

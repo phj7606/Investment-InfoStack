@@ -47,7 +47,7 @@ function CustomTooltip({
   return (
     <div className="rounded-lg border bg-background/95 px-3 py-2 shadow-md text-xs">
       <p className="text-muted-foreground mb-0.5">{label}</p>
-      <p className={`font-semibold ${value >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+      <p className={`font-semibold ${value >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
         {value >= 0 ? "+" : ""}
         {value.toLocaleString()}원
       </p>
@@ -111,7 +111,7 @@ export function EquityCurveChart({ data, isLoading }: EquityCurveChartProps) {
           </div>
           <div className="text-right">
             <p className="text-[10px] text-muted-foreground">누적 손익 {periodLabel && <span className="text-[9px]">({periodLabel})</span>}</p>
-            <p className={`text-sm font-bold ${finalValue >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+            <p className={`text-sm font-bold ${finalValue >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
               {finalValue >= 0 ? "+" : ""}
               {finalValue.toLocaleString()}원
             </p>

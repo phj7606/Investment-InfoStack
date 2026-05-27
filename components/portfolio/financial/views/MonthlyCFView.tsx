@@ -98,7 +98,7 @@ function isIncomeStyling(rowDef: CFTableRowDef): boolean {
 /** 셀 색상 — Income: 녹/적, 나머지: 검정 */
 function incomeColor(val: number): string {
   if (val === 0 || isNaN(val)) return "text-muted-foreground";
-  return val >= 0 ? "text-emerald-600" : "text-red-500";
+  return val >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
 }
 
 // ─────────────────────────────────────────
@@ -442,7 +442,7 @@ export function MonthlyCFView({
               onClick={() => type === "prev" && !isEditing && startBalEdit(month)}
               className={`px-3 py-1.5 text-right tabular-nums text-sm
                 ${type === "prev" ? "cursor-pointer hover:bg-muted/60" : ""}
-                ${val >= 0 ? "text-blue-700 dark:text-blue-400" : "text-red-500"}
+                ${val >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                 ${isManual ? "underline decoration-dotted" : ""}
               `}
             >

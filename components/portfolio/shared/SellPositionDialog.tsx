@@ -172,19 +172,19 @@ export function SellPositionDialog({ apiBase, open, position, onOpenChange, onSa
               )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">순손익</span>
-                <span className={`font-semibold tabular-nums ${previewPL >= 0 ? "text-red-500" : "text-blue-500"}`}>
+                <span className={`font-semibold tabular-nums ${previewPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {previewPL >= 0 ? "+" : ""}{previewPL.toLocaleString()}원
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">수익률</span>
-                <span className={`font-semibold tabular-nums ${previewPct >= 0 ? "text-red-500" : "text-blue-500"}`}>
+                <span className={`font-semibold tabular-nums ${previewPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {previewPct >= 0 ? "+" : ""}{previewPct.toFixed(2)}%
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">결과</span>
-                <span className={`font-bold ${previewPL >= 0 ? "text-red-500" : "text-blue-500"}`}>
+                <span className={`font-bold ${previewPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {previewPL >= 0 ? "Win" : "Lose"}
                 </span>
               </div>

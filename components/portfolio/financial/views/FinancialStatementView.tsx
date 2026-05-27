@@ -318,34 +318,34 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
                     label="Net changes"
                     amount={capital.netChanges}
                     indent
-                    colorClass={capital.netChanges >= 0 ? "text-emerald-600" : "text-red-600"}
+                    colorClass={capital.netChanges >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                   />
                   {/* 변동 내역 세분화 — 엑셀 Row 26~30 */}
                   <div className="pl-8 space-y-0">
                     <BSRow
                       label="Change in Current Asset"
                       amount={capital.changeInCurrentAsset}
-                      colorClass={capital.changeInCurrentAsset >= 0 ? "text-emerald-600" : "text-red-600"}
+                      colorClass={capital.changeInCurrentAsset >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                     />
                     <BSRow
                       label="Change in Non-Current Asset"
                       amount={capital.changeInNonCurrentAsset}
-                      colorClass={capital.changeInNonCurrentAsset !== 0 ? (capital.changeInNonCurrentAsset >= 0 ? "text-emerald-600" : "text-red-600") : ""}
+                      colorClass={capital.changeInNonCurrentAsset !== 0 ? (capital.changeInNonCurrentAsset >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400") : ""}
                     />
                     <BSRow
                       label="Change in Investment Asset"
                       amount={capital.changeInInvestmentAsset}
-                      colorClass={capital.changeInInvestmentAsset >= 0 ? "text-emerald-600" : "text-red-600"}
+                      colorClass={capital.changeInInvestmentAsset >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                     />
                     <BSRow
                       label="Change in Pension/Education"
                       amount={capital.changeInPensionEducation}
-                      colorClass={capital.changeInPensionEducation >= 0 ? "text-emerald-600" : "text-red-600"}
+                      colorClass={capital.changeInPensionEducation >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                     />
                     <BSRow
                       label="Change in Liability"
                       amount={capital.changeInLiability}
-                      colorClass={capital.changeInLiability >= 0 ? "text-emerald-600" : "text-red-600"}
+                      colorClass={capital.changeInLiability >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
                     />
                   </div>
                 </>
@@ -355,7 +355,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
               <TotalRow
                 label="CAPITAL TOTAL"
                 amount={netWorth}
-                colorClass={netWorth >= 0 ? "text-emerald-600" : "text-red-600"}
+                colorClass={netWorth >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}
               />
             </div>
 

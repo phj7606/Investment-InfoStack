@@ -176,7 +176,7 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
           <div className="flex flex-col items-end text-[10px] shrink-0 ml-1">
             <span className="text-muted-foreground">잔량 <span className="font-medium text-foreground">{stock.balance.toLocaleString()}</span>주</span>
             {stock.totalSellQty > 0 && (
-              <span className={stock.fixedPL >= 0 ? "text-emerald-600" : "text-red-500"}>
+              <span className={stock.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
                 {stock.fixedPL >= 0 ? "+" : ""}{fmt(stock.fixedPL, ccy)}{unit}
                 <span className="opacity-70 ml-0.5">({fmtPct(stock.fixedPLPct)})</span>
               </span>
@@ -247,7 +247,7 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums border-t">
                       {tx.tradeType === "SELL" && tx.realizedPL !== undefined ? (
-                        <span className={tx.realizedPL >= 0 ? "text-emerald-600" : "text-red-500"}>
+                        <span className={tx.realizedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
                           {tx.realizedPL >= 0 ? "+" : ""}{fmt(tx.realizedPL, ccy)}
                           {tx.realizedPLPct !== undefined && (
                             <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(tx.realizedPLPct)})</span>
@@ -300,7 +300,7 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
             <div>
               <p className="text-muted-foreground text-[10px] mb-0.5">실현손익 / 배당</p>
               {stock.totalSellQty > 0 ? (
-                <p className={`font-medium tabular-nums ${stock.fixedPL >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                <p className={`font-medium tabular-nums ${stock.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                   {stock.fixedPL >= 0 ? "+" : ""}{fmt(stock.fixedPL, ccy)}{unit}
                   <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(stock.fixedPLPct)})</span>
                 </p>

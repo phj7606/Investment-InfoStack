@@ -18,17 +18,16 @@ interface PositionsTableProps {
   fetchedAt?: string;
 }
 
-// 수익률에 따른 색상 클래스
 function plColor(value: number): string {
-  if (value > 0) return "text-red-500";    // 한국 주식: 상승=빨강
-  if (value < 0) return "text-blue-500";   // 하락=파랑
+  if (value > 0) return "text-emerald-600 dark:text-emerald-400";
+  if (value < 0) return "text-red-500 dark:text-red-400";
   return "text-muted-foreground";
 }
 
 // 수익률 방향 아이콘
 function PlIcon({ value }: { value: number }) {
-  if (value > 0) return <TrendingUp className="h-3 w-3 text-red-500" />;
-  if (value < 0) return <TrendingDown className="h-3 w-3 text-blue-500" />;
+  if (value > 0) return <TrendingUp className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />;
+  if (value < 0) return <TrendingDown className="h-3 w-3 text-red-500 dark:text-red-400" />;
   return <Minus className="h-3 w-3 text-muted-foreground" />;
 }
 

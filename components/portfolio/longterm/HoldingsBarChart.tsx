@@ -68,7 +68,7 @@ function CustomTooltip({ active, payload, market }: {
         {hasCurrent && evalPLPct !== undefined && (
           <div className="flex justify-between gap-4">
             <span className="text-muted-foreground">수익률</span>
-            <span className={`font-semibold tabular-nums ${evalPLPct >= 0 ? "text-red-500" : "text-blue-500"}`}>
+            <span className={`font-semibold tabular-nums ${evalPLPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
               {evalPLPct >= 0 ? "+" : ""}{evalPLPct.toFixed(2)}%
             </span>
           </div>

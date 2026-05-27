@@ -47,9 +47,8 @@ function getDefaultDateRange(): { startDate: string; endDate: string } {
   };
 }
 
-// 한국식 색상 규칙: 상승=빨강, 하락=파랑
 function plColor(v: number) {
-  return v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
+  return v > 0 ? "text-emerald-600 dark:text-emerald-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-muted-foreground";
 }
 
 interface TrendAccountDashboardClientProps {

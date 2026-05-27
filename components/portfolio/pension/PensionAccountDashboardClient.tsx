@@ -37,7 +37,7 @@ type RebalAccountType = "RETIREMENT" | "SAVINGS";
 // 색상·포맷 헬퍼
 // ─────────────────────────────────────────
 function plColor(v: number) {
-  return v > 0 ? "text-red-500" : v < 0 ? "text-blue-500" : "text-muted-foreground";
+  return v > 0 ? "text-emerald-600 dark:text-emerald-400" : v < 0 ? "text-red-500 dark:text-red-400" : "text-muted-foreground";
 }
 function fmt(v: number) { return Math.round(v).toLocaleString("ko-KR"); }
 function fmtPct(v: number) {
@@ -1410,16 +1410,16 @@ export function PensionAccountDashboardClient() {
               />
               <ExSummaryCard label="평균 수익"
                 value={`+${executedSummary.avgWinPct.toFixed(1)}%`}
-                valueClass="text-red-500"
+                valueClass="text-emerald-600 dark:text-emerald-400"
               />
               <ExSummaryCard label="평균 손실"
                 value={`-${executedSummary.avgLossPct.toFixed(1)}%`}
-                valueClass="text-blue-500"
+                valueClass="text-red-500 dark:text-red-400"
               />
               <ExSummaryCard label="TPI"
                 value={exTpi !== null ? exTpi.toFixed(2) : "-"}
                 sub="winRate × (PF+1)"
-                valueClass={exTpi !== null ? (exTpi >= 1 ? "text-red-500" : "text-blue-500") : undefined}
+                valueClass={exTpi !== null ? (exTpi >= 1 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400") : undefined}
               />
             </div>
           )}
@@ -1645,7 +1645,7 @@ export function PensionAccountDashboardClient() {
                           잔량 <span className="font-medium text-foreground">{g.balance.toLocaleString()}</span>주
                         </span>
                         {g.totalSellQty > 0 && (
-                          <span className={g.fixedPL >= 0 ? "text-red-500" : "text-blue-500"}>
+                          <span className={g.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
                             {g.fixedPL >= 0 ? "+" : ""}{fmt(g.fixedPL)}원
                             <span className="opacity-70 ml-0.5">({fmtPct(g.fixedPLPct)})</span>
                           </span>
@@ -1713,7 +1713,7 @@ export function PensionAccountDashboardClient() {
                                   </td>
                                   <td className="px-2 py-1.5 text-right tabular-nums border-t">
                                     {t.tradeType === "SELL" && t.realizedPL !== undefined ? (
-                                      <span className={t.realizedPL >= 0 ? "text-red-500" : "text-blue-500"}>
+                                      <span className={t.realizedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
                                         {t.realizedPL >= 0 ? "+" : ""}{fmt(t.realizedPL)}
                                         {t.realizedPLPct !== undefined && (
                                           <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(t.realizedPLPct)})</span>
@@ -1737,7 +1737,7 @@ export function PensionAccountDashboardClient() {
                           <div>
                             <p className="text-muted-foreground text-[10px] mb-0.5">총 매수</p>
                             <p className="font-medium tabular-nums">{g.totalBuyQty.toLocaleString()}주</p>
-                            <p className="text-red-500 tabular-nums">{fmt(g.totalBuyAmt)}원</p>
+                            <p className="tabular-nums">{fmt(g.totalBuyAmt)}원</p>
                             {g.totalBuyFee > 0 && (
                               <p className="text-muted-foreground tabular-nums text-[10px]">
                                 수수료 {fmt(g.totalBuyFee)}원
@@ -1747,7 +1747,7 @@ export function PensionAccountDashboardClient() {
                           <div>
                             <p className="text-muted-foreground text-[10px] mb-0.5">총 매도</p>
                             <p className="font-medium tabular-nums">{g.totalSellQty.toLocaleString()}주</p>
-                            <p className="text-blue-500 tabular-nums">{fmt(g.totalSellAmt)}원</p>
+                            <p className="tabular-nums">{fmt(g.totalSellAmt)}원</p>
                             {g.totalSellFee > 0 && (
                               <p className="text-muted-foreground tabular-nums text-[10px]">
                                 수수료 {fmt(g.totalSellFee)}원
@@ -1762,7 +1762,7 @@ export function PensionAccountDashboardClient() {
                           <div>
                             <p className="text-muted-foreground text-[10px] mb-0.5">실현손익 / 배당</p>
                             {g.totalSellQty > 0 ? (
-                              <p className={cn("font-medium tabular-nums", g.fixedPL >= 0 ? "text-red-500" : "text-blue-500")}>
+                              <p className={cn("font-medium tabular-nums", g.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400")}>
                                 {g.fixedPL >= 0 ? "+" : ""}{fmt(g.fixedPL)}원
                                 <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(g.fixedPLPct)})</span>
                               </p>

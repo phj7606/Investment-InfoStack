@@ -296,7 +296,7 @@ export default async function KrMarketPage() {
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold">{latest.value.toFixed(1)}</span>
                 {latest.change !== 0 && (
-                  <span className={`text-sm ${latest.change > 0 ? "text-green-500" : "text-red-500"}`}>
+                  <span className={`text-sm ${latest.change > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
                     {latest.change > 0 ? "+" : ""}{latest.change.toFixed(1)}
                   </span>
                 )}

@@ -114,7 +114,7 @@ export function MonthlyReturnsHeatmap({
               {hasCapital && hoveredData.returnPct !== 0 && (
                 <p className={cn(
                   "font-semibold",
-                  hoveredData.returnPct > 0 ? "text-emerald-600" : "text-red-500"
+                  hoveredData.returnPct > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
                 )}>
                   {hoveredData.returnPct >= 0 ? "+" : ""}
                   {hoveredData.returnPct.toFixed(2)}%
@@ -122,7 +122,7 @@ export function MonthlyReturnsHeatmap({
               )}
               <p className={cn(
                 "font-semibold",
-                hoveredData.profitLoss > 0 ? "text-emerald-600" : "text-red-500"
+                hoveredData.profitLoss > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
               )}>
                 {hoveredData.profitLoss >= 0 ? "+" : ""}
                 {hoveredData.profitLoss.toLocaleString()}원

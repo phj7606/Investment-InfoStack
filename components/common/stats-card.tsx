@@ -29,7 +29,7 @@ export function StatsCard({
           {trend && (
             <span
               className={`flex items-center gap-0.5 text-xs font-medium ${
-                trend.isPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                trend.isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
               }`}
             >
               {trend.isPositive ? (

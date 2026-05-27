@@ -76,10 +76,10 @@ interface ExecutedTrade {
 }
 
 // ─────────────────────────────────────────
-// 손익 색상 헬퍼 (국내 관례: 상승=적색, 하락=청색)
+// 손익 색상 헬퍼
 // ─────────────────────────────────────────
 function exPlColor(n: number): string {
-  return n > 0 ? "text-red-500" : n < 0 ? "text-blue-500" : "text-muted-foreground";
+  return n > 0 ? "text-emerald-600 dark:text-emerald-400" : n < 0 ? "text-red-500 dark:text-red-400" : "text-muted-foreground";
 }
 
 // KRW/USD 숫자 포매터

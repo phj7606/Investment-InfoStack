@@ -87,7 +87,7 @@ function fmtPct(v: number): string {
 /** P/L 색상 클래스 */
 function plClass(v: number): string {
   if (v > 0) return "text-emerald-600 dark:text-emerald-400";
-  if (v < 0) return "text-red-600 dark:text-red-400";
+  if (v < 0) return "text-red-500 dark:text-red-400";
   return "text-muted-foreground";
 }
 

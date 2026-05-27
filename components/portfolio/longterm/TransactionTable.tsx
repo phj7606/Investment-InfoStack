@@ -39,10 +39,9 @@ type SortCol = "date" | "accountNo" | "stockName" | "tradeType" | "quantity" | "
 type SortDir = "asc" | "desc";
 interface SortState { col: SortCol; dir: SortDir }
 
-// 수익률 색상 헬퍼 (한국 컨벤션)
 function plColor(value: number): string {
-  if (value > 0) return "text-red-500";
-  if (value < 0) return "text-blue-500";
+  if (value > 0) return "text-emerald-600 dark:text-emerald-400";
+  if (value < 0) return "text-red-500 dark:text-red-400";
   return "text-muted-foreground";
 }
 
