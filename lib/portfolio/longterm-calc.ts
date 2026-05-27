@@ -183,7 +183,7 @@ export function enrichSellTransaction(
   return {
     ...tx,
     avgCostAtSell: Math.round(avgCostAtSell * 100) / 100,
-    realizedPL:    Math.round(realizedPL),
+    realizedPL:    Math.round(realizedPL * 100) / 100,   // USD 소수점 2자리 보존, KRW도 정수로 자연 수렴
     realizedPLPct: Math.round(realizedPLPct * 100) / 100,
   };
 }
