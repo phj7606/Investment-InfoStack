@@ -324,6 +324,8 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
 // ─────────────────────────────────────────
 type AccountFilter = "all" | "4802" | "1635" | "1402" | "8654";
 
+type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
+
 interface StockHistoryTableProps {
   transactions: LongtermTransaction[];
   isLoading?: boolean;
@@ -331,33 +333,42 @@ interface StockHistoryTableProps {
   showSector?: boolean;
   /** true이면 국내/해외/전체 시장 필터 버튼 숨김 (단일 시장 계좌용) */
   hideMarketFilter?: boolean;
-  /** 외부에서 시장 필터 제어 — 제공 시 내부 상태 대신 이 값 사용 */
-  marketFilter?: "ALL" | "KR" | "US";
-  onMarketFilterChange?: (v: "ALL" | "KR" | "US") => void;
-  /** 외부에서 계좌 필터 제어 — 제공 시 내부 상태 대신 이 값 사용 */
+  /** 외부에서 시장 필터 제어 */
+  marketFilter?: "all" | "KR" | "US";
+  onMarketFilterChange?: (v: "all" | "KR" | "US") => void;
+  /** 외부에서 계좌 필터 제어 */
   accountFilter?: AccountFilter;
   onAccountFilterChange?: (v: AccountFilter) => void;
+  /** 외부에서 종류 필터 제어 */
+  assetTypeFilter?: AssetTypeFilter;
+  onAssetTypeFilterChange?: (v: AssetTypeFilter) => void;
 }
 
 export function StockHistoryTable({
   transactions, isLoading, showSector = false, hideMarketFilter = false,
   marketFilter: externalMarket, onMarketFilterChange,
   accountFilter: externalAccount, onAccountFilterChange,
+  assetTypeFilter: externalAssetType, onAssetTypeFilterChange,
 }: StockHistoryTableProps) {
-  // 외부 제어가 없으면 내부 상태 사용
-  const [internalMarket, setInternalMarket] = useState<"ALL" | "KR" | "US">("ALL");
+  const [internalMarket, setInternalMarket] = useState<"all" | "KR" | "US">("all");
   const [internalAccount, setInternalAccount] = useState<AccountFilter>("all");
+  const [internalAssetType, setInternalAssetType] = useState<AssetTypeFilter>("all");
 
   const marketFilter = externalMarket ?? internalMarket;
   const accountFilter = externalAccount ?? internalAccount;
+  const assetTypeFilter = externalAssetType ?? internalAssetType;
 
-  function handleMarketChange(v: "ALL" | "KR" | "US") {
+  function handleMarketChange(v: "all" | "KR" | "US") {
     if (onMarketFilterChange) onMarketFilterChange(v);
     else setInternalMarket(v);
   }
   function handleAccountChange(v: AccountFilter) {
     if (onAccountFilterChange) onAccountFilterChange(v);
     else setInternalAccount(v);
+  }
+  function handleAssetTypeChange(v: AssetTypeFilter) {
+    if (onAssetTypeFilterChange) onAssetTypeFilterChange(v);
+    else setInternalAssetType(v);
   }
 
   if (isLoading) {
@@ -372,15 +383,16 @@ export function StockHistoryTable({
   }
 
   const allGroups = groupByStock(transactions);
-  // 시장 + 계좌 복합 필터
+  // 시장 + 계좌 + 종류 복합 필터
   const filtered = allGroups
-    .filter((g) => marketFilter === "ALL" || g.market === marketFilter)
-    .filter((g) => accountFilter === "all" || g.accountNo === accountFilter);
+    .filter((g) => marketFilter === "all" || g.market === marketFilter)
+    .filter((g) => accountFilter === "all" || g.accountNo === accountFilter)
+    .filter((g) => assetTypeFilter === "all" || g.assetType === assetTypeFilter);
   const krCount = allGroups.filter((g) => g.market === "KR").length;
   const usCount = allGroups.filter((g) => g.market === "US").length;
 
   // 외부에서 필터를 제어하는 경우 내부 버튼 숨김 (부모가 직접 렌더링)
-  const showInternalFilters = !externalMarket && !externalAccount;
+  const showInternalFilters = !externalMarket && !externalAccount && !externalAssetType;
 
   return (
     <div className="space-y-3">
@@ -390,7 +402,7 @@ export function StockHistoryTable({
           {/* 시장 필터 — hideMarketFilter=true 이면 숨김 */}
           {!hideMarketFilter && (
             <div className="flex gap-2 text-xs">
-              {(["ALL", "KR", "US"] as const).map((m) => (
+              {(["all", "KR", "US"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => handleMarketChange(m)}
@@ -400,7 +412,7 @@ export function StockHistoryTable({
                       : "border-input hover:bg-muted"
                   }`}
                 >
-                  {m === "ALL" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
+                  {m === "all" ? `전체 (${allGroups.length})` : m === "KR" ? `국내 (${krCount})` : `해외 (${usCount})`}
                 </button>
               ))}
             </div>
@@ -419,6 +431,23 @@ export function StockHistoryTable({
                 }`}
               >
                 {a === "all" ? "전체계좌" : a}
+              </button>
+            ))}
+          </div>
+
+          {/* 종류 필터 */}
+          <div className="flex gap-2 text-xs">
+            {(["all", "STOCK", "FUND", "ETF"] as AssetTypeFilter[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => handleAssetTypeChange(t)}
+                className={`px-3 py-1 rounded-full border transition-colors ${
+                  assetTypeFilter === t
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : "border-input hover:bg-muted"
+                }`}
+              >
+                {t === "all" ? "전체종류" : t}
               </button>
             ))}
           </div>
