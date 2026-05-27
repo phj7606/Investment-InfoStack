@@ -2,15 +2,15 @@
 
 // 중장기 투자 계좌 대시보드 — 메인 컨테이너 컴포넌트
 // 7개 탭:
-//   대시보드     — KR/US 섹션 KPI 카드 + TOP3 종목
-//   포지션       — 보유 종목 + 현재가 인라인 편집
-//   거래 내역    — 검색·필터 + 거래 추가 + Excel 임포트
-//   Executed Trade — 전량 매도 완료 종목 실현손익 집계
-//   종목별       — 종목별 이력 accordion (총 매수/매도/잔량/손익 소계)
-//   성과 분석    — KR/US 별도 Equity Curve + 히트맵 + KPI
-//   리밸런싱     — 목표 비중 입력 + 제안 테이블
+//   Dashboard    — KR/US 섹션 KPI 카드 + 차트 (계좌 필터: UI 레벨, fetch 무관)
+//   포지션       — 보유 종목 + 현재가 인라인 편집 (posAcct UI 필터)
+//   거래 내역    — 검색·필터 + 거래 추가 + Excel 임포트 (내부 필터)
+//   Executed Trade — 전량 매도 완료 종목 실현손익 집계 (exTradeAcct UI 필터)
+//   종목별       — 종목별 이력 accordion (stocksAcct UI 필터)
+//   Performance Analysis — TWR / Alpha / Hit Rate (perfAcct UI 필터)
+//   리밸런싱     — 목표 비중 입력 + 제안 테이블 (rebAcct UI 필터)
 //
-// 계좌 필터: 전체 | 4802 (주식) | 1635 (ETF) | 1402 (중장기+) | 2805 (단기) | 1470
+// 데이터 fetch: 항상 전체 계좌 — 각 탭의 계좌 필터는 독립적 UI 레벨 동작
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -157,9 +157,9 @@ export function LongtermDashboardClient() {
     router.replace(`?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
 
-  // ── 계좌 / 시장 필터 ─────────────────────────
+  // ── 대시보드 탭 전용 계좌 필터 (UI 레벨 — API fetch에 영향 없음) ──
   // URL ?account= 파라미터에서 초기값 복원
-  const [accountFilter, setAccountFilter] = useState<AccountFilterValue>(
+  const [overviewAcct, setOverviewAcct] = useState<AccountFilterValue>(
     () => (searchParams.get("account") as AccountFilterValue) ?? "all"
   );
   // URL ?tab= 파라미터에서 초기값 복원
@@ -445,9 +445,8 @@ export function LongtermDashboardClient() {
     setTxLoading(true);
     setTxError(null);
     try {
-      const params = new URLSearchParams();
-      if (accountFilter !== "all") params.set("account", accountFilter);
-      const res = await fetch(`/api/portfolio/longterm/transactions?${params}`);
+      // 전체 계좌 데이터 fetch — 계좌 필터는 각 탭에서 UI 레벨로 처리
+      const res = await fetch(`/api/portfolio/longterm/transactions`);
       if (!res.ok) {
         const d = await res.json() as { error?: string };
         throw new Error(d.error ?? `HTTP ${res.status}`);
@@ -460,7 +459,7 @@ export function LongtermDashboardClient() {
     } finally {
       setTxLoading(false);
     }
-  }, [accountFilter]);
+  }, []);
 
   // ────────────────────────────────────────────────
   // 포지션 + 요약 조회
@@ -468,9 +467,8 @@ export function LongtermDashboardClient() {
   const fetchPositions = useCallback(async () => {
     setPosLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (accountFilter !== "all") params.set("account", accountFilter);
-      const res = await fetch(`/api/portfolio/longterm/positions?${params}`);
+      // 전체 계좌 데이터 fetch — 계좌 필터는 각 탭에서 UI 레벨로 처리
+      const res = await fetch(`/api/portfolio/longterm/positions`);
       if (!res.ok) return;
       const d = await res.json() as {
         positions: LongtermPosition[];
@@ -517,7 +515,7 @@ export function LongtermDashboardClient() {
     }
   // currentPrices는 ref로 읽으므로 deps에서 제외 — 가격 변경 시 fetchPositions 재호출 불필요
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountFilter]);
+  }, []);
 
   // ────────────────────────────────────────────────
   // 성과 조회 (KR / US 각각)
@@ -525,12 +523,10 @@ export function LongtermDashboardClient() {
   const fetchPerformance = useCallback(async () => {
     setPerfLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (accountFilter !== "all") params.set("account", accountFilter);
-
+      // 전체 계좌 성과 fetch — Excel 내보내기 등에서 전체 데이터 필요
       const [krRes, usRes] = await Promise.all([
-        fetch(`/api/portfolio/longterm/performance?${params}&currency=KRW`),
-        fetch(`/api/portfolio/longterm/performance?${params}&currency=USD`),
+        fetch(`/api/portfolio/longterm/performance?currency=KRW`),
+        fetch(`/api/portfolio/longterm/performance?currency=USD`),
       ]);
       if (krRes.ok) {
         const d = await krRes.json() as {
@@ -551,7 +547,7 @@ export function LongtermDashboardClient() {
     } finally {
       setPerfLoading(false);
     }
-  }, [accountFilter]);
+  }, []);
 
   // ────────────────────────────────────────────────
   // 보유 종목별 성과 조회 (TWR / Alpha / Hit Rate 등)
@@ -560,9 +556,8 @@ export function LongtermDashboardClient() {
   const fetchHoldingsPerf = useCallback(async () => {
     setHoldingsPerfLoading(true);
     try {
-      const qs = new URLSearchParams();
-      if (accountFilter !== "all") qs.set("account", accountFilter);
-      const res = await fetch(`/api/portfolio/longterm/holdings-performance?${qs}`);
+      // 전체 계좌 보유 성과 fetch — Performance 탭에서 perfAcct UI 필터로 계좌 선택
+      const res = await fetch(`/api/portfolio/longterm/holdings-performance`);
       if (!res.ok) return;
       const d = await res.json() as { holdings?: HoldingPerformance[] };
       setHoldingsPerf(d.holdings ?? []);
@@ -571,7 +566,7 @@ export function LongtermDashboardClient() {
     } finally {
       setHoldingsPerfLoading(false);
     }
-  }, [accountFilter]);
+  }, []);
 
   // ────────────────────────────────────────────────
   // 현재가 실시간 조회 (Yahoo Finance)
@@ -579,9 +574,8 @@ export function LongtermDashboardClient() {
   const fetchLivePrices = useCallback(async () => {
     setPricesLoading(true);
     try {
-      const qs = new URLSearchParams();
-      if (accountFilter !== "all") qs.set("account", accountFilter);
-      const res = await fetch(`/api/portfolio/longterm/prices?${qs}`);
+      // 전체 계좌 현재가 fetch — 포지션 전체에 대한 가격 조회
+      const res = await fetch(`/api/portfolio/longterm/prices`);
       if (!res.ok) return;
       const d = await res.json() as {
         prices: Record<string, number>;
@@ -623,7 +617,7 @@ export function LongtermDashboardClient() {
     } finally {
       setPricesLoading(false);
     }
-  }, [accountFilter]);
+  }, []);
 
   // ── 마운트 + 필터 변경 시 데이터 로드 ──────────
   // fetchPositions 완료 후 fetchLivePrices 실행:
@@ -883,11 +877,60 @@ export function LongtermDashboardClient() {
   // StockPerformance[] 어댑터: monthlyPL → EquityCurvePoint[]
   // toStockPerformances는 서버 사이드이므로, 클라이언트에서는
 
-  // 계좌 필터 변경 — 상태 업데이트 + URL 파라미터 동기화
-  const handleAccountFilter = useCallback((v: AccountFilterValue) => {
-    setAccountFilter(v);
+  // 대시보드 탭 계좌 필터 변경 — URL 파라미터 동기화 (fetch 재실행 없음)
+  const handleOverviewAcct = useCallback((v: AccountFilterValue) => {
+    setOverviewAcct(v);
     updateUrlParam("account", v);
-  }, [setAccountFilter, updateUrlParam]);
+  }, [updateUrlParam]);
+
+  // ── 대시보드 탭 전용: overviewAcct로 필터된 포지션 + 요약 계산 ──────────
+  // API는 항상 전체 계좌 데이터를 반환; 대시보드 표시만 계좌별로 분리
+  const overviewPositions = useMemo(
+    () => overviewAcct === "all" ? positions : positions.filter((p) => p.accountNo === overviewAcct),
+    [positions, overviewAcct]
+  );
+
+  const overviewKrSummary = useMemo((): LongtermSummary => {
+    // 전체계좌: 서버 집계값 그대로 사용 (realizedPL·dividends 포함)
+    if (overviewAcct === "all") return krSummary;
+    const krPos = overviewPositions.filter((p) => p.currency === "KRW");
+    // 계좌 필터 시: executedTrades에서 실현손익, transactions에서 배당금 집계
+    const realizedPL = executedTrades
+      .filter((t) => t.accountNo === overviewAcct && t.currency === "KRW")
+      .reduce((s, t) => s + t.profitLoss, 0);
+    const dividends = transactions
+      .filter((t) => t.accountNo === overviewAcct && t.currency === "KRW" && t.tradeType === "DIVIDEND")
+      .reduce((s, t) => s + t.amount, 0);
+    return {
+      currency: "KRW",
+      totalInvested: krPos.reduce((s, p) => s + p.avgCost * p.quantity, 0),
+      totalEvalAmount: krPos.reduce((s, p) => s + p.evalAmount, 0),
+      totalEvalPL: krPos.reduce((s, p) => s + p.evalPL, 0),
+      totalRealizedPL: realizedPL,
+      dividendTotal: dividends,
+      positionCount: krPos.length,
+    };
+  }, [overviewAcct, overviewPositions, krSummary, executedTrades, transactions]);
+
+  const overviewUsSummary = useMemo((): LongtermSummary => {
+    if (overviewAcct === "all") return usSummary;
+    const usPos = overviewPositions.filter((p) => p.currency === "USD");
+    const realizedPL = executedTrades
+      .filter((t) => t.accountNo === overviewAcct && t.currency === "USD")
+      .reduce((s, t) => s + t.profitLoss, 0);
+    const dividends = transactions
+      .filter((t) => t.accountNo === overviewAcct && t.currency === "USD" && t.tradeType === "DIVIDEND")
+      .reduce((s, t) => s + t.amount, 0);
+    return {
+      currency: "USD",
+      totalInvested: usPos.reduce((s, p) => s + p.avgCost * p.quantity, 0),
+      totalEvalAmount: usPos.reduce((s, p) => s + p.evalAmount, 0),
+      totalEvalPL: usPos.reduce((s, p) => s + p.evalPL, 0),
+      totalRealizedPL: realizedPL,
+      dividendTotal: dividends,
+      positionCount: usPos.length,
+    };
+  }, [overviewAcct, overviewPositions, usSummary, executedTrades, transactions]);
 
   // ────────────────────────────────────────────────
   // 렌더
@@ -994,7 +1037,7 @@ export function LongtermDashboardClient() {
       <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); updateUrlParam("tab", v); }}>
         <TabsList className="grid w-full grid-cols-7 bg-blue-500/5 border">
           {[
-            { value: "overview",     label: "대시보드" },
+            { value: "overview",     label: "Dashboard" },
             { value: "positions",    label: "Open Positions",    count: positions.length },
             { value: "transactions", label: "Transactions", count: transactions.length },
             { value: "executed",     label: "Executed Trade", count: executedTrades.length },
@@ -1018,26 +1061,28 @@ export function LongtermDashboardClient() {
         </TabsList>
 
         {/* ────────────────────────────────────────────
-            탭 1: 대시보드 (KPI 카드 + TOP3 + 차트 3종)
+            탭 1: Dashboard (KPI 카드 + 차트 3종)
+            overviewAcct 필터는 이 탭 표시에만 영향 — API fetch 재실행 없음
         ──────────────────────────────────────────── */}
         <TabsContent value="overview" className="mt-4 space-y-4">
-          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
-          {/* KPI 카드 + TOP3 종목 (기존 컴포넌트 유지) */}
+          {/* 계좌 필터: 대시보드 표시 전용 — 다른 탭 데이터에 영향 없음 */}
+          <AccountFilterBar value={overviewAcct} onChange={handleOverviewAcct} />
+          {/* KPI 카드: overviewAcct 기반 필터된 요약 표시 */}
           <AccountSummaryCards
-            krSummary={krSummary}
-            usSummary={usSummary}
-            positions={positions}
+            krSummary={overviewKrSummary}
+            usSummary={overviewUsSummary}
+            positions={overviewPositions}
             isLoading={posLoading}
           />
 
           {/* 차트 섹션 — 포지션 로드 완료 + 1종목 이상일 때만 표시 */}
-          {!posLoading && positions.length > 0 && (
+          {!posLoading && overviewPositions.length > 0 && (
             <div className="mt-6 space-y-4">
               {/* 행 1: 포트폴리오 구성 도넛(좌) + 종목별 평가금액 수평바(우) */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <PortfolioAllocationChart positions={positions} isLoading={posLoading} />
+                <PortfolioAllocationChart positions={overviewPositions} isLoading={posLoading} />
                 <HoldingsBarChart
-                  positions={positions}
+                  positions={overviewPositions}
                   isLoading={posLoading}
                   marketTab={holdingsMarket}
                   onMarketTabChange={(m) => { setHoldingsMarket(m); updateUrlParam("market", m); }}
