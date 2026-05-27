@@ -27,10 +27,10 @@ import type {
 
 /** 계좌번호 표시명 */
 const ACCOUNT_LABELS: Record<string, string> = {
-  "4802": "4802 Stock",
-  "1635": "1635 ETF",
-  "1402": "1402 Mixed",
-  "1470": "1470 Education",
+  "4802": "4802",
+  "1635": "1635",
+  "1402": "1402",
+  "1470": "1470",
 };
 
 function getAccountLabel(acct: string): string {
