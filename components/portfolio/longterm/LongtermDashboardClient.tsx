@@ -234,19 +234,21 @@ export function LongtermDashboardClient() {
 
   // ── Executed Trade 탭 필터·정렬 ───────────────────────
   type ExTradeSortCol = "stockName" | "accountNo" | "market" | "assetType" | "buyDate" | "sellDate" | "avgBuyPrice" | "totalQty" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "monthlyGeoReturn" | "holdingDays";
-  const [exTradeSort, setExTradeSort] = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
-  const [exTradeMarket,  setExTradeMarket]  = useState<"all" | "KR" | "US">("all");
-  const [exTradeAsset,   setExTradeAsset]   = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
+  const [exTradeSort,   setExTradeSort]   = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
+  const [exTradeMarket, setExTradeMarket] = useState<"all" | "KR" | "US">("all");
+  const [exTradeAcct,   setExTradeAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [exTradeAsset,  setExTradeAsset]  = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
 
   // ── 종목별 탭 필터 ─────────────────────────────────
-  const [stocksMarket,  setStocksMarket]  = useState<"ALL" | "KR" | "US">("ALL");
-  const [stocksAcct,    setStocksAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [stocksMarket, setStocksMarket] = useState<"all" | "KR" | "US">("all"); // "all" = 전체시장
+  const [stocksAcct,   setStocksAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [stocksType,   setStocksType]   = useState<"all" | "STOCK" | "FUND" | "ETF">("all");
 
   // ── Performance 탭 계좌 필터 ────────────────────────
   const [perfAcct, setPerfAcct] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
 
   // ── 리밸런싱 탭 필터 ────────────────────────────────
-  const [rebMarket,  setRebMarket]  = useState<"all" | "KR" | "US">("all");
+  const [rebMarket,  setRebMarket]  = useState<"KR" | "US">("KR");
   const [rebAcct,    setRebAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
   const [rebType,    setRebType]    = useState<"all" | "STOCK" | "FUND" | "ETF">("all");
   const [rebAction,  setRebAction]  = useState<"all" | "BUY" | "SELL" | "HOLD">("all");
@@ -399,6 +401,7 @@ export function LongtermDashboardClient() {
   const filteredExecutedTrades = useMemo(() => {
     let arr = [...executedTrades];
     if (exTradeMarket !== "all") arr = arr.filter((t) => t.market === exTradeMarket);
+    if (exTradeAcct   !== "all") arr = arr.filter((t) => t.accountNo === exTradeAcct);
     if (exTradeAsset  !== "all") arr = arr.filter((t) => t.assetType === exTradeAsset);
 
     return arr.sort((a, b) => {
@@ -1178,36 +1181,27 @@ export function LongtermDashboardClient() {
             />
           </div>
 
-          {/* 필터 바 — 계좌 / 시장 / 종류 */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* 계좌 필터 */}
-            <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
-
-            {/* 시장 필터 */}
-            <div className="flex rounded-md border overflow-hidden text-[10px]">
-              {(["all", "KR", "US"] as const).map((m) => (
-                <button key={m} onClick={() => setExTradeMarket(m)}
-                  className={cn("px-2.5 py-1 transition-colors",
-                    exTradeMarket === m ? "bg-blue-600 text-white" : "hover:bg-muted/50"
-                  )}>
-                  {m === "all" ? "전체" : m}
-                </button>
-              ))}
-            </div>
-
-            {/* 종류 필터 */}
-            <div className="flex rounded-md border overflow-hidden text-[10px]">
-              {(["all", "STOCK", "ETF", "FUND"] as const).map((t) => (
-                <button key={t} onClick={() => setExTradeAsset(t)}
-                  className={cn("px-2.5 py-1 transition-colors",
-                    exTradeAsset === t ? "bg-blue-600 text-white" : "hover:bg-muted/50"
-                  )}>
-                  {t === "all" ? "전체" : t}
-                </button>
-              ))}
-            </div>
-
-            <span className="text-[10px] text-muted-foreground">{filteredExecutedTrades.length}건 표시</span>
+          {/* 필터 바 — 시장 → 계좌 → 종류 (Transactions 스타일) */}
+          <div className="flex flex-wrap gap-1.5">
+            {/* 시장 */}
+            {(["all", "KR", "US"] as const).map((m) => (
+              <Button key={m} size="sm" variant={exTradeMarket === m ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", exTradeMarket === m && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setExTradeMarket(m)}>{m === "all" ? "전체시장" : m}</Button>
+            ))}
+            {/* 계좌 */}
+            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={exTradeAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", exTradeAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setExTradeAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
+            ))}
+            {/* 종류 */}
+            {(["all", "STOCK", "ETF", "FUND"] as const).map((t) => (
+              <Button key={t} size="sm" variant={exTradeAsset === t ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", exTradeAsset === t && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setExTradeAsset(t)}>{t === "all" ? "전체종류" : t}</Button>
+            ))}
+            <span className="ml-1 text-[10px] text-muted-foreground self-center">{filteredExecutedTrades.length}건</span>
           </div>
 
           {/* 거래 테이블 */}
@@ -1379,53 +1373,27 @@ export function LongtermDashboardClient() {
             탭 5: 종목별 이력 (accordion + 소계)
         ──────────────────────────────────────────── */}
         <TabsContent value="stocks" className="mt-4 space-y-3">
-          {/* 필터 — 우선순위: 시장 → 계좌 */}
-          <div className="flex flex-wrap gap-2">
-            {/* 시장 필터 */}
-            <div className="flex gap-2 text-xs">
-              {(["ALL", "KR", "US"] as const).map((m) => {
-                const all = transactions;
-                const kr = all.filter((t) => t.market === "KR");
-                const us = all.filter((t) => t.market === "US");
-                const label = m === "ALL"
-                  ? `전체 (${new Set(all.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`
-                  : m === "KR"
-                  ? `국내 (${new Set(kr.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`
-                  : `해외 (${new Set(us.map((t) => `${t.stockCode}::${t.stockName}::${t.accountNo}`)).size})`;
-                return (
-                  <button
-                    key={m}
-                    onClick={() => setStocksMarket(m)}
-                    className={`px-3 py-1 rounded-full border transition-colors ${
-                      stocksMarket === m
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "border-input hover:bg-muted"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* 계좌 필터 */}
-            <div className="flex gap-2 text-xs">
-              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
-                <button
-                  key={a}
-                  onClick={() => setStocksAcct(a)}
-                  className={`px-3 py-1 rounded-full border transition-colors ${
-                    stocksAcct === a
-                      ? "bg-blue-600 text-white border-blue-600"
-                      : "border-input hover:bg-muted"
-                  }`}
-                >
-                  {a === "all" ? "전체계좌" : a}
-                </button>
-              ))}
-            </div>
+          {/* 필터 — 시장 → 계좌 → 종류 (Transactions 스타일) */}
+          <div className="flex flex-wrap gap-1.5">
+            {/* 시장 */}
+            {(["all", "KR", "US"] as const).map((m) => (
+              <Button key={m} size="sm" variant={stocksMarket === m ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksMarket === m && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksMarket(m)}>{m === "all" ? "전체시장" : m}</Button>
+            ))}
+            {/* 계좌 */}
+            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={stocksAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
+            ))}
+            {/* 종류 */}
+            {(["all", "STOCK", "FUND", "ETF"] as const).map((t) => (
+              <Button key={t} size="sm" variant={stocksType === t ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksType === t && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksType(t)}>{t === "all" ? "전체종류" : t}</Button>
+            ))}
           </div>
-
 
           <StockHistoryTable
             transactions={transactions}
@@ -1434,6 +1402,8 @@ export function LongtermDashboardClient() {
             onMarketFilterChange={setStocksMarket}
             accountFilter={stocksAcct}
             onAccountFilterChange={setStocksAcct}
+            assetTypeFilter={stocksType}
+            onAssetTypeFilterChange={setStocksType}
           />
         </TabsContent>
 
@@ -1441,42 +1411,22 @@ export function LongtermDashboardClient() {
             탭 5: Performance Analysis (KR / US 탭 분리)
         ──────────────────────────────────────────── */}
         <TabsContent value="performance" className="mt-4 space-y-4">
-          {/* 필터 — 우선순위: 시장(KRW/USD) → 계좌 */}
-          <div className="flex flex-wrap gap-2">
-            {/* 시장 필터 (국내/해외) */}
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant={perfCurrency === "KRW" ? "default" : "outline"}
-                className="h-7 text-xs px-3"
-                onClick={() => { setPerfCurrency("KRW"); updateUrlParam("perf", "KRW"); }}
-              >
-                국내 (KRW)
+          {/* 필터 — 시장(KR/US) → 계좌 (Open Positions 스타일) */}
+          <div className="flex flex-wrap gap-1.5">
+            {/* 시장: KR/US, 전체 없음 */}
+            {(["KRW", "USD"] as const).map((c) => (
+              <Button key={c} size="sm" variant={perfCurrency === c ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", perfCurrency === c && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => { setPerfCurrency(c); updateUrlParam("perf", c); }}>
+                {c === "KRW" ? "KR" : "US"}
               </Button>
-              <Button
-                size="sm"
-                variant={perfCurrency === "USD" ? "default" : "outline"}
-                className="h-7 text-xs px-3"
-                onClick={() => { setPerfCurrency("USD"); updateUrlParam("perf", "USD"); }}
-              >
-                해외 (USD)
-              </Button>
-            </div>
-
-            {/* 계좌 필터 */}
-            <div className="flex gap-1">
-              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
-                <Button
-                  key={a}
-                  size="sm"
-                  variant={perfAcct === a ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-[11px]", perfAcct === a && "bg-blue-600 hover:bg-blue-700 text-white")}
-                  onClick={() => setPerfAcct(a)}
-                >
-                  {a === "all" ? "전체계좌" : a}
-                </Button>
-              ))}
-            </div>
+            ))}
+            {/* 계좌 */}
+            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={perfAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", perfAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setPerfAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
+            ))}
           </div>
 
           {/* 계좌 필터 적용된 보유 성과 데이터 */}
@@ -1523,76 +1473,27 @@ export function LongtermDashboardClient() {
             탭 6: 리밸런싱
         ──────────────────────────────────────────── */}
         <TabsContent value="rebalancing" className="mt-4 space-y-3">
-          {/* 필터 — 우선순위: 시장 → 계좌 → 종류 → 유형 */}
-          <div className="flex flex-wrap gap-2">
-            {/* 시장 필터 */}
-            <div className="flex gap-1">
-              {(["all", "KR", "US"] as const).map((m) => (
-                <Button
-                  key={m}
-                  size="sm"
-                  variant={rebMarket === m ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-[11px]", rebMarket === m && "bg-blue-600 hover:bg-blue-700 text-white")}
-                  onClick={() => setRebMarket(m)}
-                >
-                  {m === "all" ? "전체시장" : m}
-                </Button>
-              ))}
-            </div>
-
-            {/* 계좌 필터 */}
-            <div className="flex gap-1">
-              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
-                <Button
-                  key={a}
-                  size="sm"
-                  variant={rebAcct === a ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-[11px]", rebAcct === a && "bg-blue-600 hover:bg-blue-700 text-white")}
-                  onClick={() => setRebAcct(a)}
-                >
-                  {a === "all" ? "전체계좌" : a}
-                </Button>
-              ))}
-            </div>
-
-            {/* 종류 필터 */}
-            <div className="flex gap-1">
-              {(["all", "STOCK", "FUND", "ETF"] as const).map((t) => (
-                <Button
-                  key={t}
-                  size="sm"
-                  variant={rebType === t ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-[11px]", rebType === t && "bg-blue-600 hover:bg-blue-700 text-white")}
-                  onClick={() => setRebType(t)}
-                >
-                  {t === "all" ? "전체종류" : t}
-                </Button>
-              ))}
-            </div>
-
-            {/* 유형 필터 — 리밸런싱 액션 (BUY/SELL/HOLD) */}
-            <div className="flex gap-1">
-              {(["all", "BUY", "SELL", "HOLD"] as const).map((a) => (
-                <Button
-                  key={a}
-                  size="sm"
-                  variant={rebAction === a ? "default" : "outline"}
-                  className={cn("h-7 px-2.5 text-[11px]", rebAction === a && "bg-blue-600 hover:bg-blue-700 text-white")}
-                  onClick={() => setRebAction(a)}
-                >
-                  {a === "all" ? "전체유형" : a}
-                </Button>
-              ))}
-            </div>
+          {/* 필터 — 시장(KR/US) → 계좌 (Open Positions 스타일) */}
+          <div className="flex flex-wrap gap-1.5">
+            {/* 시장: KR/US, 전체 없음 */}
+            {(["KR", "US"] as const).map((m) => (
+              <Button key={m} size="sm" variant={rebMarket === m ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", rebMarket === m && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setRebMarket(m)}>{m}</Button>
+            ))}
+            {/* 계좌 */}
+            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={rebAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", rebAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setRebAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
+            ))}
           </div>
 
           <RebalancingPanel
             positions={positions
-              .filter((p) => rebMarket === "all" || p.market === rebMarket)
+              .filter((p) => p.market === rebMarket)
               .filter((p) => rebAcct === "all" || p.accountNo === rebAcct)
-              .filter((p) => rebType === "all" || p.assetType === rebType)
             }
-            actionFilter={rebAction}
           />
         </TabsContent>
       </Tabs>
