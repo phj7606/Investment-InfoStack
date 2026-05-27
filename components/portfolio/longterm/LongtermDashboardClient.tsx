@@ -208,7 +208,6 @@ export function LongtermDashboardClient() {
   type ExTradeSortCol = "stockName" | "accountNo" | "market" | "assetType" | "buyDate" | "sellDate" | "avgBuyPrice" | "totalQty" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "monthlyGeoReturn" | "holdingDays";
   const [exTradeSort, setExTradeSort] = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
   const [exTradeMarket,  setExTradeMarket]  = useState<"all" | "KR" | "US">("all");
-  const [exTradeAcct,    setExTradeAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
   const [exTradeAsset,   setExTradeAsset]   = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
 
   // currentPricesRef를 state와 항상 동기화 (fetchPositions에서 deps 없이 최신값 읽기 위해)
@@ -359,7 +358,6 @@ export function LongtermDashboardClient() {
   const filteredExecutedTrades = useMemo(() => {
     let arr = [...executedTrades];
     if (exTradeMarket !== "all") arr = arr.filter((t) => t.market === exTradeMarket);
-    if (exTradeAcct   !== "all") arr = arr.filter((t) => t.accountNo === exTradeAcct);
     if (exTradeAsset  !== "all") arr = arr.filter((t) => t.assetType === exTradeAsset);
 
     return arr.sort((a, b) => {
@@ -381,7 +379,7 @@ export function LongtermDashboardClient() {
       }
       return exTradeSort.dir === "asc" ? cmp : -cmp;
     });
-  }, [executedTrades, exTradeMarket, exTradeAcct, exTradeAsset, exTradeSort]);
+  }, [executedTrades, exTradeMarket, exTradeAsset, exTradeSort]);
 
   // ────────────────────────────────────────────────
   // 거래 내역 조회
@@ -1161,18 +1159,6 @@ export function LongtermDashboardClient() {
                     exTradeMarket === m ? "bg-blue-600 text-white" : "hover:bg-muted/50"
                   )}>
                   {m === "all" ? "전체" : m}
-                </button>
-              ))}
-            </div>
-
-            {/* 계좌 필터 */}
-            <div className="flex rounded-md border overflow-hidden text-[10px]">
-              {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
-                <button key={a} onClick={() => setExTradeAcct(a)}
-                  className={cn("px-2.5 py-1 transition-colors",
-                    exTradeAcct === a ? "bg-blue-600 text-white" : "hover:bg-muted/50"
-                  )}>
-                  {a === "all" ? "전체계좌" : a}
                 </button>
               ))}
             </div>
