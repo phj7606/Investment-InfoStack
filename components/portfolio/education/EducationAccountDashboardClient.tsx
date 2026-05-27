@@ -485,8 +485,7 @@ export function EducationAccountDashboardClient() {
     return Math.round(derivedSummary.winRate * (pf + 1) * 10000) / 10000;
   }, [derivedSummary]);
 
-  const tradeTotalBuy = derivedTrades.reduce((s, t) => s + t.buyAmount, 0);
-  const tradeTotalPL  = derivedTrades.reduce((s, t) => s + t.profitLoss, 0);
+  // tradeTotalBuy/PL은 filteredTrades 정의 후로 이동 (필터 연동)
 
   // 섹터 목록 (필터용)
   const sectors = useMemo(() =>
@@ -500,6 +499,10 @@ export function EducationAccountDashboardClient() {
     if (sectorFilter !== "all") arr = arr.filter((t) => t.sector === sectorFilter);
     return sortTrades(arr, sort);
   }, [derivedTrades, resultFilter, sectorFilter, sort]);
+
+  // KPI — filteredTrades 기반 (resultFilter·sectorFilter 연동)
+  const tradeTotalBuy = filteredTrades.reduce((s, t) => s + t.buyAmount, 0);
+  const tradeTotalPL  = filteredTrades.reduce((s, t) => s + t.profitLoss, 0);
 
   // ─────────────────────────────────────────
   // Executed Trade 정렬 헬퍼
@@ -673,9 +676,8 @@ export function EducationAccountDashboardClient() {
             LongtermTransaction 기반 포지션 (Short-term Account와 동일 포맷)
         ══════════════════════════════════════ */}
         <TabsContent value="positions" className="mt-4 space-y-3">
-          {/* 툴바: 종목수 + Restore/Backup */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">{ltPositions.length}종목 보유</p>
+          {/* 툴바: Restore/Backup — 종목수는 LongtermPositionsTable 카드 헤더에 표시 */}
+          <div className="flex justify-end">
             <div className="flex gap-2">
               {/* 복원 버튼 — LT 전용 file input 트리거 */}
               <Button variant="outline" size="sm"
@@ -769,8 +771,8 @@ export function EducationAccountDashboardClient() {
             단일 계좌 — 계좌/시장 필터 숨김
         ══════════════════════════════════════ */}
         <TabsContent value="transactions" className="mt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">{ltTransactions.length}건</p>
+          {/* 툴바: Restore/Backup + 거래추가 — 건수는 TransactionTable 카드 헤더에 표시 */}
+          <div className="flex justify-end">
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
                 className="h-7 text-xs gap-1"

@@ -721,31 +721,7 @@ export function PensionAccountDashboardClient() {
     return result.sort((a, b) => b.sellDate.localeCompare(a.sellDate));
   }, [transactions, enrichedPositions]);
 
-  // Executed Trade 성과 요약 (Win/Lose 통계)
-  const executedSummary = useMemo(() => {
-    if (executedTrades.length === 0) return null;
-    const wins   = executedTrades.filter((t) => t.result === "Win");
-    const losses = executedTrades.filter((t) => t.result === "Lose");
-    const totalWinPL   = wins.reduce((s, t) => s + t.profitLoss, 0);
-    const totalLossPL  = Math.abs(losses.reduce((s, t) => s + t.profitLoss, 0));
-    const winRate      = executedTrades.length > 0 ? wins.length / executedTrades.length : 0;
-    const profitFactor = totalLossPL > 0 ? totalWinPL / totalLossPL : Infinity;
-    const avgWinPct    = wins.length   > 0 ? wins.reduce((s, t)   => s + t.profitLossPct, 0) / wins.length   : 0;
-    const avgLossPct   = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
-    return { totalTrades: executedTrades.length, winCount: wins.length, lossCount: losses.length, winRate, profitFactor, avgWinPct, avgLossPct };
-  }, [executedTrades]);
-
-  // TPI = winRate × (PF + 1)
-  const exTpi = useMemo(() => {
-    if (!executedSummary || executedSummary.totalTrades === 0) return null;
-    const pf = isFinite(executedSummary.profitFactor) ? executedSummary.profitFactor : 0;
-    return Math.round(executedSummary.winRate * (pf + 1) * 10000) / 10000;
-  }, [executedSummary]);
-
-  const exTradeTotalBuy = executedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
-  const exTradeTotalPL  = executedTrades.reduce((s, t) => s + t.profitLoss, 0);
-
-  // 필터 + 정렬 적용
+  // 필터 + 정렬 적용 — executedSummary보다 먼저 정의해 KPI 연동
   const filteredExecutedTrades = useMemo(() => {
     let arr = [...executedTrades];
     if (exTradeAcctFilter !== "all") arr = arr.filter((t) => t.accountType === exTradeAcctFilter);
@@ -766,6 +742,31 @@ export function PensionAccountDashboardClient() {
       return exTradeSort.dir === "asc" ? cmp : -cmp;
     });
   }, [executedTrades, exTradeAcctFilter, exTradeSort]);
+
+  // Executed Trade 성과 요약 — filteredExecutedTrades 기반 (계좌 필터 연동)
+  const executedSummary = useMemo(() => {
+    if (filteredExecutedTrades.length === 0) return null;
+    const wins   = filteredExecutedTrades.filter((t) => t.result === "Win");
+    const losses = filteredExecutedTrades.filter((t) => t.result === "Lose");
+    const totalWinPL   = wins.reduce((s, t) => s + t.profitLoss, 0);
+    const totalLossPL  = Math.abs(losses.reduce((s, t) => s + t.profitLoss, 0));
+    const winRate      = filteredExecutedTrades.length > 0 ? wins.length / filteredExecutedTrades.length : 0;
+    const profitFactor = totalLossPL > 0 ? totalWinPL / totalLossPL : Infinity;
+    const avgWinPct    = wins.length   > 0 ? wins.reduce((s, t) => s + t.profitLossPct, 0) / wins.length : 0;
+    const avgLossPct   = losses.length > 0 ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
+    return { totalTrades: filteredExecutedTrades.length, winCount: wins.length, lossCount: losses.length, winRate, profitFactor, avgWinPct, avgLossPct };
+  }, [filteredExecutedTrades]);
+
+  // TPI = winRate × (PF + 1)
+  const exTpi = useMemo(() => {
+    if (!executedSummary || executedSummary.totalTrades === 0) return null;
+    const pf = isFinite(executedSummary.profitFactor) ? executedSummary.profitFactor : 0;
+    return Math.round(executedSummary.winRate * (pf + 1) * 10000) / 10000;
+  }, [executedSummary]);
+
+  // KPI 합계 — filteredExecutedTrades 기반
+  const exTradeTotalBuy = filteredExecutedTrades.reduce((s, t) => s + t.totalBuyAmt, 0);
+  const exTradeTotalPL  = filteredExecutedTrades.reduce((s, t) => s + t.profitLoss, 0);
 
   // ─────────────────────────────────────────
   // 렌더
@@ -808,7 +809,7 @@ export function PensionAccountDashboardClient() {
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
-              {enrichedPositions.length}종목 보유 ({transactions.length}건 거래)
+              {enrichedPositions.filter((p) => p.accountType === selectedAccount).length}종목 보유 ({transactions.length}건 거래)
             </p>
             <div className="flex flex-wrap gap-2 items-center">
               {backupMsg && <span className="text-[10px] text-emerald-600">{backupMsg}</span>}
