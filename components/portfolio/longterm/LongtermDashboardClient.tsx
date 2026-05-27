@@ -1129,7 +1129,7 @@ export function LongtermDashboardClient() {
             const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
             const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
             const hasPrices = priced.length > 0;
-            const totalEval = priced.reduce((s, p) => s + p.evalAmount, 0);
+            const totalEval = krwPos.reduce((s, p) => s + p.evalAmount, 0);
             const totalPL   = priced.reduce((s, p) => s + p.evalPL, 0);
             const totalPLPct = totalCost > 0 ? (totalPL / totalCost) * 100 : null;
 
@@ -1149,7 +1149,7 @@ export function LongtermDashboardClient() {
                 <div className="rounded-lg border bg-card px-3 py-2.5">
                   <p className="text-[11px] text-muted-foreground mb-1">총 평가금액</p>
                   <p className="text-sm font-semibold tabular-nums">
-                    {hasPrices ? fmt(totalEval) : "—"}
+                    {fmt(totalEval)}
                   </p>
                 </div>
                 <div className="rounded-lg border bg-card px-3 py-2.5">

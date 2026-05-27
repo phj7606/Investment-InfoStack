@@ -41,7 +41,7 @@ export function calcPositions(
     accountNo: string;
     currency: "KRW" | "USD";
     quantity: number;
-    totalCost: number;     // BUY 누적 금액 (수수료 포함)
+    totalCost: number;     // BUY 누적 금액 (수수료 제외 — amount는 qty×price 기준)
     totalRealizedPL: number;
     targetWeight?: number;
     sector?: string;       // 섹터 (Short-term 계좌용, 최초 BUY에서 전파)
@@ -177,7 +177,7 @@ export function enrichSellTransaction(
   const avgCostAtSell = qty > 0 ? totalCost / qty : 0;
 
   // 순 매도수익 = 매도금액 - 매도수수료 (수수료는 수익에서 차감)
-  // 매입원가 = 평균단가(수수료 포함) × 매도수량
+  // 매입원가 = 평균단가(수수료 제외) × 매도수량
   // 실현손익 = 순매도수익 - 매입원가
   const netSellProceeds = tx.amount - (tx.fee ?? 0);
   const costBasis = avgCostAtSell * tx.quantity;
