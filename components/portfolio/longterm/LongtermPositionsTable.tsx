@@ -226,7 +226,7 @@ export function LongtermPositionsTable({
       return sort.dir === "asc" ? v : -v;
     });
     return arr;
-  }, [positions, marketFilter, sort, totalKRWForSort, totalUSDForSort]);
+  }, [positions, marketFilter, accountFilter, sort, totalKRWForSort, totalUSDForSort]);
 
   // KR/US 전체 평가금액 합계 (비중 계산용)
   const totalKRW = positions
