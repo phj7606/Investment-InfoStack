@@ -113,6 +113,13 @@ export function ShorttermAccountDashboardClient() {
   const [showForm, setShowForm]   = useState(false);
   const [editingTx, setEditingTx] = useState<LongtermTransaction | undefined>(undefined);
 
+  // ── Open Positions 탭 계좌 필터 — KPI 연동을 위해 부모에서 관리 ──
+  const [posAcct, setPosAcct] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const filteredPositions = useMemo(
+    () => posAcct === "all" ? positions : positions.filter((p) => p.accountNo === posAcct),
+    [positions, posAcct]
+  );
+
   // ── Executed Trade 탭 필터/정렬 ─────────────
   const [resultFilter, setResultFilter] = useState<"all" | "Win" | "Lose">("all");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
@@ -490,9 +497,8 @@ export function ShorttermAccountDashboardClient() {
             (종목/시장/계좌/수량/평균단가/현재가/평가금액/평가손익/수익률/누적실현/비중)
         ══════════════════════════════════════ */}
         <TabsContent value="positions" className="mt-4 space-y-3">
-          {/* 툴바: 종목수 + Restore/Backup (거래추가 없음) */}
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
+          {/* 툴바: Restore/Backup — 종목수는 LongtermPositionsTable 카드 헤더에 표시 */}
+          <div className="flex justify-end">
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
                 className="h-7 text-xs gap-1"
@@ -513,11 +519,10 @@ export function ShorttermAccountDashboardClient() {
             </div>
           </div>
 
-          {/* KPI 요약 카드 — 총 매수금액 / 총 평가금액 / 총 평가손익 / 수익률
-              KRW 포지션만 합산 (USD 포지션은 환율 변환 없이 별도 표기하지 않음)
+          {/* KPI 요약 카드 — filteredPositions(posAcct 적용) 기반
               현재가가 입력된 종목만 평가금액·평가손익 계산에 반영 */}
           {(() => {
-            const krwPos = positions.filter((p) => p.currency === "KRW");
+            const krwPos = filteredPositions.filter((p) => p.currency === "KRW");
             const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
             const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
             const hasPrices = priced.length > 0;
@@ -572,7 +577,8 @@ export function ShorttermAccountDashboardClient() {
             );
           })()}
 
-          {/* LongtermPositionsTable — 섹터 컬럼, KR/US 필터 없음 (단일 시장 계좌) */}
+          {/* LongtermPositionsTable — 섹터 컬럼, KR/US 필터 없음 (단일 시장 계좌)
+              accountFilter를 부모 posAcct로 제어해 KPI와 연동 */}
           <LongtermPositionsTable
             positions={positions}
             isLoading={posLoading}
@@ -582,6 +588,8 @@ export function ShorttermAccountDashboardClient() {
             onPricesRefresh={fetchLivePrices}
             showSector
             hideMarketFilter
+            accountFilter={posAcct}
+            onAccountFilterChange={setPosAcct}
           />
         </TabsContent>
 
@@ -590,8 +598,8 @@ export function ShorttermAccountDashboardClient() {
             단일 계좌(2805) — 계좌/시장 필터 숨김
         ══════════════════════════════════════ */}
         <TabsContent value="transactions" className="mt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-muted-foreground">{transactions.length}건</p>
+          {/* 툴바: Restore/Backup + 거래추가 — 건수는 TransactionTable 카드 헤더에 표시 */}
+          <div className="flex justify-end">
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
                 className="h-7 text-xs gap-1"
