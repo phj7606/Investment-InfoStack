@@ -114,7 +114,12 @@ export function ShorttermAccountDashboardClient() {
   const [editingTx, setEditingTx] = useState<LongtermTransaction | undefined>(undefined);
 
   // ── Open Positions 탭 계좌 필터 — KPI 연동을 위해 부모에서 관리 ──
-  const [posAcct, setPosAcct] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [posAcct, setPosAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654">("all");
+
+  // ── 종목별 탭 계좌 필터 ─────────────────────────────
+  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654">("all");
+  // ── 종목별 탭 종류 필터 ─────────────────────────────
+  const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
   const filteredPositions = useMemo(
     () => posAcct === "all" ? positions : positions.filter((p) => p.accountNo === posAcct),
     [positions, posAcct]
@@ -589,7 +594,7 @@ export function ShorttermAccountDashboardClient() {
             showSector
             hideMarketFilter
             accountFilter={posAcct}
-            onAccountFilterChange={setPosAcct}
+            onAccountFilterChange={(v) => setPosAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654")}
           />
         </TabsContent>
 
@@ -846,10 +851,40 @@ export function ShorttermAccountDashboardClient() {
 
         {/* ══════════════════════════════════════
             탭 4: 종목별 — 전체 거래
+            계좌 필터를 부모에서 직접 렌더링 (LongtermDashboard와 동일 Button 스타일)
         ══════════════════════════════════════ */}
-        <TabsContent value="history" className="mt-4">
-          {/* 섹터 배지 + 국내/해외 필터 없음 */}
-          <StockHistoryTable transactions={transactions} isLoading={txLoading} showSector hideMarketFilter />
+        <TabsContent value="history" className="mt-4 space-y-3">
+          {/* 계좌 필터 + 종류 필터 — 한 줄 */}
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={stocksAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksAcct(a)}
+              >
+                {a === "all" ? "전체계좌" : a}
+              </Button>
+            ))}
+            <div className="w-px bg-border self-stretch mx-0.5" />
+            {(["all", "STOCK", "ETF"] as const).map((t) => (
+              <Button key={t} size="sm" variant={stocksType === t ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksType === t && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksType(t)}
+              >
+                {t === "all" ? "전체종류" : t}
+              </Button>
+            ))}
+          </div>
+
+          <StockHistoryTable
+            transactions={transactions}
+            isLoading={txLoading}
+            showSector
+            hideMarketFilter
+            accountFilter={stocksAcct}
+            onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654")}
+            assetTypeFilter={stocksType}
+            onAssetTypeFilterChange={(v) => setStocksType(v as "all" | "STOCK" | "ETF")}
+          />
         </TabsContent>
 
         {/* ══════════════════════════════════════

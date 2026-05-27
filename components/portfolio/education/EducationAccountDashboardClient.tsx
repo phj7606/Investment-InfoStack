@@ -104,6 +104,10 @@ export function EducationAccountDashboardClient() {
   const [resultFilter, setResultFilter] = useState<"all" | "Win" | "Lose">("all");
   const [sectorFilter, setSectorFilter] = useState<string>("all");
 
+  // ── 종목별 탭 필터 ──────────────────────────
+  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654">("all");
+  const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
+
   // ── 기존 백업/복원 (Executed Trade용) ─────────
   const backupFileRef  = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
@@ -1045,9 +1049,38 @@ export function EducationAccountDashboardClient() {
         {/* ══════════════════════════════════════
             탭 4: 종목별 — LT 전체 거래 히스토리
         ══════════════════════════════════════ */}
-        <TabsContent value="history" className="mt-4">
-          {/* 섹터 배지 표시 (showSector) */}
-          <StockHistoryTable transactions={ltTransactions} isLoading={ltTxLoading} showSector hideMarketFilter />
+        <TabsContent value="history" className="mt-4 space-y-3">
+          {/* 계좌 필터 + 종류 필터 — 한 줄 (Short-term Account와 동일) */}
+          <div className="flex flex-wrap gap-1.5">
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
+              <Button key={a} size="sm" variant={stocksAcct === a ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksAcct(a)}
+              >
+                {a === "all" ? "전체계좌" : a}
+              </Button>
+            ))}
+            <div className="w-px bg-border self-stretch mx-0.5" />
+            {(["all", "STOCK", "ETF"] as const).map((t) => (
+              <Button key={t} size="sm" variant={stocksType === t ? "default" : "outline"}
+                className={cn("h-7 px-2.5 text-[11px]", stocksType === t && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                onClick={() => setStocksType(t)}
+              >
+                {t === "all" ? "전체종류" : t}
+              </Button>
+            ))}
+          </div>
+
+          <StockHistoryTable
+            transactions={ltTransactions}
+            isLoading={ltTxLoading}
+            showSector
+            hideMarketFilter
+            accountFilter={stocksAcct}
+            onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654")}
+            assetTypeFilter={stocksType}
+            onAssetTypeFilterChange={(v) => setStocksType(v as "all" | "STOCK" | "ETF")}
+          />
         </TabsContent>
 
         {/* ══════════════════════════════════════

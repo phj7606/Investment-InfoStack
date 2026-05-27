@@ -20,7 +20,7 @@ import type { LongtermTransaction } from "@/types/portfolio";
 // 폼 내부 상태 타입 (모든 입력값을 문자열로 관리)
 interface FormState {
   date: string;
-  accountNo: "4802" | "1635" | "1402" | "8654";
+  accountNo: "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
   market: "KR" | "US";
   assetType: "STOCK" | "FUND" | "ETF";
   tradeType: "BUY" | "SELL" | "DIVIDEND";
@@ -203,10 +203,12 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showS
                 }
                 className={selectClass}
               >
-                <option value="4802">4802 Stock</option>
-                <option value="1635">1635 ETF</option>
-                <option value="1402">1402 Mixed</option>
-                <option value="8654">8654 (펀드)</option>
+                <option value="4802">4802</option>
+                <option value="1635">1635</option>
+                <option value="1402">1402</option>
+                <option value="2805">2805</option>
+                <option value="1470">1470</option>
+                <option value="8654">8654</option>
               </select>
             </div>
             <div>

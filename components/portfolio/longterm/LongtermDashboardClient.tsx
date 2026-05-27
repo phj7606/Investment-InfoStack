@@ -10,7 +10,7 @@
 //   성과 분석    — KR/US 별도 Equity Curve + 히트맵 + KPI
 //   리밸런싱     — 목표 비중 입력 + 제안 테이블
 //
-// 계좌 필터: 전체 | 4802 (주식) | 1635 (ETF) | 1402 (중장기+) | 8654 (펀드)
+// 계좌 필터: 전체 | 4802 (주식) | 1635 (ETF) | 1402 (중장기+) | 2805 (단기) | 1470
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -52,7 +52,7 @@ interface ExecutedTrade {
   key: string;               // `${stockCode}::${stockName}::${accountNo}`
   stockCode: string;
   stockName: string;
-  accountNo: "4802" | "1635" | "1402" | "8654";
+  accountNo: "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
   market: "KR" | "US";
   assetType: "STOCK" | "ETF" | "FUND";
   currency: "KRW" | "USD";
@@ -98,7 +98,7 @@ function ExCard({ label, value, sub, valueClass }: { label: string; value: strin
 }
 
 // 계좌 필터 값 타입
-type AccountFilterValue = "all" | "4802" | "1635" | "1402" | "8654";
+type AccountFilterValue = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654";
 
 // 계좌 필터 버튼 그룹 — 각 탭 상단에서 공유 사용
 function AccountFilterBar({
@@ -110,7 +110,7 @@ function AccountFilterBar({
 }) {
   return (
     <div className="flex gap-1">
-      {(["all", "4802", "1635", "1402", "8654"] as const).map((f) => (
+      {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((f) => (
         <Button
           key={f}
           variant={value === f ? "default" : "outline"}
@@ -234,26 +234,26 @@ export function LongtermDashboardClient() {
 
   // ── Open Positions 탭 필터 — KPI 블록과 연동을 위해 부모에서 관리 ────────
   const [posMarket, setPosMarket] = useState<"KR" | "US">("KR");
-  const [posAcct,   setPosAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [posAcct,   setPosAcct]   = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654">("all");
 
   // ── Executed Trade 탭 필터·정렬 ───────────────────────
   type ExTradeSortCol = "stockName" | "accountNo" | "market" | "assetType" | "buyDate" | "sellDate" | "avgBuyPrice" | "totalQty" | "avgSellPrice" | "profitLoss" | "profitLossPct" | "monthlyGeoReturn" | "holdingDays";
   const [exTradeSort,   setExTradeSort]   = useState<{ col: ExTradeSortCol; dir: "asc" | "desc" }>({ col: "sellDate", dir: "desc" });
   const [exTradeMarket, setExTradeMarket] = useState<"all" | "KR" | "US">("all");
-  const [exTradeAcct,   setExTradeAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [exTradeAcct,   setExTradeAcct]   = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654">("all");
   const [exTradeAsset,  setExTradeAsset]  = useState<"all" | "STOCK" | "ETF" | "FUND">("all");
 
   // ── 종목별 탭 필터 ─────────────────────────────────
-  const [stocksMarket, setStocksMarket] = useState<"all" | "KR" | "US">("all"); // "all" = 전체시장
-  const [stocksAcct,   setStocksAcct]   = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [stocksMarket, setStocksMarket] = useState<"all" | "KR" | "US">("all");
+  const [stocksAcct,   setStocksAcct]   = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654">("all");
   const [stocksType,   setStocksType]   = useState<"all" | "STOCK" | "FUND" | "ETF">("all");
 
   // ── Performance 탭 계좌 필터 ────────────────────────
-  const [perfAcct, setPerfAcct] = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [perfAcct, setPerfAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654">("all");
 
   // ── 리밸런싱 탭 필터 ────────────────────────────────
   const [rebMarket,  setRebMarket]  = useState<"KR" | "US">("KR");
-  const [rebAcct,    setRebAcct]    = useState<"all" | "4802" | "1635" | "1402" | "8654">("all");
+  const [rebAcct,    setRebAcct]    = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654" | "8654">("all");
   const [rebType,    setRebType]    = useState<"all" | "STOCK" | "FUND" | "ETF">("all");
   const [rebAction,  setRebAction]  = useState<"all" | "BUY" | "SELL" | "HOLD">("all");
 
@@ -281,7 +281,7 @@ export function LongtermDashboardClient() {
     // 종목+계좌 복합키로 그룹화
     const groupMap = new Map<string, {
       stockCode: string; stockName: string;
-      accountNo: "4802" | "1635" | "1402" | "8654";
+      accountNo: "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
       market: "KR" | "US"; assetType: "STOCK" | "ETF" | "FUND";
       currency: "KRW" | "USD"; txs: LongtermTransaction[];
     }>();
@@ -1204,7 +1204,7 @@ export function LongtermDashboardClient() {
                 onClick={() => setExTradeMarket(m)}>{m === "all" ? "전체시장" : m}</Button>
             ))}
             {/* 계좌 */}
-            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
               <Button key={a} size="sm" variant={exTradeAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", exTradeAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setExTradeAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
@@ -1396,7 +1396,7 @@ export function LongtermDashboardClient() {
                 onClick={() => setStocksMarket(m)}>{m === "all" ? "전체시장" : m}</Button>
             ))}
             {/* 계좌 */}
-            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
               <Button key={a} size="sm" variant={stocksAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", stocksAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setStocksAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
@@ -1436,7 +1436,7 @@ export function LongtermDashboardClient() {
               </Button>
             ))}
             {/* 계좌 */}
-            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
               <Button key={a} size="sm" variant={perfAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", perfAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setPerfAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
@@ -1496,7 +1496,7 @@ export function LongtermDashboardClient() {
                 onClick={() => setRebMarket(m)}>{m}</Button>
             ))}
             {/* 계좌 */}
-            {(["all", "4802", "1635", "1402", "8654"] as const).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
               <Button key={a} size="sm" variant={rebAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", rebAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setRebAcct(a)}>{a === "all" ? "전체계좌" : a}</Button>
