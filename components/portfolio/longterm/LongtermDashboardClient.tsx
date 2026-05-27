@@ -1017,7 +1017,82 @@ export function LongtermDashboardClient() {
         {/* ────────────────────────────────────────────
             탭 2: 포지션 (현재가 인라인 편집)
         ──────────────────────────────────────────── */}
-        <TabsContent value="positions" className="mt-4">
+        <TabsContent value="positions" className="mt-4 space-y-3">
+          {/* 툴바: 종목수 + Restore/Backup */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => jsonFileRef.current?.click()}
+                disabled={jsonLoading}
+              >
+                <CloudDownload className="h-3.5 w-3.5" />
+                Restore
+              </Button>
+              <Button variant="outline" size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={handleJsonBackup}
+                disabled={jsonLoading || transactions.length === 0}
+              >
+                <CloudUpload className="h-3.5 w-3.5" />
+                Backup
+              </Button>
+            </div>
+          </div>
+
+          {/* KPI 요약 카드 — 총 매수금액 / 총 평가금액 / 총 평가손익 / 수익률
+              KRW 포지션 기준으로 합산 (USD는 별도 통화로 혼산 방지)
+              현재가가 입력된 종목만 평가금액·평가손익 계산에 반영 */}
+          {(() => {
+            const krwPos    = positions.filter((p) => p.currency === "KRW");
+            const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
+            const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
+            const hasPrices = priced.length > 0;
+            const totalEval = priced.reduce((s, p) => s + p.evalAmount, 0);
+            const totalPL   = priced.reduce((s, p) => s + p.evalPL, 0);
+            const totalPLPct = totalCost > 0 ? (totalPL / totalCost) * 100 : null;
+
+            const fmt      = (n: number) => Math.round(n).toLocaleString("ko-KR");
+            const plCls    = totalPL  >= 0 ? "text-emerald-600 dark:text-emerald-400"  : "text-red-500 dark:text-red-400";
+            const pctCls   = (totalPLPct ?? 0) >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400";
+            const fetchedStr = pricesFetchedAt
+              ? new Date(pricesFetchedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+              : null;
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 매수금액</p>
+                  <p className="text-sm font-semibold tabular-nums">{fmt(totalCost)}</p>
+                </div>
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 평가금액</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {hasPrices ? fmt(totalEval) : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">총 평가손익</p>
+                  <p className={`text-sm font-semibold tabular-nums ${hasPrices ? plCls : ""}`}>
+                    {hasPrices ? `${totalPL >= 0 ? "+" : ""}${fmt(totalPL)}` : "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-card px-3 py-2.5">
+                  <p className="text-[11px] text-muted-foreground mb-1">수익률</p>
+                  <p className={`text-sm font-semibold tabular-nums ${hasPrices && totalPLPct !== null ? pctCls : ""}`}>
+                    {hasPrices && totalPLPct !== null
+                      ? `${totalPLPct >= 0 ? "+" : ""}${totalPLPct.toFixed(2)}%`
+                      : "—"}
+                  </p>
+                  {fetchedStr && hasPrices && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{fetchedStr} 기준</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <LongtermPositionsTable
             positions={positions}
             isLoading={posLoading}
