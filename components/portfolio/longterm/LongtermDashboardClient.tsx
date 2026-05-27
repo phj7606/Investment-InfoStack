@@ -97,6 +97,34 @@ function ExCard({ label, value, sub, valueClass }: { label: string; value: strin
   );
 }
 
+// 계좌 필터 값 타입
+type AccountFilterValue = "all" | "4802" | "1635" | "1402" | "8654";
+
+// 계좌 필터 버튼 그룹 — 각 탭 상단에서 공유 사용
+function AccountFilterBar({
+  value,
+  onChange,
+}: {
+  value: AccountFilterValue;
+  onChange: (v: AccountFilterValue) => void;
+}) {
+  return (
+    <div className="flex gap-1">
+      {(["all", "4802", "1635", "1402", "8654"] as const).map((f) => (
+        <Button
+          key={f}
+          variant={value === f ? "default" : "outline"}
+          size="sm"
+          className={cn("h-7 px-2.5 text-[11px]", value === f && "bg-blue-600 hover:bg-blue-700 text-white")}
+          onClick={() => onChange(f)}
+        >
+          {f === "all" ? "전체계좌" : f}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────
 // 로컬스토리지 현재가 저장 키
 // ─────────────────────────────────────────
@@ -131,8 +159,8 @@ export function LongtermDashboardClient() {
 
   // ── 계좌 / 시장 필터 ─────────────────────────
   // URL ?account= 파라미터에서 초기값 복원
-  const [accountFilter, setAccountFilter] = useState<"all" | "4802" | "1635" | "1402" | "8654">(
-    () => (searchParams.get("account") as "all" | "4802" | "1635" | "1402" | "8654") ?? "all"
+  const [accountFilter, setAccountFilter] = useState<AccountFilterValue>(
+    () => (searchParams.get("account") as AccountFilterValue) ?? "all"
   );
   // URL ?tab= 파라미터에서 초기값 복원
   const [activeTab, setActiveTab] = useState(
@@ -826,6 +854,12 @@ export function LongtermDashboardClient() {
   // StockPerformance[] 어댑터: monthlyPL → EquityCurvePoint[]
   // toStockPerformances는 서버 사이드이므로, 클라이언트에서는
 
+  // 계좌 필터 변경 — 상태 업데이트 + URL 파라미터 동기화
+  const handleAccountFilter = useCallback((v: AccountFilterValue) => {
+    setAccountFilter(v);
+    updateUrlParam("account", v);
+  }, [setAccountFilter, updateUrlParam]);
+
   // ────────────────────────────────────────────────
   // 렌더
   // ────────────────────────────────────────────────
@@ -834,27 +868,6 @@ export function LongtermDashboardClient() {
 
       {/* ══ 상단 도구 모음 ══════════════════════════ */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* 계좌 필터 — Transactions 탭과 동일한 버튼 그룹 스타일 */}
-        <div className="flex gap-1">
-          {(["all", "4802", "1635", "1402", "8654"] as const).map((f) => (
-            <Button
-              key={f}
-              variant={accountFilter === f ? "default" : "outline"}
-              size="sm"
-              className={cn(
-                "h-7 px-2.5 text-[11px]",
-                accountFilter === f && "bg-blue-600 hover:bg-blue-700 text-white"
-              )}
-              onClick={() => {
-                setAccountFilter(f);
-                updateUrlParam("account", f);
-              }}
-            >
-              {f === "all" ? "전체계좌" : f}
-            </Button>
-          ))}
-        </div>
-
         {/* 새로고침 */}
         <Button
           variant="outline"
@@ -978,7 +991,8 @@ export function LongtermDashboardClient() {
         {/* ────────────────────────────────────────────
             탭 1: 대시보드 (KPI 카드 + TOP3 + 차트 3종)
         ──────────────────────────────────────────── */}
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
           {/* KPI 카드 + TOP3 종목 (기존 컴포넌트 유지) */}
           <AccountSummaryCards
             krSummary={krSummary}
@@ -1010,8 +1024,10 @@ export function LongtermDashboardClient() {
             탭 2: 포지션 (현재가 인라인 편집)
         ──────────────────────────────────────────── */}
         <TabsContent value="positions" className="mt-4 space-y-3">
-          {/* 툴바: 종목수 + Restore/Backup */}
+          {/* 계좌 필터 + 툴바: 종목수 + Restore/Backup */}
           <div className="flex items-center justify-between">
+            <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
+            <div className="flex items-center gap-3">
             <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
@@ -1030,6 +1046,7 @@ export function LongtermDashboardClient() {
                 <CloudUpload className="h-3.5 w-3.5" />
                 Backup
               </Button>
+            </div>
             </div>
           </div>
 
@@ -1110,13 +1127,12 @@ export function LongtermDashboardClient() {
             </Button>
           </div>
 
-          {/* 상단 버튼 그룹에서 계좌 필터를 이미 제공하므로 테이블 내부 계좌 필터 숨김 */}
+          {/* 계좌 필터는 TransactionTable 내부 필터 사용 */}
           <TransactionTable
             transactions={transactions}
             isLoading={txLoading}
             onDelete={handleDeleteTransaction}
             onEdit={handleOpenEdit}
-            hideAccountFilter
           />
 
           {/* 거래 추가/편집 다이얼로그 */}
@@ -1149,8 +1165,11 @@ export function LongtermDashboardClient() {
             />
           </div>
 
-          {/* 필터 바 — 시장 / 계좌 / 종류 */}
+          {/* 필터 바 — 계좌 / 시장 / 종류 */}
           <div className="flex flex-wrap items-center gap-2">
+            {/* 계좌 필터 */}
+            <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
+
             {/* 시장 필터 */}
             <div className="flex rounded-md border overflow-hidden text-[10px]">
               {(["all", "KR", "US"] as const).map((m) => (
@@ -1346,7 +1365,8 @@ export function LongtermDashboardClient() {
         {/* ────────────────────────────────────────────
             탭 5: 종목별 이력 (accordion + 소계)
         ──────────────────────────────────────────── */}
-        <TabsContent value="stocks" className="mt-4">
+        <TabsContent value="stocks" className="mt-4 space-y-3">
+          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
           <StockHistoryTable
             transactions={transactions}
             isLoading={txLoading}
@@ -1357,6 +1377,7 @@ export function LongtermDashboardClient() {
             탭 5: Performance Analysis (KR / US 탭 분리)
         ──────────────────────────────────────────── */}
         <TabsContent value="performance" className="mt-4 space-y-4">
+          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
           {/* KR / US 서브 탭 */}
           <div className="flex gap-2">
             <Button
@@ -1410,7 +1431,8 @@ export function LongtermDashboardClient() {
         {/* ────────────────────────────────────────────
             탭 6: 리밸런싱
         ──────────────────────────────────────────── */}
-        <TabsContent value="rebalancing" className="mt-4">
+        <TabsContent value="rebalancing" className="mt-4 space-y-3">
+          <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
           <RebalancingPanel positions={positions} />
         </TabsContent>
       </Tabs>
