@@ -1480,8 +1480,8 @@ export function LongtermDashboardClient() {
                 {c === "KRW" ? "KR" : "US"}
               </Button>
             ))}
-            {/* 계좌: Performance 관련 3개 계좌만 표시 */}
-            {(["all", "4802", "1635", "1402"] as const).map((a) => (
+            {/* 계좌: 전체 6개 계좌 표시 */}
+            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
               <Button key={a} size="sm" variant={perfAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", perfAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setPerfAcct(a)}>{a === "all" ? "전체" : a}</Button>
