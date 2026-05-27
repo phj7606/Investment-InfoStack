@@ -1112,11 +1112,13 @@ export function LongtermDashboardClient() {
             </Button>
           </div>
 
+          {/* 상단 버튼 그룹에서 계좌 필터를 이미 제공하므로 테이블 내부 계좌 필터 숨김 */}
           <TransactionTable
             transactions={transactions}
             isLoading={txLoading}
             onDelete={handleDeleteTransaction}
             onEdit={handleOpenEdit}
+            hideAccountFilter
           />
 
           {/* 거래 추가/편집 다이얼로그 */}
