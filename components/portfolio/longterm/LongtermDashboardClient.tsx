@@ -1040,10 +1040,8 @@ export function LongtermDashboardClient() {
             탭 2: 포지션 (현재가 인라인 편집)
         ──────────────────────────────────────────── */}
         <TabsContent value="positions" className="mt-4 space-y-3">
-          {/* 계좌 필터 + 툴바: 종목수 + Restore/Backup */}
-          <div className="flex items-center justify-between">
-            <AccountFilterBar value={accountFilter} onChange={handleAccountFilter} />
-            <div className="flex items-center gap-3">
+          {/* 툴바: 종목수 + Restore/Backup */}
+          <div className="flex items-center justify-end gap-3">
             <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
@@ -1062,7 +1060,6 @@ export function LongtermDashboardClient() {
                 <CloudUpload className="h-3.5 w-3.5" />
                 Backup
               </Button>
-            </div>
             </div>
           </div>
 
