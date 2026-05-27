@@ -262,6 +262,14 @@ export function LongtermDashboardClient() {
     currentPricesRef.current = currentPrices;
   }, [currentPrices]);
 
+  // Open Positions 탭 — posMarket + posAcct 적용된 포지션 (KPI·카운트 공유)
+  const filteredPositions = useMemo(
+    () => positions
+      .filter((p) => p.market === posMarket)
+      .filter((p) => posAcct === "all" || p.accountNo === posAcct),
+    [positions, posMarket, posAcct]
+  );
+
   // ────────────────────────────────────────────────
   // Executed Trade — transactions에서 파생
   //
@@ -1047,7 +1055,7 @@ export function LongtermDashboardClient() {
         <TabsContent value="positions" className="mt-4 space-y-3">
           {/* 툴바: 종목수 + Restore/Backup */}
           <div className="flex items-center justify-end gap-3">
-            <p className="text-sm font-medium text-muted-foreground">{positions.length}종목 보유</p>
+            <p className="text-sm font-medium text-muted-foreground">{filteredPositions.length}종목 보유</p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm"
                 className="h-7 text-xs gap-1"
@@ -1069,12 +1077,10 @@ export function LongtermDashboardClient() {
           </div>
 
           {/* KPI 요약 카드 — 총 매수금액 / 총 평가금액 / 총 평가손익 / 수익률
-              posMarket(KR/US) + posAcct 필터 적용 후 합산
+              filteredPositions(posMarket + posAcct 적용) 기반
               현재가가 입력된 종목만 평가금액·평가손익 계산에 반영 */}
           {(() => {
-            const krwPos    = positions
-              .filter((p) => p.market === posMarket)
-              .filter((p) => posAcct === "all" || p.accountNo === posAcct);
+            const krwPos    = filteredPositions;
             const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
             const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
             const hasPrices = priced.length > 0;
