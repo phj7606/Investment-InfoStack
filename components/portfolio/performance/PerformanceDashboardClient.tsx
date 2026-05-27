@@ -115,9 +115,13 @@ export function PerformanceDashboardClient() {
     return marketData.section.stocks.filter((s) => s.accountNo === accountTab);
   })();
 
-  // 계좌 탭 목록 (현재 시장 기준)
+  // 계좌 탭 목록 — 지정 순서 우선, 나머지는 뒤에 추가
+  const ACCT_ORDER = ["4802", "1635", "1402"];
   const accountTabs: string[] = marketData
-    ? Object.keys(marketData.section.byAccount).sort()
+    ? [
+        ...ACCT_ORDER.filter((a) => a in marketData.section.byAccount),
+        ...Object.keys(marketData.section.byAccount).filter((a) => !ACCT_ORDER.includes(a)).sort(),
+      ]
     : [];
 
   return (
