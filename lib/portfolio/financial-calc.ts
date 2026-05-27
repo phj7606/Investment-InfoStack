@@ -812,12 +812,13 @@ export function buildAssetManagementYearlyData(
     let korData: AssetManagementSectionData;
     if (isDraft) {
       const balance = liveData?.korStocks.balance ?? 0;
-      // Principal = 전월잔고 (엑셀 구조)
-      const principal = prevKorBalance > 0 ? prevKorBalance : (liveData?.korStocks.principal ?? 0);
-      // 거래 내역: 당월 매수/매도 집계
+      // 거래 내역: 당월 매수/매도 집계 (principal 계산에 사용)
       const bid      = liveData?.monthlyTxSummary?.korStocks.bid      ?? 0;
       const askBv    = liveData?.monthlyTxSummary?.korStocks.askBv    ?? 0;
       const fixedPnl = liveData?.monthlyTxSummary?.korStocks.fixedPnl ?? 0;
+      // Principal = 전월잔고 + 당월Bid - 당월Ask(BV)
+      // 엑셀 공식: Principal + AskBV = PrevBalance + Bid (수익률 분모와 일치)
+      const principal = prevKorBalance > 0 ? prevKorBalance + bid - askBv : (liveData?.korStocks.principal ?? 0);
       // Monthly P/L = balance + fixedPnl - prevBalance - bid + askBv
       const monthlyPnl = prevKorBalance > 0
         ? calcMonthlyPnl(balance, fixedPnl, prevKorBalance, bid, askBv)
@@ -928,12 +929,13 @@ export function buildAssetManagementYearlyData(
     let usData: AssetManagementSectionData;
     if (isDraft) {
       const balance = liveData?.usStocks.balanceUsd ?? 0;
-      // Principal = 전월잔고 (USD)
-      const principal = prevUsBalance > 0 ? prevUsBalance : (liveData?.usStocks.principalUsd ?? 0);
-      // 거래 내역: 당월 매수/매도 집계 (USD)
+      // 거래 내역: 당월 매수/매도 집계 (USD, principal 계산에 사용)
       const bid      = liveData?.monthlyTxSummary?.usStocks.bid      ?? 0;
       const askBv    = liveData?.monthlyTxSummary?.usStocks.askBv    ?? 0;
       const fixedPnl = liveData?.monthlyTxSummary?.usStocks.fixedPnl ?? 0;
+      // Principal = 전월잔고 + 당월Bid - 당월Ask(BV) (USD)
+      // 엑셀 공식: Principal + AskBV = PrevBalance + Bid (수익률 분모와 일치)
+      const principal = prevUsBalance > 0 ? prevUsBalance + bid - askBv : (liveData?.usStocks.principalUsd ?? 0);
       const monthlyPnl = prevUsBalance > 0
         ? calcMonthlyPnl(balance, fixedPnl, prevUsBalance, bid, askBv)
         : 0;
