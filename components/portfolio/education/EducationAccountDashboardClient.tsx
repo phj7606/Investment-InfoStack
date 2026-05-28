@@ -991,7 +991,11 @@ export function EducationAccountDashboardClient() {
                           <td className="p-2">
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={() => setEditTrade(t)}
+                                onClick={() => {
+                                  // derivedTrades의 id는 원본 ltTransaction id와 동일 — LT 편집 경로 사용
+                                  const ltTx = ltTransactions.find((tx) => tx.id === t.id);
+                                  if (ltTx) handleLtTxEdit(ltTx);
+                                }}
                                 className="text-[10px] text-muted-foreground hover:text-foreground"
                                 title="편집"
                               >
@@ -1000,8 +1004,9 @@ export function EducationAccountDashboardClient() {
                               <button
                                 onClick={async () => {
                                   if (!confirm(`[${t.stockName}] 거래를 삭제하시겠습니까?`)) return;
-                                  await fetch(`/api/portfolio/education/trades?id=${t.id}`, { method: "DELETE" });
-                                  void loadData();
+                                  // derivedTrades는 ltTransactions 기반 — LT 트랜잭션 엔드포인트로 삭제
+                                  await fetch(`/api/portfolio/education/transactions/${t.id}`, { method: "DELETE" });
+                                  void fetchLtTransactions();
                                 }}
                                 className="text-[10px] text-red-400 hover:text-red-600"
                                 title="삭제"
