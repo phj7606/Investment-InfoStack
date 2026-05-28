@@ -61,7 +61,7 @@ export async function PUT(
       "fixedDepositKrw", "fixedDepositUsd",
       "cashForeignUsd", "cashForeignCad",
       "stockDepositKrw", "stockDepositUsd", "stockDepositByAccount",
-      "fundMonthly",
+      "fundMonthly", "leaseDeposit",
     ];
     const requestedFields = Object.keys(body) as (keyof UpdateSnapshotRequest)[];
     const hasLockedField = requestedFields.some((f) => !ALLOWED_MANUAL_FIELDS.includes(f));

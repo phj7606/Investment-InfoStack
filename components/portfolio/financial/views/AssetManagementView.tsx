@@ -469,7 +469,12 @@ function UnifiedInputDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[UnifiedInputDialog]", errText);
+        setSaving(false);
+        return;
+      }
       onSave();
       onClose();
     } finally {
