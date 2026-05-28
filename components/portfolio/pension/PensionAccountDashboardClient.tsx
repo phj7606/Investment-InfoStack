@@ -1336,7 +1336,10 @@ export function PensionAccountDashboardClient() {
                             <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{ACCT_LABELS[t.accountType]}</span>
                           </td>
                           <td className="p-2">
-                            <div className="font-medium">{t.stockName}</div>
+                            <a href={naverStockUrl(t.stockCode)} target="_blank" rel="noopener noreferrer"
+                               className="font-medium hover:underline hover:text-emerald-600 transition-colors">
+                              {t.stockName}
+                            </a>
                             <div className="text-[10px] text-muted-foreground">{t.stockCode}</div>
                           </td>
                           <td className="p-2 text-center">
@@ -1519,18 +1522,18 @@ export function PensionAccountDashboardClient() {
                     <tbody className="divide-y divide-border/30">
                       {filteredExecutedTrades.map((t) => (
                         <tr key={t.key} className="hover:bg-muted/30">
-                          {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
+                          {/* 종목명 — 네이버 금융 링크, 종목코드 — 텍스트 */}
                           <td className="p-2 pl-3">
-                            <div className="font-medium">{t.stockName}</div>
+                            <a
+                              href={naverStockUrl(t.stockCode)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium hover:underline hover:text-emerald-600 transition-colors"
+                            >
+                              {t.stockName}
+                            </a>
                             <div className="text-[10px] text-muted-foreground">
-                              <a
-                                href={naverStockUrl(t.stockCode)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:text-blue-500 hover:underline"
-                              >
-                                {t.stockCode}
-                              </a>
+                              {t.stockCode}
                               {t.category && (
                                 <span className={cn("ml-1 px-1 rounded",
                                   t.category === "BOND"
@@ -1631,18 +1634,18 @@ export function PensionAccountDashboardClient() {
                         ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
                         : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
 
-                      {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
-                      <div className="flex items-baseline gap-1 min-w-0 flex-1">
-                        <span className="text-xs font-semibold truncate">{g.stockName}</span>
+                      {/* 종목명 → 네이버 금융 링크, 코드는 아래 텍스트로 표시 */}
+                      <div className="flex flex-col min-w-0 flex-1">
                         <a
                           href={naverStockUrl(g.stockCode)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] text-muted-foreground shrink-0 hover:text-blue-500 hover:underline"
+                          className="text-xs font-semibold truncate hover:underline hover:text-emerald-600 transition-colors"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          ({g.stockCode})
+                          {g.stockName}
                         </a>
+                        <span className="text-[10px] text-muted-foreground">{g.stockCode}</span>
                       </div>
 
                       {/* 배지: 계좌유형 + 카테고리 */}
