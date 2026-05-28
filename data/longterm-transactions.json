@@ -102,9 +102,9 @@
     "currency": "KRW",
     "amount": 49880000,
     "fee": 132180,
-    "avgCostAtSell": 44452.8,
-    "realizedPL": -1817432,
-    "realizedPLPct": -3.52
+    "avgCostAtSell": 44446.15,
+    "realizedPL": -1677532.27,
+    "realizedPLPct": -3.2537
   },
   {
     "id": "4a169fa9-5188-4fcc-b0f2-14c9070d946b",
@@ -388,9 +388,9 @@
     "currency": "KRW",
     "amount": 12740000,
     "fee": 27390,
-    "avgCostAtSell": 127876.78,
-    "realizedPL": 10155074,
-    "realizedPLPct": 397.06
+    "avgCostAtSell": 127858.0,
+    "realizedPL": 10182840.0,
+    "realizedPLPct": 398.209
   },
   {
     "id": "338c8d5d-d0c6-401f-832a-bf7f887c4ea4",
@@ -406,9 +406,9 @@
     "currency": "KRW",
     "amount": 21294000,
     "fee": 45768,
-    "avgCostAtSell": 127876.78,
-    "realizedPL": 18562820,
-    "realizedPLPct": 691.25
+    "avgCostAtSell": 127858.0,
+    "realizedPL": 18608982.0,
+    "realizedPLPct": 693.0673
   },
   {
     "id": "8c3fc84e-c065-4a7e-a535-ae721f17ab57",
@@ -483,9 +483,9 @@
     "currency": "KRW",
     "amount": 11351500,
     "fee": 18666,
-    "avgCostAtSell": 47520.41,
-    "realizedPL": 7863844,
-    "realizedPLPct": 226.69
+    "avgCostAtSell": 47513.36,
+    "realizedPL": 7883025.0,
+    "realizedPLPct": 227.2764
   },
   {
     "id": "aa6d0457-4d8a-4d1d-bd26-40ad78272cbc",
@@ -501,9 +501,9 @@
     "currency": "KRW",
     "amount": 14600000,
     "fee": 31390,
-    "avgCostAtSell": 47520.41,
-    "realizedPL": 11099620,
-    "realizedPLPct": 319.97
+    "avgCostAtSell": 47513.36,
+    "realizedPL": 11131525.0,
+    "realizedPLPct": 320.9343
   },
   {
     "id": "a21858c9-ec2a-4e1a-9f99-1fd89f9291a5",
@@ -624,9 +624,9 @@
     "currency": "KRW",
     "amount": 15956500,
     "fee": 34302,
-    "avgCostAtSell": 109730.17,
-    "realizedPL": 10764880,
-    "realizedPLPct": 208.73
+    "avgCostAtSell": 109714.0,
+    "realizedPL": 10799942.0,
+    "realizedPLPct": 209.4409
   },
   {
     "id": "1a6d4784-2fcf-48b4-85c4-6a9cdf4351c9",
@@ -822,9 +822,9 @@
     "currency": "KRW",
     "amount": 22290500,
     "fee": 47920,
-    "avgCostAtSell": 152231.34,
-    "realizedPL": 5649364,
-    "realizedPLPct": 34.05
+    "avgCostAtSell": 152208.98,
+    "realizedPL": 5699720.85,
+    "realizedPLPct": 34.3548
   },
   {
     "id": "7efcc912-fdaf-45c9-9d42-1fe9ee940ef7",
@@ -885,9 +885,9 @@
     "currency": "KRW",
     "amount": 11099000,
     "fee": 23857,
-    "avgCostAtSell": 771632.35,
-    "realizedPL": 2587187,
-    "realizedPLPct": 30.48
+    "avgCostAtSell": 771519.61,
+    "realizedPL": 2612284.31,
+    "realizedPLPct": 30.7809
   },
   {
     "id": "935da4fc-9b93-4571-8a88-8541aea92308",
@@ -1230,9 +1230,9 @@
     "currency": "KRW",
     "amount": 8465025,
     "fee": 655930,
-    "avgCostAtSell": 14108.2,
-    "realizedPL": 3647176,
-    "realizedPLPct": 87.63
+    "avgCostAtSell": 14106.11,
+    "realizedPL": 4303721.94,
+    "realizedPLPct": 103.4225
   },
   {
     "id": "b415df4a-22d2-4277-89d0-61860b8143f3",
@@ -1891,9 +1891,9 @@
     "currency": "USD",
     "amount": 16845.989999999998,
     "fee": 42.300000000000004,
-    "avgCostAtSell": 129.37,
-    "realizedPL": 5937,
-    "realizedPLPct": 54.63
+    "avgCostAtSell": 132.87,
+    "realizedPL": 5684.95,
+    "realizedPLPct": 50.9356
   },
   {
     "id": "c1d9f8c7-7c41-4128-8ded-dc426a63ca03",
@@ -2192,9 +2192,9 @@
     "currency": "USD",
     "amount": 647.6,
     "fee": 1.61,
-    "avgCostAtSell": 214.9,
-    "realizedPL": -1073,
-    "realizedPLPct": -62.43
+    "avgCostAtSell": 214.37,
+    "realizedPL": -1067.35,
+    "realizedPLPct": -62.2379
   },
   {
     "id": "32626dc5-dfb6-4b3a-a7ff-0c6e0678dd3d",

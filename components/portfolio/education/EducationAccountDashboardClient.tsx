@@ -1,10 +1,10 @@
 "use client";
 
-// Education 계좌(1470) 대시보드 — 파일 기반 수동 관리 컴포넌트
+// Education 계좌(1470) 대시보드 — education_transactions 단일 소스
 // 5탭: Open Positions | Transactions | Executed Trade | 종목별 | Risk Management
 //
-// Open Positions / Transactions / 종목별: LongtermTransaction 기반 (educationTransactionsData)
-// Executed Trade: 기존 EducationTrade 모델 그대로 유지
+// 모든 탭이 educationTransactionsData (LongtermTransaction 기반) 단일 소스 사용
+// Executed Trade: SELL 거래를 derivedTrades로 파생 계산 (별도 education_account 불필요)
 // Risk Management: RiskManagementPanel + PositionRiskTable
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -13,11 +13,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, CloudUpload, CloudDownload } from "lucide-react";
+// CloudUpload, CloudDownload는 LT 백업 버튼에서 계속 사용
 import { cn } from "@/lib/utils";
 import { RiskManagementPanel } from "@/components/portfolio/RiskManagementPanel";
 import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
-import { AddTradeDialog } from "./AddTradeDialog";
-import { EditTradeDialog } from "@/components/portfolio/shared/EditTradeDialog";
 import { LongtermPositionsTable } from "@/components/portfolio/longterm/LongtermPositionsTable";
 import { TransactionTable } from "@/components/portfolio/longterm/TransactionTable";
 import { TransactionForm } from "@/components/portfolio/longterm/TransactionForm";
@@ -80,11 +79,6 @@ function sortTrades(trades: EducationTrade[], sort: SortState): EducationTrade[]
 // ─────────────────────────────────────────
 
 export function EducationAccountDashboardClient() {
-  // ── Executed Trade 탭 데이터 (기존 EducationTrade 모델) ──────────
-  const [trades, setTrades]   = useState<EducationTrade[]>([]);
-  const [summary, setSummary] = useState<PerformanceSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-
   // ── Risk Management ─────────────────────────
   const [riskConfig, setRiskConfig] = useState<RiskManagementConfig>(() => {
     if (typeof window === "undefined") return DEFAULT_RISK_CONFIG;
@@ -95,10 +89,6 @@ export function EducationAccountDashboardClient() {
     return DEFAULT_RISK_CONFIG;
   });
 
-  // ── Executed Trade 다이얼로그 ────────────────
-  const [addTradeOpen, setAddTradeOpen] = useState(false);
-  const [editTrade, setEditTrade]       = useState<EducationTrade | null>(null);
-
   // ── Executed Trade 정렬/필터 ────────────────
   const [sort, setSort]               = useState<SortState>({ col: "sellDate", dir: "desc" });
   const [resultFilter, setResultFilter] = useState<"all" | "Win" | "Lose">("all");
@@ -108,8 +98,6 @@ export function EducationAccountDashboardClient() {
   const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654">("all");
   const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
 
-  // ── 기존 백업/복원 (Executed Trade용) ─────────
-  const backupFileRef  = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
 
   // ─────────────────────────────────────────
@@ -143,23 +131,6 @@ export function EducationAccountDashboardClient() {
 
   // ltCurrentPricesRef 동기화
   useEffect(() => { ltCurrentPricesRef.current = ltCurrentPrices; }, [ltCurrentPrices]);
-
-  // ─────────────────────────────────────────
-  // 기존 Executed Trade 데이터 로드
-  // ─────────────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const tradeRes = await fetch("/api/portfolio/education/trades");
-      const tradeData = await tradeRes.json() as { trades: EducationTrade[]; summary: PerformanceSummary };
-      setTrades(tradeData.trades);
-      setSummary(tradeData.summary);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadData(); }, [loadData]);
 
   // ─────────────────────────────────────────
   // LT 거래 내역 조회
@@ -544,93 +515,6 @@ export function EducationAccountDashboardClient() {
   }
 
   // ─────────────────────────────────────────
-  // 기존 JSON 백업 (Executed Trade용)
-  // GET /api/portfolio/education/backup → attachment 파일로 저장
-  // ─────────────────────────────────────────
-  async function handleJsonBackup() {
-    setBackupLoading(true);
-    try {
-      const res = await fetch("/api/portfolio/education/backup");
-      if (!res.ok) throw new Error("백업 API 오류");
-      const blob = await res.blob();
-      const today = new Date().toISOString().slice(0, 10);
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `education-backup-${today}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (err) {
-      console.error("JSON 백업 실패:", err);
-      alert("JSON 백업 다운로드에 실패했습니다.");
-    } finally {
-      setBackupLoading(false);
-    }
-  }
-
-  // ─────────────────────────────────────────
-  // 기존 JSON 복원 (Executed Trade용)
-  // 파일 선택 → overwrite/merge 선택 → POST
-  // ─────────────────────────────────────────
-  async function handleJsonRestore(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setBackupLoading(true);
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as {
-        positions?: unknown[];
-        trades?: unknown[];
-      };
-
-      if (!Array.isArray(parsed.positions) || !Array.isArray(parsed.trades)) {
-        alert("유효한 백업 파일이 아닙니다. (positions/trades 배열 없음)");
-        return;
-      }
-
-      // overwrite 선택 시 현재 데이터 전체 교체 경고
-      const useOverwrite = window.confirm(
-        `백업 파일: 포지션 ${parsed.positions.length}건 / 거래 ${parsed.trades.length}건\n\n` +
-        `[확인] 전체 덮어쓰기 (overwrite) — 현재 데이터가 모두 교체됩니다.\n` +
-        `[취소] 병합 추가 (merge) — 중복 제외한 신규 건만 추가됩니다.`
-      );
-
-      const res = await fetch("/api/portfolio/education/backup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          positions: parsed.positions,
-          trades: parsed.trades,
-          mode: useOverwrite ? "overwrite" : "merge",
-        }),
-      });
-
-      if (!res.ok) throw new Error("복원 API 오류");
-      const result = await res.json() as {
-        ok: boolean;
-        restoredPositions: number;
-        restoredTrades: number;
-        skippedPositions: number;
-        skippedTrades: number;
-      };
-
-      alert(
-        `복원 완료\n` +
-        `포지션: 저장 ${result.restoredPositions}건 / 건너뜀 ${result.skippedPositions}건\n` +
-        `거래:   저장 ${result.restoredTrades}건 / 건너뜀 ${result.skippedTrades}건`
-      );
-
-      void loadData();
-    } catch (err) {
-      console.error("JSON 복원 실패:", err);
-      alert("JSON 복원에 실패했습니다. 파일 형식을 확인해 주세요.");
-    } finally {
-      setBackupLoading(false);
-      if (backupFileRef.current) backupFileRef.current.value = "";
-    }
-  }
-
-  // ─────────────────────────────────────────
   // 렌더
   // ─────────────────────────────────────────
   return (
@@ -643,22 +527,13 @@ export function EducationAccountDashboardClient() {
         className="hidden"
         onChange={(e) => void handleLtJsonRestore(e)}
       />
-      {/* Executed Trade 백업 복원용 hidden file input */}
-      <input
-        ref={backupFileRef}
-        type="file"
-        accept=".json"
-        className="hidden"
-        onChange={(e) => void handleJsonRestore(e)}
-      />
-
       <Tabs defaultValue="positions">
         {/* 탭 목록: 3탭 → 5탭으로 확장, grid-cols-3 → grid-cols-5 */}
         <TabsList className="grid w-full grid-cols-5 bg-emerald-500/5 border">
           {[
             { value: "positions",    label: "Open Positions",  count: ltPositions.length },
             { value: "transactions", label: "Transactions",    count: ltTransactions.length },
-            { value: "executed",     label: "Executed Trade",  count: trades.length },
+            { value: "executed",     label: "Executed Trade",  count: derivedTrades.length },
             { value: "history",      label: "종목별",           count: undefined },
             { value: "risk",         label: "Risk Management", count: undefined },
           ].map(({ value, label, count }) => (
@@ -905,29 +780,13 @@ export function EducationAccountDashboardClient() {
             </div>
 
             <div className="flex gap-2">
-              {/* 복원/백업 — 기존 education/backup API 사용 (positions+trades 동시 처리) */}
-              <Button variant="outline" size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => backupFileRef.current?.click()}
-                disabled={backupLoading}
-              >
-                <CloudDownload className="h-3 w-3" />
-                Restore
-              </Button>
-              <Button variant="outline" size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => void handleJsonBackup()}
-                disabled={backupLoading}
-              >
-                <CloudUpload className="h-3 w-3" />
-                Backup
-              </Button>
+              {/* education_transactions 단일 소스 — LT TransactionForm 재사용 */}
               <Button size="sm"
                 className="h-7 text-xs gap-1 bg-emerald-500 hover:bg-emerald-600 text-white"
-                onClick={() => setAddTradeOpen(true)}
+                onClick={() => { setEditingLtTx(undefined); setShowLtForm(true); }}
               >
                 <Plus className="h-3 w-3" />
-                Add Trade
+                거래 추가
               </Button>
             </div>
           </div>
@@ -935,7 +794,7 @@ export function EducationAccountDashboardClient() {
           {/* ── 거래내역 테이블 ── */}
           {filteredTrades.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-              {trades.length === 0 ? "완료된 거래가 없습니다." : "필터 조건에 해당하는 거래가 없습니다."}
+              {derivedTrades.length === 0 ? "완료된 거래가 없습니다." : "필터 조건에 해당하는 거래가 없습니다."}
             </div>
           ) : (
             <Card>
@@ -991,18 +850,18 @@ export function EducationAccountDashboardClient() {
                           <td className="p-2">
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={() => setEditTrade(t)}
+                                onClick={() => {
+                                  // derivedTrades의 id는 원본 ltTransaction의 id와 동일
+                                  const ltTx = ltTransactions.find((tx) => tx.id === t.id);
+                                  if (ltTx) handleLtTxEdit(ltTx);
+                                }}
                                 className="text-[10px] text-muted-foreground hover:text-foreground"
                                 title="편집"
                               >
                                 ✏
                               </button>
                               <button
-                                onClick={async () => {
-                                  if (!confirm(`[${t.stockName}] 거래를 삭제하시겠습니까?`)) return;
-                                  await fetch(`/api/portfolio/education/trades?id=${t.id}`, { method: "DELETE" });
-                                  void loadData();
-                                }}
+                                onClick={() => void handleLtTxDelete(t.id)}
                                 className="text-[10px] text-red-400 hover:text-red-600"
                                 title="삭제"
                               >
@@ -1099,18 +958,7 @@ export function EducationAccountDashboardClient() {
       </Tabs>
 
       {/* ── 다이얼로그 — Executed Trade 탭용 ── */}
-      <AddTradeDialog open={addTradeOpen} onOpenChange={setAddTradeOpen}
-        onSaved={() => { void loadData(); }} />
-      {editTrade && (
-        <EditTradeDialog
-          open={!!editTrade} trade={editTrade}
-          apiBase="/api/portfolio/education/trades"
-          onOpenChange={(open) => { if (!open) setEditTrade(null); }}
-          onSaved={() => { setEditTrade(null); void loadData(); }}
-        />
-      )}
-
-      {/* ── LT TransactionForm — Open Positions / Transactions 탭용 ── */}
+      {/* ── LT TransactionForm — Open Positions / Transactions / Executed Trade 탭 공용 ── */}
       <TransactionForm
         open={showLtForm}
         onOpenChange={(open) => { setShowLtForm(open); if (!open) setEditingLtTx(undefined); }}

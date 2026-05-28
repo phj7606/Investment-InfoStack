@@ -430,9 +430,9 @@
     "fee": 4091,
     "assetType": "STOCK",
     "id": "bc504a2d-7e13-4134-9049-161be738319b",
-    "avgCostAtSell": 0,
-    "realizedPL": 1756184,
-    "realizedPLPct": 0
+    "avgCostAtSell": 11395,
+    "realizedPL": 1133550,
+    "realizedPLPct": 180.87
   },
   {
     "date": "2026-05-20",
