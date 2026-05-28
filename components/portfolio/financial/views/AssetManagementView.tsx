@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil, RefreshCw, Copy, Lock } from "lucide-react";
+import { ClipboardPen, RefreshCw, Copy, Lock } from "lucide-react";
 import { RateCell } from "@/components/portfolio/financial/RateCell";
 import { buildAssetManagementYearlyData, currentMonth } from "@/lib/portfolio/financial-calc";
 import type {
@@ -356,96 +356,14 @@ function SimpleRow({
 }
 
 // ─────────────────────────────────────────
-// Fund 직접입력 다이얼로그 (Principal 필드 제거)
-// ─────────────────────────────────────────
-
-interface FundInputDialogProps {
-  open: boolean;
-  month: string;
-  snapshot: FinancialSnapshot;
-  onClose: () => void;
-  onSave: () => void;
-}
-
-function FundInputDialog({ open, month, snapshot, onClose, onSave }: FundInputDialogProps) {
-  const fm = snapshot.fundMonthly;
-  // Principal 필드 제거 — Balance, Bid, Ask BV, Fixed P/L만 입력
-  const [bid, setBid] = useState(String(fm?.bid ?? 0));
-  const [askBv, setAskBv] = useState(String(fm?.askBv ?? 0));
-  const [fixedPnl, setFixedPnl] = useState(String(fm?.fixedPnl ?? 0));
-  const [balance, setBalance] = useState(String(fm?.balance ?? 0));
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const body: UpdateSnapshotRequest = {
-        fundMonthly: {
-          // principal은 이전 값 또는 0 유지 (UI에서 입력 불필요)
-          principal: fm?.principal ?? 0,
-          bid: Number(bid) || 0,
-          askBv: Number(askBv) || 0,
-          fixedPnl: Number(fixedPnl) || 0,
-          balance: Number(balance) || 0,
-        },
-      };
-      const res = await fetch(`/api/portfolio/financial/snapshot/${month}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      onSave();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>FUND 직접입력 — {month}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          {[
-            { label: "Balance (잔액)", value: balance, set: setBalance },
-            { label: "Bid (매수)", value: bid, set: setBid },
-            { label: "Ask BV (매도 장부가)", value: askBv, set: setAskBv },
-            { label: "Fixed P/L (실현손익)", value: fixedPnl, set: setFixedPnl },
-          ].map(({ label, value, set }) => (
-            <div key={label} className="grid grid-cols-2 items-center gap-2">
-              <Label className="text-xs text-right text-muted-foreground">{label}</Label>
-              <Input
-                type="number"
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                className="h-7 text-xs"
-              />
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={onClose}>취소</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? "저장 중…" : "저장"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─────────────────────────────────────────
-// Monthly Input 다이얼로그 — 모든 월의 Stock Deposit + Cash 입력
+// 통합 입력 다이얼로그 — FUND + Stock Deposit + Cash + Liabilities
 // CONFIRMED 월 포함 편집 가능
 // ─────────────────────────────────────────
 
 const DEPOSIT_ACCOUNTS = ["4802", "1635", "1402"] as const;
 type DepositAccount = typeof DEPOSIT_ACCOUNTS[number];
 
-interface MonthlyInputDialogProps {
+interface UnifiedInputDialogProps {
   open: boolean;
   month: string;
   snapshot: FinancialSnapshot | null;      // 해당 월 스냅샷 (없으면 null)
@@ -454,15 +372,22 @@ interface MonthlyInputDialogProps {
   onSave: () => void;
 }
 
-function MonthlyInputDialog({
+function UnifiedInputDialog({
   open,
   month,
   snapshot,
   prevSnapshot,
   onClose,
   onSave,
-}: MonthlyInputDialogProps) {
+}: UnifiedInputDialogProps) {
   const byAccount = snapshot?.stockDepositByAccount;
+  const fm = snapshot?.fundMonthly;
+
+  // FUND 직접입력 상태
+  const [fundBalance, setFundBalance] = useState(String(fm?.balance ?? 0));
+  const [fundBid, setFundBid] = useState(String(fm?.bid ?? 0));
+  const [fundAskBv, setFundAskBv] = useState(String(fm?.askBv ?? 0));
+  const [fundFixedPnl, setFundFixedPnl] = useState(String(fm?.fixedPnl ?? 0));
 
   // 계좌별 예수금 초기값
   const [values, setValues] = useState<Record<DepositAccount, { krw: string; usd: string }>>({
@@ -503,6 +428,11 @@ function MonthlyInputDialog({
     setFixedDepositKrw(String(prevSnapshot.fixedDepositKrw ?? 0));
     setFixedDepositUsd(String(prevSnapshot.fixedDepositUsd ?? 0));
     setLeaseDeposit(String(prevSnapshot.leaseDeposit ?? 0));
+    const prevFm = prevSnapshot.fundMonthly;
+    setFundBalance(String(prevFm?.balance ?? 0));
+    setFundBid(String(prevFm?.bid ?? 0));
+    setFundAskBv(String(prevFm?.askBv ?? 0));
+    setFundFixedPnl(String(prevFm?.fixedPnl ?? 0));
   };
 
   const handleSave = async () => {
@@ -513,6 +443,13 @@ function MonthlyInputDialog({
       const totalUsd = DEPOSIT_ACCOUNTS.reduce((s, a) => s + (Number(values[a].usd) || 0), 0);
 
       const body: UpdateSnapshotRequest = {
+        fundMonthly: {
+          principal: snapshot?.fundMonthly?.principal ?? 0,
+          bid: Number(fundBid) || 0,
+          askBv: Number(fundAskBv) || 0,
+          fixedPnl: Number(fundFixedPnl) || 0,
+          balance: Number(fundBalance) || 0,
+        },
         stockDepositKrw: totalKrw,
         stockDepositUsd: totalUsd,
         stockDepositByAccount: {
@@ -564,6 +501,28 @@ function MonthlyInputDialog({
             )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* FUND 섹션 */}
+        <div className="space-y-3 py-2">
+          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">FUND</p>
+          {[
+            { label: "Balance (잔액)", value: fundBalance, set: setFundBalance },
+            { label: "Bid (매수)", value: fundBid, set: setFundBid },
+            { label: "Ask BV (매도 장부가)", value: fundAskBv, set: setFundAskBv },
+            { label: "Fixed P/L (실현손익)", value: fundFixedPnl, set: setFundFixedPnl },
+          ].map(({ label, value, set }) => (
+            <div key={label} className="grid grid-cols-2 items-center gap-2">
+              <Label className="text-xs text-right text-muted-foreground">{label}</Label>
+              <Input
+                type="number"
+                value={value}
+                onChange={(e) => set(e.target.value)}
+                className="h-7 text-xs"
+                placeholder="0"
+              />
+            </div>
+          ))}
+        </div>
 
         {/* Stock Deposit 섹션 */}
         <div className="space-y-3 py-2">
@@ -674,8 +633,7 @@ export function AssetManagementView({
   const curYear = Number(curMonthStr.split("-")[0]);
   const [selectedYear, setSelectedYear] = useState(curYear);
 
-  // 다이얼로그 상태 — Fund: DRAFT 전용, Monthly: 모든 월
-  const [fundDialogMonth, setFundDialogMonth] = useState<string | null>(null);
+  // 다이얼로그 상태 — 모든 월 통합 입력
   const [monthlyDialogMonth, setMonthlyDialogMonth] = useState<string | null>(null);
 
   // txSummaries를 buildAssetManagementYearlyData에 전달
@@ -771,21 +729,13 @@ export function AssetManagementView({
                             DRAFT
                           </Badge>
                         )}
-                        {/* Fund 직접입력 버튼 — 모든 유효 컬럼 (CONFIRMED 포함) */}
-                        <button
-                          onClick={() => setFundDialogMonth(col.month)}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="Fund 직접입력"
-                        >
-                          <Pencil className="w-2.5 h-2.5" />
-                        </button>
-                        {/* 월별 입력 버튼 — 모든 유효 컬럼 (Stock Deposit / Cash) */}
+                        {/* 통합 입력 버튼 — FUND + Stock Deposit + Cash + Liabilities */}
                         <button
                           onClick={() => setMonthlyDialogMonth(col.month)}
                           className="text-muted-foreground hover:text-foreground"
-                          title="Stock Deposit / Cash 입력"
+                          title="월별 데이터 입력"
                         >
-                          <Pencil className="w-2.5 h-2.5" />
+                          <ClipboardPen className="w-3 h-3" />
                         </button>
                       </div>
                     )}
@@ -1077,24 +1027,9 @@ export function AssetManagementView({
         </span>
       </div>
 
-      {/* Fund 직접입력 다이얼로그 — 전기간 */}
-      {fundDialogMonth && (() => {
-        const snap = getSnapshotForMonth(fundDialogMonth);
-        if (!snap) return null;
-        return (
-          <FundInputDialog
-            open={!!fundDialogMonth}
-            month={fundDialogMonth}
-            snapshot={snap}
-            onClose={() => setFundDialogMonth(null)}
-            onSave={handleSaved}
-          />
-        );
-      })()}
-
-      {/* Monthly 입력 다이얼로그 — 모든 월 (CONFIRMED 포함) */}
+      {/* 통합 입력 다이얼로그 — FUND + Stock Deposit + Cash + Liabilities */}
       {monthlyDialogMonth && (
-        <MonthlyInputDialog
+        <UnifiedInputDialog
           open={!!monthlyDialogMonth}
           month={monthlyDialogMonth}
           snapshot={getSnapshotForMonth(monthlyDialogMonth)}

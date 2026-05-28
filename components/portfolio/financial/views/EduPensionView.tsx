@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, RefreshCw, Copy } from "lucide-react";
+import { ClipboardPen, RefreshCw, Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -522,7 +522,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                             className="text-muted-foreground hover:text-foreground transition-colors"
                             onClick={() => handleEdit(col)}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <ClipboardPen className="h-3 w-3" />
                           </button>
                         )}
                       </div>
