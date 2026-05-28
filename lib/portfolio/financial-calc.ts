@@ -722,15 +722,16 @@ export function buildAssetManagementYearlyData(
     // CONFIRMED: confirmedPortfolio / DRAFT: 거래내역(monthlyTxSummary) + liveData
     let fundData: AssetManagementSectionData;
     if (isDraft) {
-      // DRAFT: liveData에서 Balance, 거래내역에서 Bid/AskBv/FixedPnl
+      // DRAFT: fundMonthly 수동입력이 있으면 최우선, 없으면 liveData / 거래내역 fallback
       const fm = snap.fundMonthly;
-      const balance = liveData?.fund.balance ?? fm?.balance ?? 0;
+      const hasFm = fm != null; // 사용자가 한 번이라도 저장한 경우
+      const balance = hasFm ? fm.balance : (liveData?.fund.balance ?? 0);
       // Principal = 전월잔고 (엑셀 구조) — 이전 컬럼의 balance 사용
       const principal = prevFundBalance > 0 ? prevFundBalance : (fm?.principal ?? (liveData?.fund.principal ?? 0));
-      // 거래 내역 우선 → fundMonthly 수동입력 fallback
-      const bid      = liveData?.monthlyTxSummary?.fund.bid      ?? fm?.bid      ?? 0;
-      const askBv    = liveData?.monthlyTxSummary?.fund.askBv    ?? fm?.askBv    ?? 0;
-      const fixedPnl = liveData?.monthlyTxSummary?.fund.fixedPnl ?? fm?.fixedPnl ?? 0;
+      // fundMonthly 수동입력 최우선 → 거래내역 → 0
+      const bid      = hasFm ? fm.bid      : (liveData?.monthlyTxSummary?.fund.bid      ?? 0);
+      const askBv    = hasFm ? fm.askBv    : (liveData?.monthlyTxSummary?.fund.askBv    ?? 0);
+      const fixedPnl = hasFm ? fm.fixedPnl : (liveData?.monthlyTxSummary?.fund.fixedPnl ?? 0);
       const monthlyPnl = prevFundBalance > 0
         ? calcMonthlyPnl(balance, fixedPnl, prevFundBalance, bid, askBv)
         : 0;
