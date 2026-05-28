@@ -1519,11 +1519,18 @@ export function PensionAccountDashboardClient() {
                     <tbody className="divide-y divide-border/30">
                       {filteredExecutedTrades.map((t) => (
                         <tr key={t.key} className="hover:bg-muted/30">
-                          {/* 종목명 + 코드 */}
+                          {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
                           <td className="p-2 pl-3">
                             <div className="font-medium">{t.stockName}</div>
                             <div className="text-[10px] text-muted-foreground">
-                              {t.stockCode}
+                              <a
+                                href={naverStockUrl(t.stockCode)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-500 hover:underline"
+                              >
+                                {t.stockCode}
+                              </a>
                               {t.category && (
                                 <span className={cn("ml-1 px-1 rounded",
                                   t.category === "BOND"
@@ -1624,10 +1631,18 @@ export function PensionAccountDashboardClient() {
                         ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
                         : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
 
-                      {/* 종목명 + 코드 */}
+                      {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
                       <div className="flex items-baseline gap-1 min-w-0 flex-1">
                         <span className="text-xs font-semibold truncate">{g.stockName}</span>
-                        <span className="text-[10px] text-muted-foreground shrink-0">({g.stockCode})</span>
+                        <a
+                          href={naverStockUrl(g.stockCode)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-muted-foreground shrink-0 hover:text-blue-500 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          ({g.stockCode})
+                        </a>
                       </div>
 
                       {/* 배지: 계좌유형 + 카테고리 */}

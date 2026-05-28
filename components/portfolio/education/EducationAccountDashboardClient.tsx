@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw, ArrowUpDown, ArrowUp, ArrowDown, CloudUpload, CloudDownload } from "lucide-react";
 // CloudUpload, CloudDownload는 LT 백업 버튼에서 계속 사용
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 import { RiskManagementPanel } from "@/components/portfolio/RiskManagementPanel";
 import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
 import { LongtermPositionsTable } from "@/components/portfolio/longterm/LongtermPositionsTable";
@@ -822,7 +822,15 @@ export function EducationAccountDashboardClient() {
                         <tr key={t.id} className="hover:bg-muted/30 group">
                           <td className="p-2 pl-3">
                             <div className="font-medium">{t.stockName}</div>
-                            <div className="text-[10px] text-muted-foreground">{t.stockCode}</div>
+                            {/* 종목코드 — 네이버 금융 링크 */}
+                            <a
+                              href={naverStockUrl(t.stockCode)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-muted-foreground hover:text-blue-500 hover:underline"
+                            >
+                              {t.stockCode}
+                            </a>
                           </td>
                           <td className="p-2 text-muted-foreground">{t.sector || "-"}</td>
                           <td className="text-right p-2 text-muted-foreground tabular-nums">{t.buyDate}</td>
