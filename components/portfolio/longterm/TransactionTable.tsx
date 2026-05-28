@@ -12,7 +12,7 @@ import { Trash2, Pencil, Search, X, ArrowUpDown, ArrowUp, ArrowDown } from "luci
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 interface TransactionTableProps {
@@ -334,7 +334,7 @@ export function TransactionTable({
                       {tx.accountNo}
                     </td>
 
-                    {/* 종목명+코드: 클릭 시 드릴다운 */}
+                    {/* 종목명: 클릭 시 드릴다운 / 종목코드: 네이버 금융 링크 */}
                     <td className="px-3 py-2.5">
                       <button
                         onClick={() =>
@@ -345,8 +345,15 @@ export function TransactionTable({
                         className="text-left hover:underline focus:outline-none"
                       >
                         <p className="font-medium">{tx.stockName}</p>
-                        <p className="text-[10px] text-muted-foreground">{tx.stockCode}</p>
                       </button>
+                      <a
+                        href={naverStockUrl(tx.stockCode)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-muted-foreground hover:text-blue-500 hover:underline"
+                      >
+                        {tx.stockCode}
+                      </a>
                     </td>
 
                     {/* 거래유형 뱃지 */}

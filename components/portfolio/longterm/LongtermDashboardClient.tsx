@@ -1322,17 +1322,17 @@ export function LongtermDashboardClient() {
                     <tbody className="divide-y divide-border/30">
                       {filteredExecutedTrades.map((t) => (
                         <tr key={t.key} className="hover:bg-muted/30">
-                          {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
+                          {/* 종목명 — 네이버 금융 링크, 종목코드 — 텍스트 */}
                           <td className="p-2 pl-3">
-                            <div className="font-medium">{t.stockName}</div>
                             <a
                               href={naverStockUrl(t.stockCode)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] text-muted-foreground hover:text-blue-500 hover:underline"
+                              className="font-medium hover:underline hover:text-emerald-600 transition-colors"
                             >
-                              {t.stockCode}
+                              {t.stockName}
                             </a>
+                            <p className="text-[10px] text-muted-foreground">{t.stockCode}</p>
                           </td>
                           {/* 계좌 배지 */}
                           <td className="p-2">

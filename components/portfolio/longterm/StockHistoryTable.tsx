@@ -165,18 +165,18 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
             ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
             : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
 
-          {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
-          <div className="flex items-baseline gap-1 min-w-0 flex-1">
-            <span className="text-xs font-semibold truncate">{stock.stockName}</span>
+          {/* 종목명 → 네이버 금융 링크, 코드는 아래 텍스트로 표시 */}
+          <div className="flex flex-col min-w-0 flex-1">
             <a
               href={naverStockUrl(stock.stockCode)}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[10px] text-muted-foreground shrink-0 hover:text-blue-500 hover:underline"
+              className="text-xs font-semibold truncate hover:underline hover:text-emerald-600 transition-colors"
               onClick={(e) => e.stopPropagation()}
             >
-              ({stock.stockCode})
+              {stock.stockName}
             </a>
+            <span className="text-[10px] text-muted-foreground">{stock.stockCode}</span>
           </div>
 
           {/* 배지: showSector면 시장 배지 대신 섹터 배지 표시 */}

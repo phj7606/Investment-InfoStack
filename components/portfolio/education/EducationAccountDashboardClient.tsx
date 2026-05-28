@@ -821,16 +821,16 @@ export function EducationAccountDashboardClient() {
                       {filteredTrades.map((t) => (
                         <tr key={t.id} className="hover:bg-muted/30 group">
                           <td className="p-2 pl-3">
-                            <div className="font-medium">{t.stockName}</div>
-                            {/* 종목코드 — 네이버 금융 링크 */}
+                            {/* 종목명 — 네이버 금융 링크 */}
                             <a
                               href={naverStockUrl(t.stockCode)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] text-muted-foreground hover:text-blue-500 hover:underline"
+                              className="font-medium hover:underline hover:text-emerald-600 transition-colors"
                             >
-                              {t.stockCode}
+                              {t.stockName}
                             </a>
+                            <p className="text-[10px] text-muted-foreground">{t.stockCode}</p>
                           </td>
                           <td className="p-2 text-muted-foreground">{t.sector || "-"}</td>
                           <td className="text-right p-2 text-muted-foreground tabular-nums">{t.buyDate}</td>
