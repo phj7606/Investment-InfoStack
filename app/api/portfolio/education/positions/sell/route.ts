@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     const sellFees      = (commission ?? 0) + (tax ?? 0);
     const grossPL    = sellAmount - buyAmount;
     const netPL      = grossPL - buyCommission - sellFees;
-    const profitLossPct = Math.round((netPL / buyAmount) * 10000) / 100;
+    const profitLossPct = Math.round((netPL / buyAmount) * 1000000) / 10000;
 
     // 보유 일수 계산
     let holdingDays = 0;
