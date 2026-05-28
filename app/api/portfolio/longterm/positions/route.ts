@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
-import { calcPositions, calcLongtermSummary } from "@/lib/portfolio/longterm-calc";
+import { calcPositions, calcLongtermSummary, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 export async function GET(req: NextRequest) {
@@ -19,7 +19,8 @@ export async function GET(req: NextRequest) {
     const account = searchParams.get("account");
     const market = searchParams.get("market") as "KR" | "US" | null;
 
-    let txs = await readTransactions();
+    // 전체 이력 enrichment 후 필터 — stored realizedPL 오염 방어
+    let txs = enrichTransactionsFromHistory(await readTransactions());
     if (account) txs = txs.filter((t: LongtermTransaction) => t.accountNo === account);
     if (market) txs = txs.filter((t: LongtermTransaction) => t.market === market);
 

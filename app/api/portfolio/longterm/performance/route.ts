@@ -14,6 +14,7 @@ import { readTransactions } from "@/lib/portfolio/longterm-store";
 import {
   toStockPerformances,
   buildMonthlyPL,
+  enrichTransactionsFromHistory,
 } from "@/lib/portfolio/longterm-calc";
 import { calcPerformanceSummary } from "@/lib/portfolio/performance";
 
@@ -23,7 +24,8 @@ export async function GET(req: NextRequest) {
     const account = searchParams.get("account");
     const currency = (searchParams.get("currency") ?? "KRW") as "KRW" | "USD";
 
-    let txs = await readTransactions();
+    // 전체 이력 enrichment — stored realizedPL/pct가 stale해도 성과 지표 정확성 보장
+    let txs = enrichTransactionsFromHistory(await readTransactions());
     if (account) txs = txs.filter((t) => t.accountNo === account);
 
     // SELL 거래 → StockPerformance 변환 (기존 performance.ts 재사용)

@@ -17,11 +17,13 @@ import {
 import {
   calcPensionPositions,
   calcRebalancing,
+  enrichTransactionsFromHistory,
 } from "@/lib/portfolio/pension-calc";
 import type { PensionRebalancingTarget } from "@/types/portfolio";
 
 export async function GET() {
-  const transactions = await readTransactions();
+  // 전체 이력 enrichment — stored realizedPL 오염 방어
+  const transactions = enrichTransactionsFromHistory(await readTransactions());
   const positions    = calcPensionPositions(transactions);
   const config       = await readRebalancingConfig();
 
@@ -69,8 +71,8 @@ export async function PUT(req: NextRequest) {
     // 해당 계좌의 목표 비중만 업데이트
     await writeRebalancingTarget(body.accountType, target);
 
-    // 업데이트 후 재계산 결과 반환
-    const transactions = await readTransactions();
+    // 업데이트 후 재계산 결과 반환 — enrichment 동일 적용
+    const transactions = enrichTransactionsFromHistory(await readTransactions());
     const positions    = calcPensionPositions(transactions);
     const result       = calcRebalancing(positions, target, body.accountType);
 

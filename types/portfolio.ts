@@ -285,8 +285,8 @@ export interface EducationPosition {
   profitLoss: number;   // (currentPrice - avgPrice) × quantity
   profitLossPct: number;
   buyDate: string;      // YYYY-MM-DD
-  commission?: number;  // 매수 수수료 (원) — 매도 시 순손익 계산에 포함
-  tax?: number;         // 매수 관련 세금 (원)
+  commission?: number;  // 매수 수수료 (원) — 참조용 저장 (손익 계산 미반영)
+  tax?: number;         // 매수 관련 세금 (원) — 참조용 저장
   sector: string;
   unit: string;         // 엑셀 Unit(Market/Win) 값 예) "2/3"
 }
@@ -303,9 +303,10 @@ export interface EducationTrade {
   sellDate: string;     // YYYY-MM-DD
   sellPrice: number;
   sellAmount: number;
-  commission?: number;  // 수수료 합계 (매수+매도, 원)
-  tax?: number;         // 세금 — 증권거래세 등 (원)
-  profitLoss: number;   // 순손익 = sellAmount - buyAmount - commission - tax
+  buyCommission?: number; // 매수 수수료 (원) — 참조용 (손익 계산 미반영)
+  commission?: number;    // 매도 수수료 (원) — 참조용 (손익 계산 미반영)
+  tax?: number;           // 매도 세금 — 증권거래세 등 (원) — 참조용
+  profitLoss: number;     // (sellPrice - buyPrice) × quantity — 수수료 미포함
   profitLossPct: number;
   holdingDays: number;
   sector: string;

@@ -211,8 +211,68 @@ export function enrichSellTransaction(
     ...tx,
     avgCostAtSell: Math.floor(avgCostAtSell),
     realizedPL:    Math.round(realizedPL),
-    realizedPLPct: Math.round(realizedPLPct * 100) / 100,
+    realizedPLPct: Math.round(realizedPLPct * 10000) / 10000, // enrichTransactionsFromHistory와 동일 정밀도
   };
+}
+
+// ─────────────────────────────────────────
+// 전체 히스토리 기반 realizedPL 재계산 (GET 시 항상 호출)
+// ─────────────────────────────────────────
+
+/**
+ * 전체 거래 이력에서 각 SELL의 avgCostAtSell / realizedPL / realizedPLPct를
+ * BUY 히스토리 기준으로 재계산하여 반환.
+ * 그룹키: stockCode + accountType + category (연금 계좌 분리 기준)
+ */
+export function enrichTransactionsFromHistory(
+  txs: PensionTransaction[]
+): PensionTransaction[] {
+  const groups = new Map<string, PensionTransaction[]>();
+  for (const tx of txs) {
+    const key = `${tx.stockCode}::${tx.accountType}::${tx.category ?? ""}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(tx);
+  }
+
+  const result: PensionTransaction[] = [];
+
+  for (const group of groups.values()) {
+    const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
+
+    let qty     = 0;
+    let runCost = 0;
+
+    for (const tx of sorted) {
+      if (tx.tradeType === "DIVIDEND") {
+        result.push(tx);
+        continue;
+      }
+
+      if (tx.tradeType === "BUY") {
+        qty     += tx.quantity;
+        runCost += tx.amount;
+        result.push(tx);
+      } else if (tx.tradeType === "SELL") {
+        const avgCostAtSell = qty > 0 ? runCost / qty : 0;
+        const realizedPL    = (tx.price - avgCostAtSell) * tx.quantity;
+        const realizedPLPct = avgCostAtSell > 0
+          ? ((tx.price - avgCostAtSell) / avgCostAtSell) * 100
+          : 0;
+
+        if (qty > 0) runCost *= (qty - tx.quantity) / qty;
+        qty = Math.max(0, qty - tx.quantity);
+
+        result.push({
+          ...tx,
+          avgCostAtSell: Math.floor(avgCostAtSell),
+          realizedPL:    Math.round(realizedPL),
+          realizedPLPct: Math.round(realizedPLPct * 10000) / 10000, // enrichSellTransaction과 동일 정밀도
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 // ─────────────────────────────────────────

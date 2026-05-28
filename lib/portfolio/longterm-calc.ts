@@ -184,8 +184,73 @@ export function enrichSellTransaction(
     ...tx,
     avgCostAtSell: Math.round(avgCostAtSell * 100) / 100,
     realizedPL:    Math.round(realizedPL * 100) / 100,   // USD 소수점 2자리 보존, KRW도 정수로 자연 수렴
-    realizedPLPct: Math.round(realizedPLPct * 100) / 100,
+    realizedPLPct: Math.round(realizedPLPct * 10000) / 10000,  // enrichTransactionsFromHistory와 동일 정밀도
   };
+}
+
+// ─────────────────────────────────────────
+// 전체 히스토리 기반 realizedPL 재계산 (GET 시 항상 호출)
+// ─────────────────────────────────────────
+
+/**
+ * 전체 거래 이력에서 각 SELL의 avgCostAtSell / realizedPL / realizedPLPct를
+ * BUY 히스토리 기준으로 재계산하여 반환.
+ *
+ * DB에 저장된 값을 신뢰하지 않고 항상 히스토리에서 계산하므로,
+ * BUY 거래가 수정되거나 데이터 오염이 있어도 다음 GET에서 자동 보정된다.
+ */
+export function enrichTransactionsFromHistory(
+  txs: LongtermTransaction[]
+): LongtermTransaction[] {
+  // stockCode + accountNo 기준으로 그룹핑
+  const groups = new Map<string, LongtermTransaction[]>();
+  for (const tx of txs) {
+    const key = `${tx.stockCode}::${tx.accountNo}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(tx);
+  }
+
+  const result: LongtermTransaction[] = [];
+
+  for (const group of groups.values()) {
+    // 날짜 오름차순으로 BUY→SELL 순서 보장
+    const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
+
+    let qty     = 0;
+    let runCost = 0;  // fee-exclusive BUY 누적 원가 (잔량 기준)
+
+    for (const tx of sorted) {
+      if (tx.tradeType === "DIVIDEND") {
+        result.push(tx);
+        continue;
+      }
+
+      if (tx.tradeType === "BUY") {
+        qty     += tx.quantity;
+        runCost += tx.amount;
+        result.push(tx);
+      } else if (tx.tradeType === "SELL") {
+        const avgCostAtSell = qty > 0 ? runCost / qty : 0;
+        const realizedPL    = (tx.price - avgCostAtSell) * tx.quantity;
+        const realizedPLPct = avgCostAtSell > 0
+          ? ((tx.price - avgCostAtSell) / avgCostAtSell) * 100
+          : 0;
+
+        // 매도 후 잔량 원가 차감 (남은 수량 avgCost 불변)
+        if (qty > 0) runCost *= (qty - tx.quantity) / qty;
+        qty = Math.max(0, qty - tx.quantity);
+
+        result.push({
+          ...tx,
+          avgCostAtSell: Math.round(avgCostAtSell * 100) / 100,
+          realizedPL:    Math.round(realizedPL * 100) / 100,
+          realizedPLPct: Math.round(realizedPLPct * 10000) / 10000,
+        });
+      }
+    }
+  }
+
+  return result;
 }
 
 // ─────────────────────────────────────────

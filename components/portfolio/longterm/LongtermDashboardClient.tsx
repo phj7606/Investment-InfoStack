@@ -1129,6 +1129,8 @@ export function LongtermDashboardClient() {
             const totalCost = krwPos.reduce((s, p) => s + p.avgCost * p.quantity, 0);
             const priced    = krwPos.filter((p) => p.currentPrice !== undefined);
             const hasPrices = priced.length > 0;
+            // 테이블 합계와 일치하도록 현재가 유무 무관하게 전체 포지션 합산
+            // (현재가 없는 종목은 서버 계산값 avgCost×quantity 기준 evalAmount 사용)
             const totalEval = krwPos.reduce((s, p) => s + p.evalAmount, 0);
             const totalPL   = priced.reduce((s, p) => s + p.evalPL, 0);
             const totalPLPct = totalCost > 0 ? (totalPL / totalCost) * 100 : null;

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { readTransactions, addTransaction } from "@/lib/portfolio/educationTransactionsData";
-import { enrichSellTransaction } from "@/lib/portfolio/longterm-calc";
+import { enrichSellTransaction, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 export async function GET(req: NextRequest) {
@@ -18,6 +18,10 @@ export async function GET(req: NextRequest) {
     const type   = searchParams.get("type")   as "STOCK" | "FUND" | "ETF" | null;
 
     let txs = await readTransactions();
+
+    // BUY 수정 등으로 인한 stale realizedPL을 항상 히스토리 기준으로 재계산
+    txs = enrichTransactionsFromHistory(txs);
+
     if (market) txs = txs.filter((t) => t.market === market);
     if (type)   txs = txs.filter((t) => t.assetType === type);
 

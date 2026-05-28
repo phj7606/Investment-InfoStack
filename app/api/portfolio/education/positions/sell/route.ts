@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
       tax?: number;
     };
 
-    if (!positionId || !sellDate || !sellPrice || !quantity) {
-      return NextResponse.json({ error: "positionId, sellDate, sellPrice, quantity 필수" }, { status: 400 });
+    if (!positionId || !sellDate || sellPrice <= 0 || quantity <= 0) {
+      return NextResponse.json({ error: "positionId, sellDate, sellPrice, quantity 필수 (sellPrice·quantity는 0 초과)" }, { status: 400 });
     }
 
     const data = await readAccountData();
@@ -42,16 +42,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `매도 수량(${quantity})이 보유 수량(${pos.quantity})을 초과합니다.` }, { status: 400 });
     }
 
-    // 손익 계산 — 매수+매도 수수료·세금 전부 차감한 순손익
+    // 손익 계산 — 수수료 미반영 (longterm/pension과 동일 기준)
+    // 수수료는 buyCommission/commission/tax 필드에 참조용으로만 저장
     const buyAmount  = pos.avgPrice * quantity;
     const sellAmount = sellPrice * quantity;
-    // 부분 매도 시 매수 수수료를 매도 수량 비율로 안분 (pos.quantity는 매도 전 보유 수량)
+    // 부분 매도 시 매수 수수료 안분 — 참조용 저장
     const buyFeeRatio   = quantity / pos.quantity;
-    const buyCommission = ((pos.commission ?? 0) + (pos.tax ?? 0)) * buyFeeRatio;
-    const sellFees      = (commission ?? 0) + (tax ?? 0);
-    const grossPL    = sellAmount - buyAmount;
-    const netPL      = grossPL - buyCommission - sellFees;
-    const profitLossPct = Math.round((netPL / buyAmount) * 1000000) / 10000;
+    const buyCommission = Math.round(((pos.commission ?? 0) + (pos.tax ?? 0)) * buyFeeRatio);
+    const profitLoss    = Math.round(sellAmount - buyAmount);
+    // 소수점 2자리 고정 (UI toFixed(2) 표시와 동일 정밀도)
+    const profitLossPct = buyAmount > 0 ? Math.round((profitLoss / buyAmount) * 10000) / 100 : 0;
 
     // 보유 일수 계산
     let holdingDays = 0;
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
       holdingDays = Math.round((d2 - d1) / 86400000);
     }
 
-    // 거래내역 추가 (순손익 기준으로 저장)
+    // 거래내역 추가 (fee-exclusive 기준으로 저장 — 수수료는 참조용만)
     const trade: EducationTrade = {
       id: crypto.randomUUID(),
       stockCode: pos.stockCode,
@@ -73,14 +73,15 @@ export async function POST(req: NextRequest) {
       sellDate,
       sellPrice,
       sellAmount,
+      ...(buyCommission > 0 ? { buyCommission } : {}),
       ...(commission ? { commission } : {}),
       ...(tax ? { tax } : {}),
-      profitLoss: Math.round(netPL),
+      profitLoss,
       profitLossPct,
       holdingDays,
       sector: pos.sector,
       unit: pos.unit,
-      result: netPL > 0 ? "Win" : "Lose",
+      result: profitLoss > 0 ? "Win" : "Lose",
     };
     data.trades.push(trade);
 

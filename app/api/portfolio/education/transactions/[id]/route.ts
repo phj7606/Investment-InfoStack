@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { readTransactions, updateTransaction, deleteTransaction } from "@/lib/portfolio/educationTransactionsData";
-import { enrichSellTransaction } from "@/lib/portfolio/longterm-calc";
+import { enrichSellTransaction, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 export async function PUT(
@@ -24,6 +24,24 @@ export async function PUT(
     }
 
     await updateTransaction(tx);
+
+    // BUY 수정 시 같은 종목+계좌의 이후 SELL 저장값도 연쇄 업데이트
+    if (tx.tradeType === "BUY") {
+      const allTxs  = await readTransactions();
+      const groupKey = `${tx.stockCode}::${tx.accountNo}`;
+      const group    = allTxs.filter((t) => `${t.stockCode}::${t.accountNo}` === groupKey);
+      const enriched = enrichTransactionsFromHistory(group);
+      for (const enrichedTx of enriched) {
+        if (enrichedTx.tradeType !== "SELL" || enrichedTx.id === id) continue;
+        const orig = allTxs.find((t) => t.id === enrichedTx.id);
+        if (!orig) continue;
+        if (orig.realizedPL !== enrichedTx.realizedPL ||
+            orig.avgCostAtSell !== enrichedTx.avgCostAtSell) {
+          await updateTransaction(enrichedTx);
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[education/transactions/[id] PUT]", err);
