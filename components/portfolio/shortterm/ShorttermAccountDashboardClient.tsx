@@ -908,6 +908,7 @@ export function ShorttermAccountDashboardClient() {
         initialTx={editingTx}
         onSubmit={(tx) => void handleTxSubmit(tx)}
         showSectorField
+        existingTransactions={transactions}
       />
     </div>
   );

@@ -1218,6 +1218,7 @@ export function LongtermDashboardClient() {
             onOpenChange={(v) => { setShowForm(v); if (!v) setEditingTx(undefined); }}
             initialTx={editingTx}
             onSubmit={handleAddTransaction}
+            existingTransactions={transactions}
           />
         </TabsContent>
 

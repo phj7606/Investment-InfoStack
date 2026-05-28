@@ -965,6 +965,7 @@ export function EducationAccountDashboardClient() {
         initialTx={editingLtTx}
         onSubmit={(tx) => void handleLtTxSubmit(tx)}
         showSectorField
+        existingTransactions={ltTransactions}
       />
     </div>
   );

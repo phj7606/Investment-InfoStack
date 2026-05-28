@@ -1803,6 +1803,7 @@ export function PensionAccountDashboardClient() {
         editTransaction={editTx ?? undefined}
         defaultAccountType={txFormDefault}
         positions={enrichedPositions}
+        existingTransactions={transactions}
       />
     </div>
   );

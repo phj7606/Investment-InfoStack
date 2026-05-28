@@ -4,8 +4,9 @@
 // BUY / SELL / DIVIDEND 3가지 거래유형 지원
 // SELL 선택 시 현재 보유 종목 자동완성 + 잔여수량 표시
 // RETIREMENT 계좌는 채권형/주식형 카테고리 추가 선택
+// 종목코드 입력 시 네이버 자동조회 (STOCK·ETF) + 기존 이름 제안
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -32,6 +33,8 @@ interface PensionTransactionFormProps {
   defaultAccountType?: PensionAccountType;
   /** 현재 보유 포지션 (SELL 자동완성용) */
   positions?: PensionPosition[];
+  /** 기존 거래 목록 — 같은 종목코드의 이름 후보 제안용 */
+  existingTransactions?: PensionTransaction[];
 }
 
 interface FormState {
@@ -45,7 +48,7 @@ interface FormState {
   price: string;
   amount: string;     // DIVIDEND만 직접 입력, BUY/SELL은 price×quantity 자동
   fee: string;
-  assetType: "STOCK" | "BOND" | "FUND";
+  assetType: "STOCK" | "BOND" | "FUND" | "ETF";
   memo: string;
 }
 
@@ -55,7 +58,6 @@ function makeDefault(defaultAccountType: PensionAccountType = "RETIREMENT"): For
   return {
     date:        today,
     accountType: defaultAccountType,
-    // 퇴직연금·연금저축은 채권형/주식형 구분 필수
     category:    (defaultAccountType === "RETIREMENT" || defaultAccountType === "SAVINGS") ? "BOND" : "",
     tradeType:   "BUY",
     stockCode:   "",
@@ -81,7 +83,7 @@ function txToForm(tx: PensionTransaction): FormState {
     price:       tx.price > 0 ? String(tx.price) : "",
     amount:      String(tx.amount),
     fee:         tx.fee ? String(tx.fee) : "",
-    assetType:   tx.assetType,
+    assetType:   tx.assetType as FormState["assetType"],
     memo:        tx.memo ?? "",
   };
 }
@@ -91,6 +93,7 @@ const ACCOUNT_LABELS: Record<PensionAccountType, string> = {
   SAVINGS:    "연금저축",
   IRP:        "IRP",
 };
+void ACCOUNT_LABELS; // 미사용 경고 억제
 
 export function PensionTransactionForm({
   open,
@@ -99,6 +102,7 @@ export function PensionTransactionForm({
   editTransaction,
   defaultAccountType = "RETIREMENT",
   positions = [],
+  existingTransactions = [],
 }: PensionTransactionFormProps) {
   const isEdit = !!editTransaction;
 
@@ -108,28 +112,85 @@ export function PensionTransactionForm({
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string | null>(null);
 
+  // ── 종목명 자동완성 상태 ─────────────────────
+  const [nameLookupStatus, setNameLookupStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [suggestions, setSuggestions]           = useState<string[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 다이얼로그 열릴 때마다 폼 초기화
   useEffect(() => {
     if (open) {
       setForm(isEdit ? txToForm(editTransaction!) : makeDefault(defaultAccountType));
       setError(null);
+      setSuggestions([]);
+      setNameLookupStatus("idle");
     }
   }, [open, isEdit, editTransaction, defaultAccountType]);
+
+  // ── 종목명 자동완성 로직 ─────────────────────
+  const lookupStockName = useCallback(
+    (code: string, assetType: FormState["assetType"]) => {
+      const trimmed = code.trim().toUpperCase();
+      setSuggestions([]);
+      setNameLookupStatus("idle");
+
+      if (!trimmed) return;
+
+      // 기존 transactions에서 같은 종목코드 이름 즉시 제안
+      const existingNames = [
+        ...new Set(
+          existingTransactions
+            .filter((t) => t.stockCode === trimmed)
+            .map((t) => t.stockName)
+        ),
+      ];
+      if (existingNames.length > 0) setSuggestions(existingNames);
+
+      // FUND·BOND는 코드 체계가 불규칙하므로 API 조회 스킵
+      if (assetType === "FUND" || assetType === "BOND") return;
+
+      // STOCK·ETF: 6자리 완성 후 네이버 조회
+      if (trimmed.length < 6) return;
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        setNameLookupStatus("loading");
+        try {
+          const res = await fetch(`/api/stock-info?code=${encodeURIComponent(trimmed)}&market=KR`);
+          if (!res.ok) { setNameLookupStatus("done"); return; }
+          const data = await res.json() as { name: string | null };
+          if (data.name) {
+            setSuggestions((prev) => [data.name!, ...prev.filter((n) => n !== data.name)]);
+            setForm((f) => f.stockName.trim() === "" ? { ...f, stockName: data.name! } : f);
+          }
+        } finally {
+          setNameLookupStatus("done");
+        }
+      }, 600);
+    },
+    [existingTransactions]
+  );
 
   // 필드 업데이트 헬퍼 — 연쇄 효과 처리
   function update<K extends keyof FormState>(field: K, value: FormState[K]) {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      // 계좌 변경 시 category 자동 조정 (퇴직연금·연금저축은 채권형 기본)
       if (field === "accountType") {
         next.category = (value === "RETIREMENT" || value === "SAVINGS") ? "BOND" : "";
       }
       return next;
     });
+    // stockCode 변경 시 자동완성 트리거
+    if (field === "stockCode") {
+      lookupStockName(value as string, form.assetType);
+    }
+    // assetType 변경 시 현재 코드로 재조회
+    if (field === "assetType" && form.stockCode.trim()) {
+      lookupStockName(form.stockCode, value as FormState["assetType"]);
+    }
   }
 
   // SELL 자동완성: 현재 계좌+카테고리의 보유 포지션 목록
-  // 퇴직연금·연금저축은 채권형/주식형 구분까지 일치해야 함
   const needsCategory = form.accountType === "RETIREMENT" || form.accountType === "SAVINGS";
   const availablePositions = useMemo(() =>
     positions.filter(
@@ -140,12 +201,10 @@ export function PensionTransactionForm({
     ),
   [positions, form.accountType, form.category, needsCategory]);
 
-  // 선택한 종목의 잔여수량
   const selectedPos = useMemo(() =>
     availablePositions.find((p) => p.stockCode === form.stockCode),
   [availablePositions, form.stockCode]);
 
-  // BUY/SELL: price × quantity = amount 자동 계산
   const computedAmount = useMemo(() => {
     if (form.tradeType === "DIVIDEND") return null;
     const p = Number(form.price.replace(/,/g, ""));
@@ -196,7 +255,7 @@ export function PensionTransactionForm({
         price:       form.tradeType === "DIVIDEND" ? 0 : price,
         amount,
         ...(fee > 0 ? { fee } : {}),
-        assetType:   form.assetType,
+        assetType:   form.assetType as PensionTransaction["assetType"],
         ...(form.memo.trim() ? { memo: form.memo.trim() } : {}),
       };
 
@@ -225,8 +284,8 @@ export function PensionTransactionForm({
     }
   }
 
-  const isDividend   = form.tradeType === "DIVIDEND";
-  const isSell       = form.tradeType === "SELL";
+  const isDividend = form.tradeType === "DIVIDEND";
+  const isSell     = form.tradeType === "SELL";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -304,8 +363,8 @@ export function PensionTransactionForm({
                 onValueChange={(v) => {
                   const pos = availablePositions.find((p) => p.stockCode === v);
                   if (pos) {
-                    update("stockCode", pos.stockCode);
-                    setForm((prev) => ({ ...prev, stockCode: pos.stockCode, stockName: pos.stockName, assetType: pos.assetType }));
+                    setForm((prev) => ({ ...prev, stockCode: pos.stockCode, stockName: pos.stockName, assetType: pos.assetType as FormState["assetType"] }));
+                    setSuggestions([pos.stockName]);
                   }
                 }}
               >
@@ -340,13 +399,38 @@ export function PensionTransactionForm({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">종목명 *</Label>
+              <Label className="text-xs flex items-center gap-1">
+                종목명 *
+                {nameLookupStatus === "loading" && (
+                  <span className="text-[10px] font-normal text-muted-foreground animate-pulse">조회 중…</span>
+                )}
+              </Label>
               <Input
                 className="h-8 text-xs"
                 placeholder="이름"
                 value={form.stockName}
                 onChange={(e) => update("stockName", e.target.value)}
               />
+              {/* 제안 pill 목록 */}
+              {suggestions.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {suggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, stockName: name }))}
+                      className={[
+                        "rounded-full border px-2 py-0.5 text-[10px] leading-tight transition-colors",
+                        form.stockName === name
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "border-border bg-muted/50 text-muted-foreground hover:border-emerald-400 hover:text-foreground",
+                      ].join(" ")}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -411,6 +495,7 @@ export function PensionTransactionForm({
               <SelectContent>
                 <SelectItem value="FUND"  className="text-xs">펀드</SelectItem>
                 <SelectItem value="STOCK" className="text-xs">주식</SelectItem>
+                <SelectItem value="ETF"   className="text-xs">ETF</SelectItem>
                 <SelectItem value="BOND"  className="text-xs">채권</SelectItem>
               </SelectContent>
             </Select>
