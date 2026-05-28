@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Plus, RefreshCw, Trash2, Pencil,
+  Plus, RefreshCw, Trash2, Pencil, X,
   ChevronDown, ChevronRight, CloudUpload, CloudDownload,
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
@@ -200,9 +200,10 @@ export function PensionAccountDashboardClient() {
   const [stockAllocations, setStockAllocations] = useState<Record<string, number>>({});
 
   // ── 거래내역 탭 필터 + 정렬 ───────────
-  const [txAcctFilter, setTxAcctFilter] = useState<PensionAccountType | "all">("all");
-  const [txTypeFilter, setTxTypeFilter] = useState<"all" | "BUY" | "SELL" | "DIVIDEND">("all");
-  const [txSearch,     setTxSearch]     = useState("");
+  const [txAcctFilter,    setTxAcctFilter]    = useState<PensionAccountType | "all">("all");
+  const [txTypeFilter,    setTxTypeFilter]    = useState<"all" | "BUY" | "SELL" | "DIVIDEND">("all");
+  const [txSearch,        setTxSearch]        = useState("");
+  const [txDrilldownCode, setTxDrilldownCode] = useState<string | null>(null);
   const [sortKey,      setSortKey]      = useState<TxSortKey>("date");
   const [sortDir,      setSortDir]      = useState<"asc" | "desc">("desc");
 
@@ -509,6 +510,8 @@ export function PensionAccountDashboardClient() {
   // ─────────────────────────────────────────
   const filteredTx = useMemo(() => {
     let arr = [...transactions];
+    // 종목명 클릭 드릴다운 필터
+    if (txDrilldownCode) arr = arr.filter((t) => t.stockCode === txDrilldownCode);
     if (txAcctFilter !== "all") arr = arr.filter((t) => t.accountType === txAcctFilter);
     if (txTypeFilter !== "all") arr = arr.filter((t) => t.tradeType === txTypeFilter);
     if (txSearch.trim()) {
@@ -533,7 +536,7 @@ export function PensionAccountDashboardClient() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
-  }, [transactions, txAcctFilter, txTypeFilter, txSearch, sortKey, sortDir]);
+  }, [transactions, txDrilldownCode, txAcctFilter, txTypeFilter, txSearch, sortKey, sortDir]);
 
   // ─────────────────────────────────────────
   // 종목별 탭: 계좌 필터 후 종목 그룹화 + 집계
@@ -1269,6 +1272,17 @@ export function PensionAccountDashboardClient() {
                 value={txSearch}
                 onChange={(e) => setTxSearch(e.target.value)}
               />
+              {/* 드릴다운 모드 배지 — 종목명 클릭 시 표시 */}
+              {txDrilldownCode && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-emerald-50 border-emerald-400 text-emerald-700 dark:bg-emerald-950/30 cursor-pointer"
+                  onClick={() => setTxDrilldownCode(null)}
+                >
+                  {transactions.find((t) => t.stockCode === txDrilldownCode)?.stockName ?? txDrilldownCode}
+                  <X className="ml-1 h-2.5 w-2.5" />
+                </Badge>
+              )}
               <span className="text-[10px] text-muted-foreground">{filteredTx.length}건</span>
             </div>
             <div className="flex gap-2 items-center">
@@ -1336,11 +1350,25 @@ export function PensionAccountDashboardClient() {
                             <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{ACCT_LABELS[t.accountType]}</span>
                           </td>
                           <td className="p-2">
-                            <a href={naverStockUrl(t.stockCode)} target="_blank" rel="noopener noreferrer"
-                               className="font-medium hover:underline hover:text-emerald-600 transition-colors">
+                            {/* 종목명: 클릭 시 드릴다운 필터 / 종목코드: 네이버 금융 링크 */}
+                            <button
+                              onClick={() => setTxDrilldownCode(
+                                txDrilldownCode === t.stockCode ? null : t.stockCode
+                              )}
+                              className="font-medium text-left hover:underline focus:outline-none"
+                            >
                               {t.stockName}
-                            </a>
-                            <div className="text-[10px] text-muted-foreground">{t.stockCode}</div>
+                            </button>
+                            <div className="text-[10px] text-muted-foreground">
+                              <a
+                                href={naverStockUrl(t.stockCode)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-500 hover:underline"
+                              >
+                                {t.stockCode}
+                              </a>
+                            </div>
                           </td>
                           <td className="p-2 text-center">
                             {t.category ? (
