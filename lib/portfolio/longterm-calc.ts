@@ -53,7 +53,8 @@ export function calcPositions(
   for (const tx of sorted) {
     if (tx.tradeType === "DIVIDEND") continue; // 배당은 포지션 계산 제외
 
-    const key = `${tx.stockCode}::${tx.accountNo}`;
+    // stockName까지 포함: 동일 종목코드라도 이름이 다르면 별도 포지션 (삼성증권 vs 삼성증권2)
+    const key = `${tx.stockCode}::${tx.stockName}::${tx.accountNo}`;
     let pos = posMap.get(key);
 
     if (!pos) {
@@ -202,10 +203,10 @@ export function enrichSellTransaction(
 export function enrichTransactionsFromHistory(
   txs: LongtermTransaction[]
 ): LongtermTransaction[] {
-  // stockCode + accountNo 기준으로 그룹핑
+  // stockName까지 포함: 동일 종목코드라도 이름이 다르면 별도 그룹 (삼성증권 vs 삼성증권2)
   const groups = new Map<string, LongtermTransaction[]>();
   for (const tx of txs) {
-    const key = `${tx.stockCode}::${tx.accountNo}`;
+    const key = `${tx.stockCode}::${tx.stockName}::${tx.accountNo}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(tx);
   }
