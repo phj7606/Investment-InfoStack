@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CloudDownload, CloudUpload, RefreshCw, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, naverStockUrl } from "@/lib/utils";
 
 import { AccountSummaryCards } from "./AccountSummaryCards";
 import { PortfolioAllocationChart } from "./PortfolioAllocationChart";
@@ -1323,10 +1323,17 @@ export function LongtermDashboardClient() {
                     <tbody className="divide-y divide-border/30">
                       {filteredExecutedTrades.map((t) => (
                         <tr key={t.key} className="hover:bg-muted/30">
-                          {/* 종목명 + 코드 */}
+                          {/* 종목명 + 코드 — 코드 클릭 시 네이버 금융으로 이동 */}
                           <td className="p-2 pl-3">
                             <div className="font-medium">{t.stockName}</div>
-                            <div className="text-[10px] text-muted-foreground">{t.stockCode}</div>
+                            <a
+                              href={naverStockUrl(t.stockCode)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-muted-foreground hover:text-blue-500 hover:underline"
+                            >
+                              {t.stockCode}
+                            </a>
                           </td>
                           {/* 계좌 배지 */}
                           <td className="p-2">
