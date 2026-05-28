@@ -111,6 +111,8 @@ interface StockGroup {
   avgCost: number;
   fixedPL: number;
   fixedPLPct: number;
+  footerPL: number;      // 테이블 하단 실현손익 (수수료 포함): 총매도 - 취득원가 - 매수수수료 - 매도수수료
+  footerPLPct: number;
 }
 
 // ─────────────────────────────────────────
@@ -596,12 +598,17 @@ export function PensionAccountDashboardClient() {
       }
       const avgCost = g.position?.avgCost ?? (balance > 0 ? runCost / balance : 0);
 
-      // 실현손익: enrichSellTransaction이 저장한 값 우선
+      // 행별 실현손익: enrichSellTransaction이 저장한 값 우선 (수수료 제외)
       const fixedPL = sells.reduce((s, t) => {
         if (t.realizedPL !== undefined) return s + t.realizedPL;
-        return s + (t.amount - (t.fee ?? 0)) - (t.avgCostAtSell ?? avgCost) * t.quantity;
+        return s + (t.price - (t.avgCostAtSell ?? avgCost)) * t.quantity;
       }, 0);
       const fixedPLPct = sellCostBase > 0 ? (fixedPL / sellCostBase) * 100 : 0;
+
+      // 테이블 하단 실현손익 (수수료 포함): 총매도금액 - 취득원가 - 매수수수료전체 - 매도수수료전체
+      const footerPL    = totalSellAmt - sellCostBase - totalBuyFee - totalSellFee;
+      const footerPLPct = (sellCostBase + totalBuyFee) > 0
+        ? (footerPL / (sellCostBase + totalBuyFee)) * 100 : 0;
 
       return {
         ...g,
@@ -611,6 +618,8 @@ export function PensionAccountDashboardClient() {
         avgCost: Math.floor(avgCost),
         fixedPL: Math.round(fixedPL),
         fixedPLPct: Math.round(fixedPLPct * 100) / 100,
+        footerPL: Math.round(footerPL),
+        footerPLPct: Math.round(footerPLPct * 100) / 100,
       };
     });
   }, [transactions, enrichedPositions, stockAcctFilter]);
@@ -1646,9 +1655,9 @@ export function PensionAccountDashboardClient() {
                           잔량 <span className="font-medium text-foreground">{g.balance.toLocaleString()}</span>주
                         </span>
                         {g.totalSellQty > 0 && (
-                          <span className={g.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
-                            {g.fixedPL >= 0 ? "+" : ""}{fmt(g.fixedPL)}원
-                            <span className="opacity-70 ml-0.5">({fmtPct(g.fixedPLPct)})</span>
+                          <span className={g.footerPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
+                            {g.footerPL >= 0 ? "+" : ""}{fmt(g.footerPL)}원
+                            <span className="opacity-70 ml-0.5">({fmtPct(g.footerPLPct)})</span>
                           </span>
                         )}
                         {g.totalDividend > 0 && (
@@ -1763,9 +1772,9 @@ export function PensionAccountDashboardClient() {
                           <div>
                             <p className="text-muted-foreground text-[10px] mb-0.5">실현손익 / 배당</p>
                             {g.totalSellQty > 0 ? (
-                              <p className={cn("font-medium tabular-nums", g.fixedPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400")}>
-                                {g.fixedPL >= 0 ? "+" : ""}{fmt(g.fixedPL)}원
-                                <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(g.fixedPLPct)})</span>
+                              <p className={cn("font-medium tabular-nums", g.footerPL >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400")}>
+                                {g.footerPL >= 0 ? "+" : ""}{fmt(g.footerPL)}원
+                                <span className="opacity-70 text-[10px] ml-0.5">({fmtPct(g.footerPLPct)})</span>
                               </p>
                             ) : (
                               <p className="text-muted-foreground tabular-nums">—</p>

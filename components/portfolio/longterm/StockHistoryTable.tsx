@@ -73,27 +73,21 @@ function groupByStock(transactions: LongtermTransaction[]): StockSummary[] {
     const totalSellFee = sells.reduce((s, t) => s + (t.fee ?? 0), 0);
     const balance      = totalBuyQty - totalSellQty;
 
-    // ── 잔량 기준 가중평균단가 + 수수료 비례 배분 계산 ──────────────────────
+    // ── 잔량 기준 가중평균단가 추적 ──────────────────────────────────────
     // 단순 totalBuyAmt/totalBuyQty는 이미 매도한 수량의 원가까지 포함하여 틀림.
-    // 거래를 시간순으로 추적하며 SELL 시 현재 평균단가/평균수수료 기준으로 비례 차감.
+    // 거래를 시간순으로 추적하며 SELL 시 현재 평균단가 기준으로 비례 차감.
     let runQty       = 0;
     let runCost      = 0;  // 잔량 원가 누계 (수수료 제외)
-    let runFee       = 0;  // 잔량 매수수수료 누계 (비례 배분용)
-    let sellCostBase = 0;  // 매도수량 취득원가 합계 (fee 미포함, 행별 손익률 분모)
-    let sellFeeBase  = 0;  // 매도수량에 배분된 매수수수료 합계 (footer 손익 계산용)
+    let sellCostBase = 0;  // 매도수량 취득원가 합계 (fee 미포함, 손익률 분모)
 
     for (const t of sorted) {
       if (t.tradeType === "BUY") {
         runQty  += t.quantity;
         runCost += t.amount;
-        runFee  += t.fee ?? 0;
       } else if (t.tradeType === "SELL") {
-        const avgAtSell    = runQty > 0 ? runCost / runQty : 0;
-        const avgFeeAtSell = runQty > 0 ? runFee  / runQty : 0;
-        sellCostBase += avgAtSell    * t.quantity;
-        sellFeeBase  += avgFeeAtSell * t.quantity;
-        runCost = Math.max(0, runCost - avgAtSell    * t.quantity);
-        runFee  = Math.max(0, runFee  - avgFeeAtSell * t.quantity);
+        const avgAtSell = runQty > 0 ? runCost / runQty : 0;
+        sellCostBase += avgAtSell * t.quantity;
+        runCost = Math.max(0, runCost - avgAtSell * t.quantity);
         runQty  = Math.max(0, runQty  - t.quantity);
       }
     }
@@ -111,11 +105,11 @@ function groupByStock(transactions: LongtermTransaction[]): StockSummary[] {
     const fixedPLPct = sellCostBase > 0 ? (fixedPL / sellCostBase) * 100 : 0;
 
     // 테이블 하단 실현손익 (수수료 포함):
-    //   총매도금액 - 매도수량취득원가(fee제외) - 매도수량배분매수수수료 - 매도수수료
-    const footerPL    = totalSellAmt - sellCostBase - sellFeeBase - totalSellFee;
-    // 손익률 분모: 매도수량 취득원가 + 배분된 매수수수료
-    const footerPLPct = (sellCostBase + sellFeeBase) > 0
-      ? (footerPL / (sellCostBase + sellFeeBase)) * 100
+    //   총매도금액 - 매도수량취득원가(fee제외) - 매수수수료전체 - 매도수수료전체
+    const footerPL    = totalSellAmt - sellCostBase - totalBuyFee - totalSellFee;
+    // 손익률 분모: 매도수량 취득원가 + 매수수수료 전체
+    const footerPLPct = (sellCostBase + totalBuyFee) > 0
+      ? (footerPL / (sellCostBase + totalBuyFee)) * 100
       : 0;
 
     const totalDividend = divs.reduce((s, t) => s + t.amount, 0);
