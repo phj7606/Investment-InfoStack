@@ -11,7 +11,7 @@ import {
   updateTransaction,
   deleteTransaction,
 } from "@/lib/portfolio/pension-store";
-import { enrichSellTransaction } from "@/lib/portfolio/pension-calc";
+import { enrichSellTransaction, enrichTransactionsFromHistory } from "@/lib/portfolio/pension-calc";
 import type { PensionTransaction } from "@/types/portfolio";
 
 export async function PUT(
@@ -35,6 +35,26 @@ export async function PUT(
       : { ...body, id };
 
     await updateTransaction(id, updated);
+
+    // BUY 수정 시 같은 종목+계좌+카테고리의 이후 SELL 저장값도 연쇄 업데이트
+    if (body.tradeType === "BUY") {
+      const allTxs  = await readTransactions();
+      const groupKey = `${body.stockCode}::${body.accountType}::${body.category ?? ""}`;
+      const group    = allTxs.filter((t) =>
+        `${t.stockCode}::${t.accountType}::${t.category ?? ""}` === groupKey
+      );
+      const enriched = enrichTransactionsFromHistory(group);
+      for (const enrichedTx of enriched) {
+        if (enrichedTx.tradeType !== "SELL" || enrichedTx.id === id) continue;
+        const orig = allTxs.find((t) => t.id === enrichedTx.id);
+        if (!orig) continue;
+        if (orig.realizedPL !== enrichedTx.realizedPL ||
+            orig.avgCostAtSell !== enrichedTx.avgCostAtSell) {
+          await updateTransaction(enrichedTx.id, enrichedTx);
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true, transaction: updated });
   } catch (err) {
     const message = err instanceof Error ? err.message : "오류 발생";

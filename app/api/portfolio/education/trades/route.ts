@@ -50,13 +50,14 @@ export async function PUT(req: NextRequest) {
     const body = await req.json() as EducationTrade;
     if (!body.id) return NextResponse.json({ error: "id 필수" }, { status: 400 });
 
-    // P&L·보유일수·결과 재계산
+    // P&L·보유일수·결과 재계산 — fee-exclusive (longterm/pension과 동일 기준)
+    // commission/buyCommission/tax는 참조용만, 손익 계산에 미반영
     const buyAmount  = body.buyPrice * body.quantity;
     const sellAmount = body.sellPrice * body.quantity;
-    const fees       = (body.commission ?? 0) + (body.tax ?? 0);
-    const profitLoss = Math.round(sellAmount - buyAmount - fees);
+    const profitLoss = Math.round(sellAmount - buyAmount);
+    // ×100 → 퍼센트 단위, ÷10000 → 소수점 4자리 (positions/sell 및 longterm과 동일)
     const profitLossPct = buyAmount > 0
-      ? Math.round((profitLoss / buyAmount) * 10000) / 100 : 0;
+      ? Math.round((profitLoss / buyAmount) * 1000000) / 10000 : 0;
     let holdingDays = 0;
     if (body.buyDate && body.sellDate) {
       holdingDays = Math.round(

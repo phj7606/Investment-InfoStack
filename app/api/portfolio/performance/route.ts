@@ -23,7 +23,7 @@ import { readCache, writeCache, readStaleCache } from "@/lib/cache";
 import { readKey } from "@/lib/db";
 import { fetchAllBenchmarks } from "@/lib/portfolio/performance-benchmark";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
-import { calcPositions } from "@/lib/portfolio/longterm-calc";
+import { calcPositions, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
 import { fetchYahooHistory, fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
 import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
 import type {
@@ -547,7 +547,8 @@ export async function GET(req: NextRequest) {
     // ── 1. Bootstrap 데이터 읽기 (Jan~Apr 2026 고정 스냅샷) ──
     const excelData = await readBootstrap();
 
-    const allTxs = await readTransactions();
+    // stored realizedPL/avgCostAtSell가 stale해도 월별 성과 지표 정확성 보장
+    const allTxs = enrichTransactionsFromHistory(await readTransactions());
 
     // ── 2. Apr 잔고 → May+ 전월잔고 기준 결정 ──
     const krAprBalance = excelData.krMonths.at(-1)?.balance ?? excelData.krDecBalance;

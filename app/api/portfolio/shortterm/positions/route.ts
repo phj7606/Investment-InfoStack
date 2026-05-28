@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { readTransactions } from "@/lib/portfolio/shorttermData";
-import { calcPositions, calcLongtermSummary } from "@/lib/portfolio/longterm-calc";
+import { calcPositions, calcLongtermSummary, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const market = searchParams.get("market") as "KR" | "US" | null;
 
-    let txs = await readTransactions();
+    // 전체 이력 enrichment 후 필터 — stored realizedPL 오염 방어
+    let txs = enrichTransactionsFromHistory(await readTransactions());
     if (market) txs = txs.filter((t: LongtermTransaction) => t.market === market);
 
     // 포지션 계산 (현재가는 없는 상태 — 클라이언트에서 병합)

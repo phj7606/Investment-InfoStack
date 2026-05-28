@@ -12,7 +12,7 @@ import {
   readTransactions,
   addTransaction,
 } from "@/lib/portfolio/pension-store";
-import { enrichSellTransaction } from "@/lib/portfolio/pension-calc";
+import { enrichSellTransaction, enrichTransactionsFromHistory } from "@/lib/portfolio/pension-calc";
 import type { PensionTransaction, PensionAccountType } from "@/types/portfolio";
 
 export async function GET(req: NextRequest) {
@@ -21,6 +21,9 @@ export async function GET(req: NextRequest) {
   const type    = searchParams.get("type");
 
   let txs = await readTransactions();
+
+  // BUY 수정 등으로 인한 stale realizedPL을 항상 히스토리 기준으로 재계산
+  txs = enrichTransactionsFromHistory(txs);
 
   if (account) txs = txs.filter((t) => t.accountType === account);
   if (type)    txs = txs.filter((t) => t.tradeType === type);

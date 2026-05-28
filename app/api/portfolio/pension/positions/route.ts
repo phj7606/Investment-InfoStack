@@ -14,10 +14,12 @@ import { readTransactions } from "@/lib/portfolio/pension-store";
 import {
   calcPensionPositions,
   calcPensionAccountSummary,
+  enrichTransactionsFromHistory,
 } from "@/lib/portfolio/pension-calc";
 
 export async function GET() {
-  const transactions = await readTransactions();
+  // 전체 이력 enrichment 후 포지션 계산 — stored realizedPL 오염 방어
+  const transactions = enrichTransactionsFromHistory(await readTransactions());
   const positions    = calcPensionPositions(transactions);
 
   const retirementSummary = calcPensionAccountSummary(positions, transactions, "RETIREMENT");
