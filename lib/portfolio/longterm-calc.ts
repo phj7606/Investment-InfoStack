@@ -2,7 +2,7 @@
  * 중장기 투자 계좌 성과 계산 모듈
  *
  * 핵심 원칙:
- * - 종목별 독립 계산: stockCode+accountNo 기준 가중평균단가 관리
+ * - 종목별 독립 계산: stockCode+stockName+accountNo 기준 가중평균단가 관리
  * - 부분 매도 지원: SELL 시 realizedPL 계산, 남은 수량은 동일 avgCost 유지
  * - 성과 평가: SELL 거래 날짜 기준 집계 (전체·부분 매도 모두 동일)
  * - KR/US 분리: currency 기준으로 절대 혼산하지 않음
@@ -23,7 +23,7 @@ import type {
  * 전체 거래 이력 → 현재 보유 포지션 계산
  *
  * 알고리즘:
- * 1. stockCode+accountNo 조합별로 거래를 날짜순으로 처리
+ * 1. stockCode+stockName+accountNo 조합별로 거래를 날짜순으로 처리
  * 2. BUY: 누적 수량·금액으로 가중평균단가 갱신
  * 3. SELL: realizedPL 계산, 잔여 수량 차감 (avgCost는 변경 없음)
  * 4. 잔여 수량 > 0 인 항목이 현재 포지션
@@ -32,7 +32,7 @@ export function calcPositions(
   txs: LongtermTransaction[],
   currentPrices: Record<string, number> = {}
 ): LongtermPosition[] {
-  // 종목+계좌 기준으로 그룹핑 (키: `${stockCode}::${accountNo}`)
+  // 종목+계좌+이름 기준으로 그룹핑 (키: `${stockCode}::${stockName}::${accountNo}`)
   const posMap = new Map<string, {
     stockCode: string;
     stockName: string;
@@ -41,7 +41,7 @@ export function calcPositions(
     accountNo: string;
     currency: "KRW" | "USD";
     quantity: number;
-    totalCost: number;     // BUY 누적 금액 (수수료 포함)
+    totalCost: number;     // BUY 누적 금액 (수수료 제외 — amount는 qty×price 기준)
     totalRealizedPL: number;
     targetWeight?: number;
     sector?: string;       // 섹터 (Short-term 계좌용, 최초 BUY에서 전파)

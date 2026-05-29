@@ -1151,7 +1151,7 @@ export function LongtermDashboardClient() {
                 <div className="rounded-lg border bg-card px-3 py-2.5">
                   <p className="text-[11px] text-muted-foreground mb-1">총 평가금액</p>
                   <p className="text-sm font-semibold tabular-nums">
-                    {hasPrices ? fmt(totalEval) : "—"}
+                    {fmt(totalEval)}
                   </p>
                 </div>
                 <div className="rounded-lg border bg-card px-3 py-2.5">
@@ -1218,6 +1218,7 @@ export function LongtermDashboardClient() {
             onOpenChange={(v) => { setShowForm(v); if (!v) setEditingTx(undefined); }}
             initialTx={editingTx}
             onSubmit={handleAddTransaction}
+            existingTransactions={transactions}
           />
         </TabsContent>
 

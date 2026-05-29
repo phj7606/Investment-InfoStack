@@ -6,8 +6,9 @@
 // - 시장(KR/US) 선택 시 통화(KRW/USD) 자동 결정
 // - 수량 × 단가 → 금액 자동 계산
 // - DIVIDEND 선택 시 수량/단가 유효성 검사 면제 (금액만 필요)
+// - 종목코드 입력 시 네이버/야후에서 공식 이름 자동 조회 + 기존 이름 제안
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,11 @@ interface TransactionFormProps {
   onSubmit: (tx: Omit<LongtermTransaction, "id"> | LongtermTransaction) => void;
   /** true이면 섹터 입력 필드 표시 (Short-term 계좌용) */
   showSectorField?: boolean;
+  /**
+   * 기존 거래 목록 — 같은 종목코드의 이름 후보를 제안하는 데 사용
+   * (오타 방지 + 트랜치 분리 의도 구분)
+   */
+  existingTransactions?: LongtermTransaction[];
 }
 
 // 공통 인풋 스타일
@@ -93,19 +99,107 @@ function txToFormState(tx: LongtermTransaction): FormState {
   };
 }
 
-export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showSectorField = false }: TransactionFormProps) {
+export function TransactionForm({
+  open,
+  onOpenChange,
+  initialTx,
+  onSubmit,
+  showSectorField = false,
+  existingTransactions = [],
+}: TransactionFormProps) {
   const isEditMode = !!initialTx;
 
   const [form, setForm] = useState<FormState>(
     initialTx ? txToFormState(initialTx) : defaultForm
   );
 
+  // ── 종목명 자동완성 상태 ─────────────────────
+  // "idle" | "loading" | "done" — 공식 이름 조회 상태
+  const [nameLookupStatus, setNameLookupStatus] = useState<"idle" | "loading" | "done">("idle");
+  // 제안 목록: 기존 이름 + 공식 이름 통합 (중복 제거)
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // 다이얼로그 열릴 때 폼 초기화 (편집이면 기존 값, 추가면 기본값)
   useEffect(() => {
     if (open) {
       setForm(initialTx ? txToFormState(initialTx) : defaultForm);
+      setSuggestions([]);
+      setNameLookupStatus("idle");
     }
   }, [open, initialTx]);
+
+  // ── 종목코드 변경 시 이름 제안 로직 ─────────
+  const lookupStockName = useCallback(
+    (code: string, market: "KR" | "US", accountNo: string) => {
+      const trimmed = code.trim().toUpperCase();
+
+      // 제안 초기화
+      setSuggestions([]);
+      setNameLookupStatus("idle");
+
+      if (!trimmed) return;
+
+      // 1) 기존 transactions에서 같은 종목코드 이름 수집 (계좌 무관, 빠른 제안)
+      const existingNames = [
+        ...new Set(
+          existingTransactions
+            .filter((t) => t.stockCode === trimmed)
+            .map((t) => t.stockName)
+        ),
+      ];
+
+      if (existingNames.length > 0) {
+        setSuggestions(existingNames);
+      }
+
+      // 2) KR: 6자리 / US: 1자 이상 입력 완료 후 공식 이름 조회
+      const minLen = market === "KR" ? 6 : 1;
+      if (trimmed.length < minLen) return;
+
+      // FUND는 코드가 불규칙하므로 조회 스킵
+      if (form.assetType === "FUND") return;
+
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(async () => {
+        setNameLookupStatus("loading");
+        try {
+          const res = await fetch(
+            `/api/stock-info?code=${encodeURIComponent(trimmed)}&market=${market}`
+          );
+          if (!res.ok) { setNameLookupStatus("done"); return; }
+          const data = await res.json() as { name: string | null };
+          if (data.name) {
+            // 공식 이름을 제안 목록 맨 앞에 추가 (중복 제거)
+            setSuggestions((prev) => [
+              data.name!,
+              ...prev.filter((n) => n !== data.name),
+            ]);
+            // 종목명이 비어 있으면 자동 채워줌
+            setForm((f) =>
+              f.stockName.trim() === "" ? { ...f, stockName: data.name! } : f
+            );
+          }
+        } finally {
+          setNameLookupStatus("done");
+        }
+      }, 600);
+    },
+    [existingTransactions, form.assetType]
+  );
+
+  // stockCode 또는 market 변경 시 재조회
+  function handleStockCodeChange(code: string) {
+    setForm((f) => ({ ...f, stockCode: code }));
+    lookupStockName(code, form.market, form.accountNo);
+  }
+
+  function handleMarketChange(market: "KR" | "US") {
+    setForm((f) => ({ ...f, market }));
+    if (form.stockCode.trim()) {
+      lookupStockName(form.stockCode, market, form.accountNo);
+    }
+  }
 
   // 수량 또는 단가 변경 시 금액 자동 계산
   function handleQuantityOrPrice(field: "quantity" | "price", value: string) {
@@ -115,10 +209,6 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showS
     // 금액이 비어 있거나 아직 수동 입력 안 했으면 자동 계산
     const autoAmount = qty > 0 && price > 0 ? String(Math.round(qty * price)) : "";
     setForm({ ...next, amount: autoAmount });
-  }
-
-  function handleMarketChange(market: "KR" | "US") {
-    setForm({ ...form, market });
   }
 
   function handleSubmit() {
@@ -268,13 +358,19 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showS
               <input
                 type="text"
                 value={form.stockCode}
-                onChange={(e) => setForm({ ...form, stockCode: e.target.value })}
+                onChange={(e) => handleStockCodeChange(e.target.value)}
                 placeholder="예: 005930"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className="text-[11px] font-medium text-muted-foreground">종목명</label>
+              <label className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+                종목명
+                {/* 조회 중 인디케이터 */}
+                {nameLookupStatus === "loading" && (
+                  <span className="text-[10px] text-muted-foreground animate-pulse">조회 중…</span>
+                )}
+              </label>
               <input
                 type="text"
                 value={form.stockName}
@@ -282,6 +378,26 @@ export function TransactionForm({ open, onOpenChange, initialTx, onSubmit, showS
                 placeholder="예: 삼성전자"
                 className={inputClass}
               />
+              {/* 제안 pill 목록 */}
+              {suggestions.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {suggestions.map((name) => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, stockName: name }))}
+                      className={[
+                        "rounded-full border px-2 py-0.5 text-[10px] leading-tight transition-colors",
+                        form.stockName === name
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "border-border bg-muted/50 text-muted-foreground hover:border-emerald-400 hover:text-foreground",
+                      ].join(" ")}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

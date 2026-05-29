@@ -859,7 +859,7 @@ export function EducationAccountDashboardClient() {
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => {
-                                  // derivedTrades의 id는 원본 ltTransaction의 id와 동일
+                                  // derivedTrades의 id는 원본 ltTransaction id와 동일 — LT 편집 경로 사용
                                   const ltTx = ltTransactions.find((tx) => tx.id === t.id);
                                   if (ltTx) handleLtTxEdit(ltTx);
                                 }}
@@ -973,6 +973,7 @@ export function EducationAccountDashboardClient() {
         initialTx={editingLtTx}
         onSubmit={(tx) => void handleLtTxSubmit(tx)}
         showSectorField
+        existingTransactions={ltTransactions}
       />
     </div>
   );
