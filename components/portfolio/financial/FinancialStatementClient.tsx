@@ -62,10 +62,8 @@ function buildDraftStatementFromSnapshot(
   const { exchangeRates } = snapshot;
   const { usdKrw, cadKrw } = exchangeRates;
 
-  // 투자자산 — FUND는 사용자가 자산관리 탭에서 직접 입력한 fundMonthly.balance 최우선
-  // (live-data API가 펀드 현재가를 정확히 평가 못 함 → 25M으로 잘못 표시되는 문제 우회)
-  // 자산관리 탭 표시값과 일치 보장
-  const fundKrw = snapshot.fundMonthly?.balance ?? liveData?.fund.balance ?? cp?.fundBalance ?? 0;
+  // 투자자산 — liveData 우선, 없으면 confirmedPortfolio 재사용
+  const fundKrw = liveData?.fund.balance ?? cp?.fundBalance ?? 0;
   const korStocksKrw = liveData?.korStocks.balance ?? cp?.korStocksBalance ?? 0;
   const usStocksUsd = liveData?.usStocks.balanceUsd ?? cp?.usStocksBalanceUsd ?? 0;
   const usStocksKrw = liveData?.usStocks.balanceKrw ?? cp?.usStocksBalanceKrw ?? Math.round(usStocksUsd * usdKrw);
@@ -99,16 +97,8 @@ function buildDraftStatementFromSnapshot(
   const canadianPensionKrw = Math.round(snapshot.canadianPension.balanceCad * cadKrw);
 
   // 교육 + Digital Asset(크립토)
-  // Education stock/deposit: 자산관리II 탭에서 입력한 educationMonthly 값 최우선
-  // (자산관리II 탭과 동일 산식 — financial-calc.ts:1244~1249)
-  const edu1470Stock = snapshot.educationMonthly?.stockBalance
-    || liveData?.education1470.stock
-    || cp?.education1470Stock
-    || 0;
-  const edu1470Deposit = snapshot.educationMonthly?.deposit
-    ?? liveData?.education1470.deposit
-    ?? cp?.education1470Deposit
-    ?? 0;
+  const edu1470Stock = liveData?.education1470.stock ?? cp?.education1470Stock ?? 0;
+  const edu1470Deposit = liveData?.education1470.deposit ?? cp?.education1470Deposit ?? 0;
   // 가상자산 잔액 — snapshot.crypto에서 수동 입력값 사용
   const cryptoKrw =
     (snapshot.crypto.upbit.balance || 0) +
