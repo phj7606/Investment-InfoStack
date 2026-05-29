@@ -85,7 +85,7 @@ export async function PUT(req: NextRequest) {
   entries[idx] = {
     ...entries[idx],
     amount: body.amount,
-    note: body.note?.trim() || entries[idx].note,
+    note: body.note !== undefined ? body.note.trim() : entries[idx].note,
   };
   await writeEntries(entries);
 

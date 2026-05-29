@@ -85,7 +85,7 @@ export interface MonthlyCFSummary {
   totalExpense: number;    // 고정지출+신용카드+현금지출+세금 합계 (절대값)
   totalTransfer: number;  // 계좌이체 합계 (절대값)
   netCF: number;           // totalIncome - totalExpense - totalTransfer
-  savingsRate: number;     // (totalIncome - totalExpense) / totalIncome (0~1)
+  savingsRate: number;     // (totalIncome - totalExpense - totalTransfer) / totalIncome (0~1)
   byCategory: Record<CFCategoryType, number>; // 카테고리별 합계
 }
 
@@ -220,6 +220,50 @@ export interface FinancialSnapshot {
     depositPrincipal?: number;  // 연금저축 원금 (엑셀 Row 34)
     irpBalance?: number;        // IRP 잔액 (엑셀 Row 30)
     irpPrincipal?: number;      // IRP 원금 (엑셀 Row 35)
+  };
+
+  /**
+   * 자산관리 / 자산관리II 탭 종가 확정값
+   * KR(한국 종목)과 US(미국 종목)를 시차 때문에 별도로 확정.
+   * confirm/route.ts는 이 값이 있으면 재계산하지 않고 그대로 사용.
+   */
+  lockedBalances?: {
+    // 자산관리 탭 — KR 종목
+    fund?: number;
+    fundPrincipal?: number;
+    fundRealizedPL?: number;       // lock 시점 FUND 누적 실현손익 스냅샷
+    korStocks?: number;
+    korStocksPrincipal?: number;
+    korStocksRealizedPL?: number;  // lock 시점 국내주식 누적 실현손익 스냅샷
+    stockDepositKrw?: number;
+    // 자산관리 탭 — US 종목
+    usStocksUsd?: number;
+    usPrincipalUsd?: number;
+    usRealizedPLUsd?: number;      // lock 시점 미국주식 누적 실현손익 스냅샷 (USD)
+    // 자산관리II 탭 — Pension (KR)
+    pensionFundBalance?: number;
+    pensionFundPrincipal?: number;
+    pensionDepositBalance?: number;
+    pensionDepositPrincipal?: number;
+    irpBalance?: number;
+    irpPrincipal?: number;
+    // 자산관리II 탭 — Education 1470 (KR)
+    education1470Stock?: number;
+    education1470Principal?: number;
+    // 자산관리II 탭 — Short-term (KR)
+    shorttermStockBalance?: number;
+    shorttermPrincipal?: number;
+    // 확정 기준일 (당월 마지막 영업일, "YYYY-MM-DD")
+    targetDate?: string;
+    // 월말 기준 환율 (MonthEndConfirmDialog에 사전 입력 용도로도 활용)
+    usdKrw?: number;       // USD/KRW 확정 환율
+    cadKrw?: number;       // CAD/KRW 확정 환율
+    // 확정 메타 (KR/US/FX 독립 확정)
+    krLockedAt?: string;   // KR 종목 확정 시각
+    usLockedAt?: string;   // US 종목 확정 시각
+    fxLockedAt?: string;   // 환율 확정 시각
+    // 레거시 (기존 호환)
+    lockedAt?: string;
   };
 
   /**
@@ -435,6 +479,7 @@ export interface AssetManagementColumnData {
   isBaseline: boolean;     // 전년도 12월 기준 컬럼 여부
   isDraft: boolean;        // DRAFT 상태 (현재 월)
   hasData: boolean;        // 해당 월 스냅샷 존재 여부
+  isBalanceLocked: boolean; // 종가 확정 완료 여부 (snap.lockedBalances 존재)
   usdKrw: number;          // 적용 환율 (하위 호환)
   /** 월별 확정/실시간 환율 — 환율 섹션 행 표시용 */
   exchangeRates: {
@@ -562,7 +607,6 @@ export interface LivePortfolioData {
     principal: number;        // KRW 원금
     cumulativePnl: number;    // 누적손익 (실현 + 미실현)
     unrealizedPnl: number;    // 미실현 손익
-    pnlRate: number;          // 수익률 (소수, 0.05 = 5%)
   };
   /** 국내주식 (market === "KR", assetType === "STOCK" | "ETF") */
   korStocks: {
@@ -570,7 +614,6 @@ export interface LivePortfolioData {
     principal: number;
     cumulativePnl: number;
     unrealizedPnl: number;
-    pnlRate: number;
   };
   /** 미국주식 (market === "US") */
   usStocks: {
@@ -578,7 +621,6 @@ export interface LivePortfolioData {
     principalUsd: number;     // USD 원금
     cumulativePnlUsd: number; // USD 누적손익
     unrealizedPnlUsd: number; // USD 미실현 손익
-    pnlRateUsd: number;       // USD 수익률
     balanceKrw: number;       // KRW 환산 (× usdKrw)
   };
   /** 주식계좌 예수금 */

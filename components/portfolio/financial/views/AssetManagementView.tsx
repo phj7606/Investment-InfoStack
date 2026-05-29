@@ -23,7 +23,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardPen, RefreshCw, Copy, Lock } from "lucide-react";
+import { ClipboardPen, RefreshCw, Copy, Lock, CheckSquare } from "lucide-react";
+import { LockPricesDialog } from "./LockPricesDialog";
 import { RateCell } from "@/components/portfolio/financial/RateCell";
 import { buildAssetManagementYearlyData, currentMonth } from "@/lib/portfolio/financial-calc";
 import type {
@@ -641,6 +642,9 @@ export function AssetManagementView({
   // 다이얼로그 상태 — 모든 월 통합 입력
   const [monthlyDialogMonth, setMonthlyDialogMonth] = useState<string | null>(null);
 
+  // 종가 확정 다이얼로그
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+
   // txSummaries를 buildAssetManagementYearlyData에 전달
   const yearData = buildAssetManagementYearlyData(snapshots, liveData, selectedYear, txSummaries);
   const baselineCol = yearData[0];      // Dec-{year-1}
@@ -696,9 +700,22 @@ export function AssetManagementView({
             </Badge>
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={onRefresh} className="h-7 text-xs gap-1">
-          <RefreshCw className="w-3 h-3" />새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* DRAFT 월이 있을 때만 종가 확정 버튼 표시 */}
+          {yearData.some((c) => c.isDraft) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
+              onClick={() => setLockDialogOpen(true)}
+            >
+              <CheckSquare className="w-3 h-3" />종가 확정
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={onRefresh} className="h-7 text-xs gap-1">
+            <RefreshCw className="w-3 h-3" />새로고침
+          </Button>
+        </div>
       </div>
 
       {/* 테이블 컨테이너 — 수평 스크롤 */}
@@ -1043,6 +1060,15 @@ export function AssetManagementView({
           onSave={handleSaved}
         />
       )}
+
+      {/* 종가 확정 다이얼로그 */}
+      <LockPricesDialog
+        open={lockDialogOpen}
+        onClose={() => setLockDialogOpen(false)}
+        month={curMonthStr}
+        mode="I"
+        onLocked={handleSaved}
+      />
     </div>
   );
 }

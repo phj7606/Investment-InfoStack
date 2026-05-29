@@ -333,6 +333,41 @@ async function fetchYahooCurrentPriceViaCurl(symbol: string): Promise<number | n
 }
 
 /**
+ * 특정 날짜의 US 종목 종가를 Yahoo Finance에서 조회
+ *
+ * targetDate 이하 가장 최근 영업일 종가를 반환 (주말/휴장일 자동 처리)
+ *
+ * @param symbols - 티커 배열 (예: ["TSLA", "SOXX"])
+ * @param targetDate - "YYYY-MM-DD" 형식
+ * @returns { [symbol]: closePrice }
+ */
+export async function fetchYahooHistoricalClosePrices(
+  symbols: string[],
+  targetDate: string
+): Promise<Record<string, number>> {
+  if (symbols.length === 0) return {};
+
+  // targetDate 5일 전부터 조회 (주말/휴장일 포함)
+  const period1 = new Date(targetDate);
+  period1.setDate(period1.getDate() - 5);
+  const period2 = new Date(targetDate);
+  period2.setDate(period2.getDate() + 2); // 종료일 inclusive
+
+  const entries = await Promise.all(
+    symbols.map(async (symbol) => {
+      const bars = await fetchYahooHistory(symbol, period1, period2);
+      // targetDate 이하 가장 최근 bar 선택
+      const bar = bars.filter((b) => b.date <= targetDate).pop();
+      return [symbol, bar?.close ?? null] as [string, number | null];
+    })
+  );
+
+  return Object.fromEntries(
+    entries.filter((e): e is [string, number] => e[1] != null)
+  );
+}
+
+/**
  * 복수 US 심볼의 현재가를 Yahoo Finance v8 chart API로 병렬 조회
  * v7/finance/quote 대체용 — v8/chart는 인증 불필요
  *

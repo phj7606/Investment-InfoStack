@@ -202,6 +202,79 @@ export interface NaverStockInput {
 }
 
 /**
+ * Naver fchart API로 특정 날짜의 KR 종목 종가를 조회
+ *
+ * API: https://fchart.stock.naver.com/sise.nhn?symbol={code}&timeframe=day&count=40&requestType=0
+ * 응답 XML: <item data="YYYYMMDD|open|high|low|close|volume" />
+ *
+ * targetDate 이하의 가장 최근 영업일 종가를 반환 (주말/공휴일 자동 처리)
+ *
+ * @param stocks - { code, name? }[] 배열
+ * @param targetDate - "YYYY-MM-DD" 형식
+ * @returns { [originalCode]: closePrice }
+ */
+export async function fetchNaverHistoricalClosePrices(
+  stocks: NaverStockInput[],
+  targetDate: string
+): Promise<Record<string, number>> {
+  if (stocks.length === 0) return {};
+
+  const aliases = getKrCodeAliases();
+  const dateKey = targetDate.replace(/-/g, ""); // "YYYYMMDD"
+
+  const entries = await Promise.all(
+    stocks.map(async ({ code }) => {
+      const queryCode = aliases[code] ?? code;
+      // count=40 ≈ 약 2달치 거래일 — 목표 날짜 포함 충분
+      const url = `https://fchart.stock.naver.com/sise.nhn?symbol=${queryCode}&timeframe=day&count=40&requestType=0`;
+
+      try {
+        const res = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "*/*",
+            "Referer": "https://finance.naver.com/",
+          },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) return [code, null] as [string, null];
+
+        // EUC-KR 인코딩이지만 날짜/가격(ASCII)만 파싱하므로 text()로 안전
+        const text = await res.text();
+
+        // <item data="YYYYMMDD|open|high|low|close|volume" /> — 종가는 5번째 필드(인덱스 4)
+        const matches = [...text.matchAll(/data="(\d{8})\|[^|]*\|[^|]*\|[^|]*\|(\d+)\|/g)];
+        // targetDate 이하 가장 최근 날짜 선택
+        const candidate = matches
+          .filter(([, date]) => date <= dateKey)
+          .sort(([, a], [, b]) => b.localeCompare(a))[0];
+
+        if (!candidate) {
+          console.warn(`[naver] 과거 가격 없음: ${code} (${targetDate})`);
+          return [code, null] as [string, null];
+        }
+
+        const closePrice = parseInt(candidate[2], 10);
+        if (isNaN(closePrice) || closePrice <= 0) return [code, null] as [string, null];
+
+        if (candidate[1] !== dateKey) {
+          console.log(`[naver] 과거 가격 날짜 조정: ${code} ${dateKey} → ${candidate[1]} (${closePrice.toLocaleString()})`);
+        }
+
+        return [code, closePrice] as [string, number];
+      } catch (err) {
+        console.warn(`[naver] 과거 가격 조회 실패: ${code}`, err);
+        return [code, null] as [string, null];
+      }
+    })
+  );
+
+  return Object.fromEntries(
+    entries.filter((e): e is [string, number] => e[1] != null)
+  );
+}
+
+/**
  * 복수 KR 종목의 현재가를 Naver Finance에서 병렬 조회
  *
  * 자동 코드 보정 흐름:
