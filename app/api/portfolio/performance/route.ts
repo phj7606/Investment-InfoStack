@@ -24,8 +24,9 @@ import { readKey } from "@/lib/db";
 import { fetchAllBenchmarks } from "@/lib/portfolio/performance-benchmark";
 import { readTransactions } from "@/lib/portfolio/longterm-store";
 import { calcPositions, enrichTransactionsFromHistory } from "@/lib/portfolio/longterm-calc";
-import { fetchYahooHistory, fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
-import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
+import { fetchYahooHistory } from "@/lib/fetchers/yahoo";
+import { getLockedPrices } from "@/lib/portfolio/locked-price-store";
+import { getLongtermCurrentPrices } from "@/lib/portfolio/current-price-service";
 import type {
   PortfolioPerformanceResponse,
   PerformanceMonthPoint,
@@ -125,16 +126,18 @@ function getMonthsFrom(startPeriod: string): string[] {
 /**
  * 특정 통화 + 계좌 기준 May+ 월별 성과 동적 계산
  *
- * @param currency   - "KRW" | "USD"
- * @param accountNo  - 계좌번호 필터 (undefined = 전체)
- * @param prevBalance - 이전 월말 잔고 (May 계산 기준 = Apr 엑셀 잔고)
- * @param allTxs      - 전체 거래 내역
+ * @param currency      - "KRW" | "USD"
+ * @param accountNo     - 계좌번호 필터 (undefined = 전체)
+ * @param prevBalance   - 이전 월말 잔고 (May 계산 기준 = Apr 엑셀 잔고)
+ * @param allTxs        - 전체 거래 내역
+ * @param currentPrices - 현재 월 현재가 맵 (longterm/prices와 공유 캐시에서 사전 조회)
  */
 async function calcMayOnwards(
   currency: "KRW" | "USD",
   accountNo: string | undefined,
   prevBalance: number,
-  allTxs: LongtermTransaction[]
+  allTxs: LongtermTransaction[],
+  currentPrices: Record<string, number> = {}
 ): Promise<PerformanceMonthPoint[]> {
   const months = getMonthsFrom("2026-05");
 
@@ -165,30 +168,36 @@ async function calcMayOnwards(
     const positions = calcPositions(txsUpToMonth);
 
     // ── 보유 종목 가격 조회 ──
-    // KRW + 현재 진행 중인 달 → Naver Finance 현재가 (종목코드 보정 포함)
-    // KRW + 완료된 과거 달  → Yahoo Finance 월말 종가 (Historical)
-    // USD                  → Yahoo Finance 월말 종가 (Historical)
+    // 우선순위:
+    //   1. 현재 진행 중인 달(KRW) → Naver Finance 현재가
+    //   2. 완료된 과거 달 → FS 확정 종가(lock-balances 저장값) 우선
+    //   3. FS 확정 없는 완료 달 → Yahoo Finance 월말 종가 (fallback)
+    // FS 확정값 사용 이유: FS 수치와 Performance 수치의 일관성 보장
+    //   (Yahoo Historical은 수정주가 반영 등으로 재조회 시 값이 달라질 수 있음)
     const currentPeriod = new Date().toISOString().slice(0, 7); // "YYYY-MM"
     let priceMap: Record<string, number> = {};
 
-    if (currency === "KRW" && period === currentPeriod) {
-      // 현재 월: Naver Finance 현재가 (코드 불일치 시 종목명으로 자동 검색 + 영구 저장)
-      priceMap = await fetchNaverCurrentPrices(
-        positions.map((p) => ({ code: p.stockCode, name: p.stockName }))
-      );
+    if (period === currentPeriod) {
+      // 현재 월: GET 핸들러에서 사전 조회한 currentPrices 사용 (longterm/prices와 동일 캐시)
+      priceMap = currentPrices;
     } else {
-      // 과거 완료 월 또는 USD: Yahoo Finance 월말 종가
-      const priceEntries = await Promise.all(
-        positions.map(async (pos) => {
-          const symbol = currency === "KRW"
-            ? toYahooKR(pos.stockCode)
-            : pos.stockCode;
-          const price = await fetchMonthEndPrice(symbol, period);
-          return [pos.stockCode, price] as [string, number | null];
-        })
-      );
-      for (const [code, price] of priceEntries) {
-        if (price != null) priceMap[code] = price;
+      // 완료된 과거 달: FS 확정 종가 우선, 없으면 Yahoo Historical fallback
+      const lockedPrices = await getLockedPrices(period, currency);
+      if (lockedPrices) {
+        priceMap = lockedPrices;
+      } else {
+        const priceEntries = await Promise.all(
+          positions.map(async (pos) => {
+            const symbol = currency === "KRW"
+              ? toYahooKR(pos.stockCode)
+              : pos.stockCode;
+            const price = await fetchMonthEndPrice(symbol, period);
+            return [pos.stockCode, price] as [string, number | null];
+          })
+        );
+        for (const [code, price] of priceEntries) {
+          if (price != null) priceMap[code] = price;
+        }
       }
     }
 
@@ -262,22 +271,23 @@ async function calcMayOnwards(
  * May 2026 이후 종목별 MoM% 동적 계산 후 엑셀 데이터에 병합
  *
  * 가격 조회 전략:
- *   - 현재 진행 중인 월 KR → Naver Finance 현재가 (코드 자동 보정 포함)
- *   - 현재 진행 중인 월 US → Yahoo Finance 현재가 (v8 chart)
- *   - 완료된 과거 월       → Yahoo Finance 월말 종가 (Historical)
+ *   - 현재 진행 중인 월 → GET 핸들러 사전 조회 currentPrices 사용 (longterm/prices와 동일 캐시)
+ *   - 완료된 과거 월   → FS 확정 종가 우선, 없으면 Yahoo Historical fallback
  *
  * 결과 병합:
  *   - excelStocks에 있는 종목: Jan~Apr(엑셀) + May+(API) 이어 붙이기
  *   - excelStocks에 없는 종목: May+ 데이터만으로 신규 항목 생성 (May 신규 매수)
  *
- * @param currency     - "KRW" | "USD"
- * @param allTxs       - 전체 거래 내역
- * @param excelStocks  - 엑셀에서 파싱된 Jan~Apr 종목별 성과
+ * @param currency      - "KRW" | "USD"
+ * @param allTxs        - 전체 거래 내역
+ * @param excelStocks   - 엑셀에서 파싱된 Jan~Apr 종목별 성과
+ * @param currentPrices - 현재 월 현재가 맵 (longterm/prices와 공유 캐시에서 사전 조회)
  */
 async function calcStocksMayOnwards(
   currency: "KRW" | "USD",
   allTxs: LongtermTransaction[],
-  excelStocks: StockMonthPerformance[]
+  excelStocks: StockMonthPerformance[],
+  currentPrices: Record<string, number> = {}
 ): Promise<StockMonthPerformance[]> {
   const months = getMonthsFrom("2026-05");
   const currentPeriod = new Date().toISOString().slice(0, 7);
@@ -298,29 +308,28 @@ async function calcStocksMayOnwards(
     const priceablePositions = positions.filter((p) => p.assetType !== "FUND");
     let priceMap: Record<string, number> = {};
 
-    if (currency === "KRW" && period === currentPeriod) {
-      // 현재 진행 월 KR: Naver Finance 현재가 (코드 오류 시 자동 검색 + 영구 저장)
-      priceMap = await fetchNaverCurrentPrices(
-        priceablePositions.map((p) => ({ code: p.stockCode, name: p.stockName }))
-      );
-    } else if (currency === "USD" && period === currentPeriod) {
-      // 현재 진행 월 US: Yahoo Finance 현재가 (v8 chart, 인증 불필요)
-      priceMap = await fetchYahooCurrentPrices(
-        priceablePositions.map((p) => p.stockCode)
-      );
+    if (period === currentPeriod) {
+      // 현재 월: GET 핸들러에서 사전 조회한 currentPrices 사용 (longterm/prices와 동일 캐시)
+      priceMap = currentPrices;
     } else {
-      // 완료된 과거 월: Yahoo Historical 월말 종가
-      const entries = await Promise.all(
-        priceablePositions.map(async (pos) => {
-          const symbol = currency === "KRW"
-            ? toYahooKR(pos.stockCode)
-            : pos.stockCode;
-          const price = await fetchMonthEndPrice(symbol, period);
-          return [pos.stockCode, price] as [string, number | null];
-        })
-      );
-      for (const [code, price] of entries) {
-        if (price != null) priceMap[code] = price;
+      // 완료된 과거 달: FS 확정 종가 우선, 없으면 Yahoo Historical fallback
+      // FS 확정값 = 사용자가 월말 직접 검토·확정한 유일한 기준 → FS와 성과 수치 일관성 보장
+      const lockedPrices = await getLockedPrices(period, currency);
+      if (lockedPrices) {
+        priceMap = lockedPrices;
+      } else {
+        const entries = await Promise.all(
+          priceablePositions.map(async (pos) => {
+            const symbol = currency === "KRW"
+              ? toYahooKR(pos.stockCode)
+              : pos.stockCode;
+            const price = await fetchMonthEndPrice(symbol, period);
+            return [pos.stockCode, price] as [string, number | null];
+          })
+        );
+        for (const [code, price] of entries) {
+          if (price != null) priceMap[code] = price;
+        }
       }
     }
 
@@ -558,6 +567,21 @@ export async function GET(req: NextRequest) {
     const krAccountNos = Object.keys(excelData.krByAccount);
     const usAccountNos = Object.keys(excelData.usByAccount);
 
+    // ── 2.5. 현재 월 현재가 사전 조회 (longterm/prices 탭과 동일 캐시 공유) ──
+    // calcMayOnwards / calcStocksMayOnwards 안에서 각자 조회하면 병렬 실행 시
+    // 캐시 미스가 여러 번 겹쳐 Naver/Yahoo API가 중복 호출됨 → 여기서 1회 선점
+    const currentPeriodForFetch = new Date().toISOString().slice(0, 7);
+    const allCurrentPositions = calcPositions(
+      allTxs.filter((t) => t.date <= `${currentPeriodForFetch}-31`)
+    );
+    const krStocksForPrices = allCurrentPositions
+      .filter((p) => p.market === "KR" && p.assetType !== "FUND")
+      .map((p) => ({ code: p.stockCode, name: p.stockName }));
+    const usSymbolsForPrices = allCurrentPositions
+      .filter((p) => p.market === "US")
+      .map((p) => p.stockCode);
+    const currentPrices = await getLongtermCurrentPrices(krStocksForPrices, usSymbolsForPrices);
+
     // ── 3. 벤치마크 + May+ 전체/계좌별/종목별 병렬 계산 ──
     const [
       benchmarks,
@@ -568,17 +592,17 @@ export async function GET(req: NextRequest) {
       ...accountMayResults
     ] = await Promise.all([
       fetchAllBenchmarks("2026-01"),
-      calcMayOnwards("KRW", undefined, krAprBalance, allTxs),
-      calcMayOnwards("USD", undefined, usAprBalance, allTxs),
+      calcMayOnwards("KRW", undefined, krAprBalance, allTxs, currentPrices),
+      calcMayOnwards("USD", undefined, usAprBalance, allTxs, currentPrices),
       // 종목별 May+ 성과 (Jan~Apr 엑셀 데이터에 이어 붙임)
-      calcStocksMayOnwards("KRW", allTxs, excelData.krStocks),
-      calcStocksMayOnwards("USD", allTxs, excelData.usStocks),
+      calcStocksMayOnwards("KRW", allTxs, excelData.krStocks, currentPrices),
+      calcStocksMayOnwards("USD", allTxs, excelData.usStocks, currentPrices),
       // KR 계좌별
       ...krAccountNos.map((acct) => {
         const aprBal = excelData.krByAccount[acct]?.at(-1)?.balance
           ?? excelData.krDecByAccount[acct]
           ?? 0;
-        return calcMayOnwards("KRW", acct, aprBal, allTxs)
+        return calcMayOnwards("KRW", acct, aprBal, allTxs, currentPrices)
           .then((months) => ({ type: "kr" as const, acct, months }));
       }),
       // US 계좌별
@@ -586,7 +610,7 @@ export async function GET(req: NextRequest) {
         const aprBal = excelData.usByAccount[acct]?.at(-1)?.balance
           ?? excelData.usDecByAccount[acct]
           ?? 0;
-        return calcMayOnwards("USD", acct, aprBal, allTxs)
+        return calcMayOnwards("USD", acct, aprBal, allTxs, currentPrices)
           .then((months) => ({ type: "us" as const, acct, months }));
       }),
     ]);

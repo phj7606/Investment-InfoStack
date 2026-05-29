@@ -264,6 +264,13 @@ export interface FinancialSnapshot {
     fxLockedAt?: string;   // 환율 확정 시각
     // 레거시 (기존 호환)
     lockedAt?: string;
+    /**
+     * 종목별 확정 종가 맵 — Performance 성과 계산 시 Yahoo/Naver 재호출 대신 사용
+     * KR lock 시 저장 (Naver fchart 기준), US lock 시 저장 (Yahoo 기준)
+     * stockCode → 종가 (KRW 또는 USD)
+     */
+    krPrices?: Record<string, number>;
+    usPrices?: Record<string, number>;
   };
 
   /**

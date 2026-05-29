@@ -115,6 +115,8 @@ export async function POST(
           korStocksPrincipal: Math.round(korStockPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0)),
           korStocksRealizedPL: Math.round(korStockPositions.reduce((s, p) => s + p.totalRealizedPL, 0)),
           stockDepositKrw:   Math.round(shorttermPositions.reduce((s, p) => s + p.evalAmount, 0)),
+          // 종목별 확정 종가 저장 — Performance 계산 시 Yahoo 재호출 없이 이 값을 사용
+          krPrices: prices,
           krLockedAt: now,
           lockedAt: now,
         },
@@ -146,6 +148,8 @@ export async function POST(
           usStocksUsd:      Math.round(usStockPositions.reduce((s, p) => s + p.evalAmount, 0) * 100) / 100,
           usPrincipalUsd:   Math.round(usStockPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0) * 100) / 100,
           usRealizedPLUsd:  Math.round(usStockPositions.reduce((s, p) => s + p.totalRealizedPL, 0) * 100) / 100,
+          // 종목별 확정 종가 저장 — Performance 계산 시 Yahoo 재호출 없이 이 값을 사용
+          usPrices: usPrices,
           usLockedAt: now,
           lockedAt: now,
         },
