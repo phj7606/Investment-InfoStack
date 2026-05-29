@@ -62,8 +62,10 @@ function buildDraftStatementFromSnapshot(
   const { exchangeRates } = snapshot;
   const { usdKrw, cadKrw } = exchangeRates;
 
-  // 투자자산 — liveData 우선, 없으면 confirmedPortfolio 재사용
-  const fundKrw = liveData?.fund.balance ?? cp?.fundBalance ?? 0;
+  // 투자자산 — FUND: 자산관리 탭과 일치 보장 위해 사용자 입력값(fundMonthly.balance) 최우선
+  // CONFIRMED 월: fm.balance === cp.fundBalance (confirm 시 동기화됨) → 결과 변동 없음
+  // DRAFT 월: live-data fund.balance가 부정확할 때 사용자 입력값 반영
+  const fundKrw = snapshot.fundMonthly?.balance ?? liveData?.fund.balance ?? cp?.fundBalance ?? 0;
   const korStocksKrw = liveData?.korStocks.balance ?? cp?.korStocksBalance ?? 0;
   const usStocksUsd = liveData?.usStocks.balanceUsd ?? cp?.usStocksBalanceUsd ?? 0;
   const usStocksKrw = liveData?.usStocks.balanceKrw ?? cp?.usStocksBalanceKrw ?? Math.round(usStocksUsd * usdKrw);
@@ -97,8 +99,17 @@ function buildDraftStatementFromSnapshot(
   const canadianPensionKrw = Math.round(snapshot.canadianPension.balanceCad * cadKrw);
 
   // 교육 + Digital Asset(크립토)
-  const edu1470Stock = liveData?.education1470.stock ?? cp?.education1470Stock ?? 0;
-  const edu1470Deposit = liveData?.education1470.deposit ?? cp?.education1470Deposit ?? 0;
+  // Education: 자산관리II 탭과 일치 보장 위해 사용자 입력값(educationMonthly) 최우선
+  // CONFIRMED 월: em.deposit === cp.education1470Deposit (confirm 시 동기화) → 결과 변동 없음
+  // DRAFT 월: live-data education1470.deposit는 항상 0 하드코딩, stock은 거래 기반 평가 → 사용자 입력 우선
+  const edu1470Stock = snapshot.educationMonthly?.stockBalance
+    || liveData?.education1470.stock
+    || cp?.education1470Stock
+    || 0;
+  const edu1470Deposit = snapshot.educationMonthly?.deposit
+    ?? liveData?.education1470.deposit
+    ?? cp?.education1470Deposit
+    ?? 0;
   // 가상자산 잔액 — snapshot.crypto에서 수동 입력값 사용
   const cryptoKrw =
     (snapshot.crypto.upbit.balance || 0) +
