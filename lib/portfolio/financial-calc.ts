@@ -65,7 +65,7 @@ export function calcMonthlyCFSummary(
   const totalTransfer = Math.abs(byCategory.ACCOUNT_TRANSFER);
   const netCF = totalIncome - totalExpense - totalTransfer;
   const savingsRate =
-    totalIncome > 0 ? (totalIncome - totalExpense) / totalIncome : 0;
+    totalIncome > 0 ? (totalIncome - totalExpense - totalTransfer) / totalIncome : 0;
 
   return {
     month,
@@ -685,6 +685,7 @@ export function buildAssetManagementYearlyData(
         isBaseline,
         isDraft: false,
         hasData: false,
+        isBalanceLocked: false,
         usdKrw: 1475.27,
         exchangeRates: { usdKrw: 1475.27, cadKrw: 1086.59 },
         fund: emptySectionData(),
@@ -1084,6 +1085,7 @@ export function buildAssetManagementYearlyData(
       isBaseline,
       isDraft,
       hasData: true,
+      isBalanceLocked: !!snap.lockedBalances,
       usdKrw,
       // 환율 섹션 테이블 표시용 — 해당 월의 확정/실시간 환율
       exchangeRates: {
