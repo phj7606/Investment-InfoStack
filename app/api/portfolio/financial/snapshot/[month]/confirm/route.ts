@@ -3,16 +3,16 @@
  *
  * POST /api/portfolio/financial/snapshot/2026-05/confirm
  *
- * 처리 순서:
- * 1. 포트폴리오 계산 함수 직접 호출 → FUND / KOR Stocks / US Stocks 분리 집계
- * 2. Pension 계좌별(RETIREMENT/SAVINGS/IRP) 집계
- * 3. Education 1470 집계
- * 4. 요청 body의 환율 적용 → confirmedPortfolio 저장 + CONFIRMED 전환
+ * 사전 조건: lock-balances API로 KR/US 종가확정이 완료되어 있어야 함.
+ * lockedBalances 없으면 400 에러 반환.
  *
- * 엑셀 Asset Management 시트 구조 반영:
- * - FUND / KOR Stocks / US Stocks 별도 저장 → AssetManagementView 과거 재현용
- * - Pension (퇴직연금/연금저축/IRP) 별도 저장
- * - Education 1470 별도 저장
+ * [자산관리 탭]
+ *   snap.lockedBalances 값을 그대로 사용 (재계산 없음)
+ *   cumPnl = (balance - principal) + locked.realizedPL (lock 시점 실현손익 스냅샷)
+ *
+ * [자산관리II 탭]
+ *   educationMonthly / pensionMonthly / shorttermMonthly 저장값 우선,
+ *   없으면 Naver 종가 fetch 후 계산
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -20,14 +20,13 @@ import type { ConfirmSnapshotRequest, FinancialSnapshot } from "@/types/financia
 import { readSnapshots, writeSnapshots } from "../../route";
 import { createDraftSnapshot } from "@/lib/portfolio/financial-calc";
 
-// 포트폴리오 계산 모듈 직접 참조
-import { readTransactions as readLongtermTxs } from "@/lib/portfolio/longterm-store";
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
-import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm-calc";
-import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
-import { readAccountData as readEducationData } from "@/lib/portfolio/educationData";
+import { readTransactions as readEducationTxs } from "@/lib/portfolio/educationTransactionsData";
 import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
+import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm-calc";
 import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
+import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
+import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
 
 // POST — 월말 확정 처리
 export async function POST(
@@ -45,62 +44,51 @@ export async function POST(
   const snapshots = await readSnapshots();
   const idx = snapshots.findIndex((s) => s.month === month);
 
-  // 이미 확정된 월이면 중단
   if (idx !== -1 && snapshots[idx].status === "CONFIRMED") {
     return NextResponse.json({ error: "이미 확정된 월입니다" }, { status: 409 });
   }
 
-  // ── 2. 포트폴리오 포지션 일괄 계산 ───────────────────────
-  // Longterm — 현재가 없으면 avgCost 기준 evalAmount 사용
-  const longtermTxs = await readLongtermTxs();
-  const longtermPositions = calcLongtermPositions(longtermTxs, {});
+  const draftSnap = idx !== -1 ? snapshots[idx] : null;
 
-  // FUND 집계 (assetType === "FUND", KRW)
-  const fundPositions = longtermPositions.filter((p) => p.assetType === "FUND" && p.currency === "KRW");
-  const fundBalance = Math.round(fundPositions.reduce((s, p) => s + p.evalAmount, 0));
-  const fundPrincipal = Math.round(fundPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-  const fundUnrealizedPnl = fundPositions.reduce((s, p) => s + p.evalPL, 0);
-  const fundRealizedPnl = fundPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
-  const fundCumPnl = Math.round(fundUnrealizedPnl + fundRealizedPnl);
+  // ── 2. 종가확정 여부 검증 ────────────────────────────────
+  // 종가확정(lock-balances) 없이 월말확정하면 confirm 시점의 현재가로 계산되어
+  // 전월 마지막 거래일 종가와 불일치 발생 → 반드시 사전 종가확정 필요
+  if (!draftSnap?.lockedBalances) {
+    return NextResponse.json(
+      { error: "종가확정을 먼저 진행해주세요. (자산관리 탭 → KR / US 종가확정 버튼)" },
+      { status: 400 }
+    );
+  }
 
-  // KOR Stocks 집계 (KR, STOCK/ETF, KRW)
-  const korPositions = longtermPositions.filter(
-    (p) => p.market === "KR" && p.currency === "KRW" && (p.assetType === "STOCK" || p.assetType === "ETF")
+  // ── 3. 자산관리 탭 잔액 확정 ─────────────────────────────
+  // lockedBalances의 종가 확정값 그대로 사용 (재계산 없음)
+  const locked = draftSnap.lockedBalances;
+
+  const fundBalance = locked.fund ?? 0;
+  const fundPrincipal = locked.fundPrincipal ?? 0;
+  const korStocksBalance = locked.korStocks ?? 0;
+  const korStocksPrincipal = locked.korStocksPrincipal ?? 0;
+  const usStocksBalanceUsd = locked.usStocksUsd ?? 0;
+  const usStocksPrincipalUsd = locked.usPrincipalUsd ?? 0;
+  const stockDepositKrw = locked.stockDepositKrw ?? 0;
+
+  // cumPnl = 미실현손익(balance - principal) + lock 시점 실현손익 스냅샷
+  // locked.realizedPL을 사용하면 lock 이후 거래가 끼어드는 문제를 방지할 수 있음
+  const fundCumPnl = Math.round(
+    (fundBalance - fundPrincipal) + (locked.fundRealizedPL ?? 0)
   );
-  const korStocksBalance = Math.round(korPositions.reduce((s, p) => s + p.evalAmount, 0));
-  const korStocksPrincipal = Math.round(korPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-  const korUnrealizedPnl = korPositions.reduce((s, p) => s + p.evalPL, 0);
-  const korRealizedPnl = korPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
-  const korStocksCumPnl = Math.round(korUnrealizedPnl + korRealizedPnl);
+  const korStocksCumPnl = Math.round(
+    (korStocksBalance - korStocksPrincipal) + (locked.korStocksRealizedPL ?? 0)
+  );
+  const usStocksCumPnlUsd = Math.round(
+    ((usStocksBalanceUsd - usStocksPrincipalUsd) + (locked.usRealizedPLUsd ?? 0)) * 100
+  ) / 100;
 
-  // US Stocks 집계 (USD)
-  const usPositions = longtermPositions.filter((p) => p.market === "US" && p.currency === "USD");
-  const usStocksBalanceUsd = Math.round(usPositions.reduce((s, p) => s + p.evalAmount, 0) * 100) / 100;
-  const usStocksPrincipalUsd = Math.round(usPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0) * 100) / 100;
-  const usUnrealizedPnlUsd = usPositions.reduce((s, p) => s + p.evalPL, 0);
-  const usRealizedPnlUsd = usPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
-  const usStocksCumPnlUsd = Math.round((usUnrealizedPnlUsd + usRealizedPnlUsd) * 100) / 100;
   const usStocksBalanceKrw = Math.round(usStocksBalanceUsd * body.usdKrw);
 
-  // Stock Deposit (주식계좌 예수금) — Shortterm 계좌
-  // LongtermTransaction 기반으로 포지션 계산 (현재가 없으면 avgCost 기준 evalAmount)
-  const shorttermTxs = await readShorttermTxs();
-  const shorttermPositions = calcShorttermPositions(shorttermTxs);
-  const stockDepositKrw = Math.round(
-    shorttermPositions.reduce((s, p) => s + p.evalAmount, 0)
-  );
-
-  // 자산관리 II용 Shortterm 포지션 집계 (stockBalance + principal 분리)
-  const shorttermStockBalance = Math.round(
-    shorttermPositions.reduce((s, p) => s + p.evalAmount, 0)
-  );
-  const shorttermPrincipal = Math.round(
-    shorttermPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0)
-  );
-
-  // ── 3. Pension 계좌별 집계 ────────────────────────────────
-  // DRAFT 스냅샷에 pensionMonthly 수동 입력값이 있으면 그 값을 우선 사용 (실제 잔액 반영)
-  const draftSnap = idx !== -1 ? snapshots[idx] : null;
+  // ── 4. Pension 집계 ───────────────────────────────────────
+  // pensionMonthly 수동 입력값 우선(자산관리II 편집 다이얼로그로 저장된 값)
+  // 없으면 Naver 종가 fetch 후 계산
   const pm = draftSnap?.pensionMonthly;
 
   let pensionFundBalance: number;
@@ -110,55 +98,76 @@ export async function POST(
   let irpBalance: number;
   let irpPrincipal: number;
 
-  if (pm?.fundBalance != null || pm?.fundPrincipal != null || pm?.depositBalance != null ||
-      pm?.depositPrincipal != null || pm?.irpBalance != null || pm?.irpPrincipal != null) {
-    // pensionMonthly 수동 입력값 사용 (일부만 있어도 나머지는 live calc로 보완)
+  {
     const pensionTxs = await readPensionTxs();
-    const pensionPositions = calcPensionPositions(pensionTxs, {});
-    const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
-    const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
-    const irpPositions = pensionPositions.filter((p) => p.accountType === "IRP");
 
-    pensionFundBalance = pm.fundBalance ?? Math.round(retirementPositions.reduce((s, p) => s + p.evalAmount, 0));
-    pensionFundPrincipal = pm.fundPrincipal ?? Math.round(retirementPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    pensionDepositBalance = pm.depositBalance ?? Math.round(savingsPositions.reduce((s, p) => s + p.evalAmount, 0));
-    pensionDepositPrincipal = pm.depositPrincipal ?? Math.round(savingsPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    irpBalance = pm.irpBalance ?? Math.round(irpPositions.reduce((s, p) => s + p.evalAmount, 0));
-    irpPrincipal = pm.irpPrincipal ?? Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-  } else {
-    // 수동 입력 없으면 거래내역 기반 자동 계산
-    const pensionTxs = await readPensionTxs();
-    const pensionPositions = calcPensionPositions(pensionTxs, {});
-    const retirementPositions = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
-    const savingsPositions = pensionPositions.filter((p) => p.accountType === "SAVINGS");
-    const irpPositions = pensionPositions.filter((p) => p.accountType === "IRP");
+    // pension: 표준 6자리 코드만 Naver 조회 (비표준 코드는 avgCost fallback)
+    const rawPensionPos = calcPensionPositions(pensionTxs, {});
+    const pensionKrStocks = rawPensionPos
+      .filter((p) => /^\d{6}$/.test(p.stockCode))
+      .map((p) => ({ code: p.stockCode, name: p.stockName }));
 
-    pensionFundBalance = Math.round(retirementPositions.reduce((s, p) => s + p.evalAmount, 0));
-    pensionFundPrincipal = Math.round(retirementPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    pensionDepositBalance = Math.round(savingsPositions.reduce((s, p) => s + p.evalAmount, 0));
-    pensionDepositPrincipal = Math.round(savingsPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    irpBalance = Math.round(irpPositions.reduce((s, p) => s + p.evalAmount, 0));
-    irpPrincipal = Math.round(irpPositions.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    let pensionPrices: Record<string, number> = {};
+    if (pensionKrStocks.length > 0) {
+      pensionPrices = await fetchNaverCurrentPrices(pensionKrStocks);
+    }
+
+    const pensionPositions = calcPensionPositions(pensionTxs, pensionPrices);
+    const retirementPos = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
+    const savingsPos = pensionPositions.filter((p) => p.accountType === "SAVINGS");
+    const irpPos = pensionPositions.filter((p) => p.accountType === "IRP");
+
+    // pensionMonthly 수동 입력값 우선 (자산관리II 편집 저장값)
+    pensionFundBalance = pm?.fundBalance ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
+    pensionFundPrincipal = pm?.fundPrincipal ?? Math.round(retirementPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionDepositBalance = pm?.depositBalance ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
+    pensionDepositPrincipal = pm?.depositPrincipal ?? Math.round(savingsPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    irpBalance = pm?.irpBalance ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
+    irpPrincipal = pm?.irpPrincipal ?? Math.round(irpPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
   }
 
   // 캐나다 연금 KRW 환산
   const canadianPensionKrw = Math.round(body.canadianPension.balanceCad * body.cadKrw);
 
-  // ── 4. Education 1470 집계 ────────────────────────────────
-  const educationData = await readEducationData();
-  const education1470StockLive = Math.round(
-    educationData.positions.reduce(
-      (s, p) => s + (p.currentPrice > 0 ? p.currentPrice : p.avgPrice) * p.quantity,
-      0
-    )
-  );
-  // educationMonthly.stockBalance 수동 입력값이 있으면 우선 사용 (currentPrice=0 문제 우회)
-  const education1470Stock = draftSnap?.educationMonthly?.stockBalance ?? education1470StockLive;
-  const education1470Principal = Math.round(
-    educationData.positions.reduce((s, p) => s + p.avgPrice * p.quantity, 0)
-  );
+  // ── 5. Education 1470 집계 ────────────────────────────────
+  // educationMonthly.stockBalance 수동 입력값 우선 (자산관리II 편집 다이얼로그로 저장된 값)
+  // 없으면 신 트랜잭션 시스템 + Naver 종가로 계산
+  let education1470Stock: number;
+  let education1470Principal: number;
 
-  // ── 5. 스냅샷 구성 및 저장 ───────────────────────────────
+  {
+    const em = draftSnap?.educationMonthly;
+    const educationTxs = await readEducationTxs();
+    const rawEduPos = calcShorttermPositions(educationTxs, {});
+    const eduKrStocks = rawEduPos.map((p) => ({ code: p.stockCode, name: p.stockName }));
+
+    let eduPrices: Record<string, number> = {};
+    if (eduKrStocks.length > 0) {
+      eduPrices = await fetchNaverCurrentPrices(eduKrStocks);
+    }
+    const eduPositions = calcShorttermPositions(educationTxs, eduPrices);
+
+    education1470Principal = Math.round(rawEduPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    // educationMonthly 수동 입력값 우선, 없으면 종가 기준 자동 계산
+    education1470Stock = em?.stockBalance ?? Math.round(eduPositions.reduce((s, p) => s + p.evalAmount, 0));
+  }
+
+  // ── 6. Short-term (자산관리II) 집계 ──────────────────────
+  // shorttermMonthly.stockBalance 수동 입력값 우선
+  // 없으면 종가확정(lockedBalances)에서 가져온 stockDepositKrw 사용
+  const sm = draftSnap?.shorttermMonthly;
+  const shorttermStockBalance = sm?.stockBalance ?? stockDepositKrw;
+  const shorttermDeposit = sm?.deposit ?? 0;
+
+  // shorttermPrincipal: avgCost 기반 — 가격과 무관하므로 별도 계산
+  let shorttermPrincipal = 0;
+  {
+    const shorttermTxs = await readShorttermTxs();
+    const rawPos = calcShorttermPositions(shorttermTxs, {});
+    shorttermPrincipal = Math.round(rawPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+  }
+
+  // ── 7. 스냅샷 구성 및 저장 ───────────────────────────────
   const base: FinancialSnapshot =
     idx !== -1
       ? snapshots[idx]
@@ -218,7 +227,7 @@ export async function POST(
       // Short-term Account (2805) — 자산관리 II 표시용
       shorttermStockBalance,
       shorttermPrincipal,
-      shorttermDeposit: base.shorttermMonthly?.deposit ?? 0,
+      shorttermDeposit,
       // 이전 버전 호환
       canadianPensionKrw,
     },

@@ -3,7 +3,8 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, RefreshCw, Copy } from "lucide-react";
+import { ClipboardPen, RefreshCw, Copy, CheckSquare } from "lucide-react";
+import { LockPricesDialog } from "./LockPricesDialog";
 import {
   Dialog,
   DialogContent,
@@ -122,18 +123,16 @@ interface DialogState {
   // Education 1470
   educationDeposit: string;
   educationAccountTransfer: string;
-  // Pension (실제 잔액 수동 입력)
-  pensionFundBalance: string;
+  // Pension — 원금만 수동 입력, 잔액은 자동계산
   pensionFundPrincipal: string;
-  pensionDepositBalance: string;
   pensionDepositPrincipal: string;
-  irpBalance: string;
   irpPrincipal: string;
   // RESP/RRSP
   respRrspBalanceCad: string;
   // Short-term Account (2805)
   shorttermDeposit: string;
   shorttermAccountTransfer: string;
+  shorttermStockBalance: string;  // 수동 오버라이드 (비워두면 live-data 사용)
 }
 
 interface InputDialogProps {
@@ -226,31 +225,19 @@ function AssetManagementIIInputDialog({
             </div>
           </section>
 
-          {/* Pension */}
+          {/* Pension — 원금만 수동 입력, 잔액은 자동계산 */}
           <section>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Pension
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">퇴직연금 잔액 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.pensionFundBalance} onChange={set("pensionFundBalance")} placeholder="" />
-              </div>
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <Label className="text-xs">퇴직연금 원금 (KRW)</Label>
                 <Input className="h-7 text-xs" value={state.pensionFundPrincipal} onChange={set("pensionFundPrincipal")} placeholder="" />
               </div>
               <div>
-                <Label className="text-xs">연금저축 잔액 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.pensionDepositBalance} onChange={set("pensionDepositBalance")} placeholder="" />
-              </div>
-              <div>
                 <Label className="text-xs">연금저축 원금 (KRW)</Label>
                 <Input className="h-7 text-xs" value={state.pensionDepositPrincipal} onChange={set("pensionDepositPrincipal")} placeholder="" />
-              </div>
-              <div>
-                <Label className="text-xs">IRP 잔액 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.irpBalance} onChange={set("irpBalance")} placeholder="" />
               </div>
               <div>
                 <Label className="text-xs">IRP 원금 (KRW)</Label>
@@ -258,7 +245,7 @@ function AssetManagementIIInputDialog({
               </div>
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              * 비워두면 거래내역 기반 자동 계산값 사용
+              * 잔액은 거래내역+종가 자동계산 | 비워두면 원금도 자동 계산
             </p>
           </section>
 
@@ -288,6 +275,10 @@ function AssetManagementIIInputDialog({
                 <Input className="h-7 text-xs" value={state.shorttermAccountTransfer} onChange={set("shorttermAccountTransfer")} placeholder="0" />
               </div>
             </div>
+            <div className="mt-2">
+              <Label className="text-xs">주식 잔액 오버라이드 (KRW)</Label>
+              <Input className="h-7 text-xs" value={state.shorttermStockBalance} onChange={set("shorttermStockBalance")} placeholder="비워두면 live-data 자동 계산" />
+            </div>
           </section>
         </div>
 
@@ -312,7 +303,11 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
   const curYear = new Date().getFullYear();
   const [year, setYear] = useState(curYear);
 
-  // 다이얼로그 상태
+  // 종가 확정 다이얼로그
+  const curMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
+  const [lockDialogOpen, setLockDialogOpen] = useState(false);
+
+  // 편집 다이얼로그 상태
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>({
@@ -322,12 +317,13 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
     binanceBalance: "0", binancePrincipal: "0",
     educationDeposit: "0",
     educationAccountTransfer: "0",
-    pensionFundBalance: "", pensionFundPrincipal: "",
-    pensionDepositBalance: "", pensionDepositPrincipal: "",
-    irpBalance: "", irpPrincipal: "",
+    pensionFundPrincipal: "",
+    pensionDepositPrincipal: "",
+    irpPrincipal: "",
     respRrspBalanceCad: "0",
     shorttermDeposit: "0",
     shorttermAccountTransfer: "0",
+    shorttermStockBalance: "",
   });
 
   // 스냅샷 맵 (month → snapshot) — 이전 월 데이터 접근용
@@ -356,17 +352,15 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
       // Education: 저장된 수동 입력값 우선, 없으면 현재 집계값
       educationDeposit: String(snap?.educationMonthly?.deposit ?? col.education.deposit),
       educationAccountTransfer: String(snap?.educationMonthly?.accountTransfer ?? col.education.accountTransfer),
-      // Pension: 저장된 수동 입력값 우선 (없으면 빈 문자열 → 자동 계산 사용)
-      pensionFundBalance: pm?.fundBalance != null ? String(pm.fundBalance) : "",
+      // Pension: 원금만 수동 입력 (잔액은 거래내역+종가 자동계산)
       pensionFundPrincipal: pm?.fundPrincipal != null ? String(pm.fundPrincipal) : "",
-      pensionDepositBalance: pm?.depositBalance != null ? String(pm.depositBalance) : "",
       pensionDepositPrincipal: pm?.depositPrincipal != null ? String(pm.depositPrincipal) : "",
-      irpBalance: pm?.irpBalance != null ? String(pm.irpBalance) : "",
       irpPrincipal: pm?.irpPrincipal != null ? String(pm.irpPrincipal) : "",
       respRrspBalanceCad: String(snap?.canadianPension?.balanceCad ?? col.respRrsp.balanceCad),
       // Short-term: 저장된 수동 입력값 우선, 없으면 현재 집계값
       shorttermDeposit: String(snap?.shorttermMonthly?.deposit ?? col.shortterm.deposit),
       shorttermAccountTransfer: String(snap?.shorttermMonthly?.accountTransfer ?? col.shortterm.accountTransfer),
+      shorttermStockBalance: snap?.shorttermMonthly?.stockBalance != null ? String(snap.shorttermMonthly.stockBalance) : "",
     });
     setDialogOpen(true);
   }, [snapMap]);
@@ -424,11 +418,8 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
           accountTransfer: Number(dialogState.educationAccountTransfer) || 0,
         },
         pensionMonthly: {
-          fundBalance: parsePension(dialogState.pensionFundBalance),
           fundPrincipal: parsePension(dialogState.pensionFundPrincipal),
-          depositBalance: parsePension(dialogState.pensionDepositBalance),
           depositPrincipal: parsePension(dialogState.pensionDepositPrincipal),
-          irpBalance: parsePension(dialogState.irpBalance),
           irpPrincipal: parsePension(dialogState.irpPrincipal),
         },
         canadianPension: {
@@ -438,6 +429,10 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
         shorttermMonthly: {
           deposit: Number(dialogState.shorttermDeposit) || 0,
           accountTransfer: Number(dialogState.shorttermAccountTransfer) || 0,
+          // 비워두면 undefined → financial-calc에서 liveData fallback 사용
+          ...(dialogState.shorttermStockBalance.trim() !== "" && {
+            stockBalance: Number(dialogState.shorttermStockBalance) || 0,
+          }),
         },
       };
 
@@ -484,10 +479,23 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             </Badge>
           )}
         </div>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onRefresh} disabled={liveLoading}>
-          <RefreshCw className={`h-3 w-3 ${liveLoading ? "animate-spin" : ""}`} />
-          새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* DRAFT 월이 있을 때만 종가 확정 버튼 표시 */}
+          {columns.some((c) => c.isDraft) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1 border-amber-400 text-amber-700 hover:bg-amber-50"
+              onClick={() => setLockDialogOpen(true)}
+            >
+              <CheckSquare className="w-3 h-3" />종가 확정
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs" onClick={onRefresh} disabled={liveLoading}>
+            <RefreshCw className={`h-3 w-3 ${liveLoading ? "animate-spin" : ""}`} />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       {/* 테이블 */}
@@ -522,7 +530,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
                             className="text-muted-foreground hover:text-foreground transition-colors"
                             onClick={() => handleEdit(col)}
                           >
-                            <Pencil className="h-3 w-3" />
+                            <ClipboardPen className="h-3 w-3" />
                           </button>
                         )}
                       </div>
@@ -692,24 +700,24 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
               getValue={(col) => fmtKrw(col.pension.totalPrincipal)}
             />
 
-            {/* Balance — 직접입력 */}
+            {/* Balance — 실시간 자동계산 */}
             <LabelRow label="Balance (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundBalance)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundBalance)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 연금저축 (Pension Deposit)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositBalance)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositBalance)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· IRP" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.irpBalance)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.irpBalance)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <TotalRow
@@ -862,6 +870,15 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
         onCopyPrev={handleCopyPrev}
         hasPrev={hasPrevData()}
         saving={saving}
+      />
+
+      {/* 종가 확정 다이얼로그 */}
+      <LockPricesDialog
+        open={lockDialogOpen}
+        onClose={() => setLockDialogOpen(false)}
+        month={curMonthStr}
+        mode="II"
+        onLocked={onRefresh}
       />
     </div>
   );

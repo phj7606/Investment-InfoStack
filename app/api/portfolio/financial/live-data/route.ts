@@ -20,7 +20,7 @@ import { readTransactions as readLongtermTxs } from "@/lib/portfolio/longterm-st
 import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm-calc";
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
 import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
-import { readAccountData as readEducationData } from "@/lib/portfolio/educationData";
+import { readTransactions as readEducationTxs } from "@/lib/portfolio/educationTransactionsData";
 import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
 import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
@@ -40,8 +40,8 @@ export async function GET(req: NextRequest) {
 
   try {
     // ── 1. 모든 포트폴리오 데이터 + 현재 환율 병렬 로드 ─────
-    const [educationData, shorttermTxs, liveRates] = await Promise.all([
-      readEducationData(),
+    const [educationTxs, shorttermTxs, liveRates] = await Promise.all([
+      readEducationTxs(),
       readShorttermTxs(),
       fetchExchangeRates(),  // 현재 환율 — DRAFT 월 자산관리 II 계산에 사용
     ]);
@@ -60,18 +60,28 @@ export async function GET(req: NextRequest) {
     const krStocks = krPositions.map((p) => ({ code: p.stockCode, name: p.stockName }));
     const usSymbols = usPositions.map((p) => p.stockCode);
 
-    // education/shortterm 종목을 longterm과 합산 (중복 제거)
+    // education/shortterm/pension 종목을 longterm과 합산 (중복 제거)
+    // pension: /risk/prices와 동일 기준 — 6자리이고 숫자 포함이면 KR (알파뉴메릭 코드 포함)
+    const rawPensionPositions = calcPensionPositions(await readPensionTxs(), {});
+    const pensionKrStocks = rawPensionPositions
+      .filter((p) => p.stockCode.length === 6 && /[0-9]/.test(p.stockCode))
+      .map((p) => ({ code: p.stockCode, name: p.stockName }));
+
+    // education: 신규 트랜잭션 시스템 (Education Account 페이지와 동일 데이터 소스)
+    const rawEducationPositions = calcShorttermPositions(educationTxs, {});
+
     const eduShortStocks = [
-      ...educationData.positions.map((p: { stockCode: string; stockName: string }) => ({ code: p.stockCode, name: p.stockName })),
+      ...rawEducationPositions.map((p) => ({ code: p.stockCode, name: p.stockName })),
       ...rawShorttermPositions.map((p) => ({ code: p.stockCode, name: p.stockName })),
+      ...pensionKrStocks,
     ].filter((s) => !krStocks.some((k) => k.code === s.code));
     const allKrStocks = [...krStocks, ...eduShortStocks];
 
     const allSymbols = [...usSymbols.sort(), ...allKrStocks.map((s) => s.code).sort()];
     // 캐시 키: 종목 목록을 해시로 압축하여 파일명 길이 초과(ENAMETOOLONG) 방지
-    // v2: education/shortterm 종목 추가
+    // v3: pension 종목 추가
     const symbolsHash = Buffer.from(allSymbols.join(",")).toString("base64url").slice(0, 40);
-    const cacheKey = `financial-live-prices-v2-${symbolsHash}`;
+    const cacheKey = `financial-live-prices-v3-${symbolsHash}`;
 
     let prices: Record<string, number> = {};
     const cachedPrices = await readCache<{ prices: Record<string, number> }>(cacheKey);
@@ -84,16 +94,88 @@ export async function GET(req: NextRequest) {
       ]);
       prices = { ...krPrices, ...usPrices };
       if (Object.keys(prices).length > 0) {
-        await writeCache(cacheKey, { prices }, params.cache.priceTTLSeconds);
+        const now = new Date().toISOString();
+        const ttl = params.cache.priceTTLSeconds;
+
+        // 통합 캐시 저장
+        const writeOps: Promise<void>[] = [
+          writeCache(cacheKey, { prices }, ttl),
+        ];
+
+        // 각 대시보드 prices API와 캐시 공유 — 동일 TTL, 동일 종목 기준 캐시 키
+        // 각 대시보드 API가 조회하기 전 이미 캐시에 값이 있으면 같은 가격을 읽게 됨
+
+        // longterm (account=all): portfolio-longterm-prices-v2-all-{US정렬,KR정렬}
+        const ltKrCodes = krPositions.map((p) => p.stockCode).sort();
+        const ltUsSymbols = usPositions.map((p) => p.stockCode).sort();
+        const ltAllSymbols = [...ltUsSymbols, ...ltKrCodes];
+        if (ltAllSymbols.length > 0) {
+          const ltKey = `portfolio-longterm-prices-v2-all-${ltAllSymbols.join("-")}`;
+          const ltPrices: Record<string, number> = {};
+          const ltNotFound: string[] = [];
+          for (const sym of ltAllSymbols) {
+            if (prices[sym] !== undefined) ltPrices[sym] = prices[sym];
+            else ltNotFound.push(sym);
+          }
+          writeOps.push(writeCache(ltKey, { prices: ltPrices, fetchedAt: now, notFound: ltNotFound }, ttl));
+        }
+
+        // shortterm: portfolio-shortterm-prices-v1-{US정렬,KR정렬}
+        const stKrCodes = rawShorttermPositions.filter((p) => p.market === "KR").map((p) => p.stockCode).sort();
+        const stUsSymbols = rawShorttermPositions.filter((p) => p.market === "US").map((p) => p.stockCode).sort();
+        const stAllSymbols = [...stUsSymbols, ...stKrCodes];
+        if (stAllSymbols.length > 0) {
+          const stKey = `portfolio-shortterm-prices-v1-${stAllSymbols.join("-")}`;
+          const stPrices: Record<string, number> = {};
+          const stNotFound: string[] = [];
+          for (const sym of stAllSymbols) {
+            if (prices[sym] !== undefined) stPrices[sym] = prices[sym];
+            else stNotFound.push(sym);
+          }
+          writeOps.push(writeCache(stKey, { prices: stPrices, fetchedAt: now, notFound: stNotFound }, ttl));
+        }
+
+        // education: portfolio-education-prices-v1-{US정렬,KR정렬}
+        const eduKrCodes = rawEducationPositions.filter((p) => p.market === "KR").map((p) => p.stockCode).sort();
+        const eduUsSymbols = rawEducationPositions.filter((p) => p.market === "US").map((p) => p.stockCode).sort();
+        const eduAllSymbols = [...eduUsSymbols, ...eduKrCodes];
+        if (eduAllSymbols.length > 0) {
+          const eduKey = `portfolio-education-prices-v1-${eduAllSymbols.join("-")}`;
+          const eduPrices: Record<string, number> = {};
+          const eduNotFound: string[] = [];
+          for (const sym of eduAllSymbols) {
+            if (prices[sym] !== undefined) eduPrices[sym] = prices[sym];
+            else eduNotFound.push(sym);
+          }
+          writeOps.push(writeCache(eduKey, { prices: eduPrices, fetchedAt: now, notFound: eduNotFound }, ttl));
+        }
+
+        // pension: portfolio-pension-prices-v1-latest (고정 키)
+        // /risk/prices route가 캐시 키를 모르므로 고정 키 사용 — Pension 대시보드와 가격 공유
+        // pension KR 종목만 대상 (비표준 코드는 live-data 조회에서 이미 제외됨)
+        const penKrCodes = pensionKrStocks.map((s) => s.code).sort();
+        if (penKrCodes.length > 0) {
+          const penPrices: Record<string, number> = {};
+          for (const code of penKrCodes) {
+            if (prices[code] !== undefined) penPrices[code] = prices[code];
+          }
+          if (Object.keys(penPrices).length > 0) {
+            writeOps.push(
+              writeCache("portfolio-pension-prices-v1-latest", { prices: penPrices, fetchedAt: now }, ttl)
+            );
+          }
+        }
+
+        await Promise.all(writeOps);
       }
     }
 
     // 실제 가격으로 포지션 재계산
     const longtermPositions = calcLongtermPositions(longtermTxs, prices);
 
-    // Pension
+    // Pension — 가격 맵 전달로 표준 코드 ETF는 실시간 종가 반영, 비표준 코드는 avgCost fallback
     const pensionTxs = await readPensionTxs();
-    const pensionPositions = calcPensionPositions(pensionTxs, {});
+    const pensionPositions = calcPensionPositions(pensionTxs, prices);
 
     // ── 2. FUND 집계 (assetType === "FUND", KRW) ─────────
     const fundPositions = longtermPositions.filter((p) => p.assetType === "FUND" && p.currency === "KRW");
@@ -102,7 +184,6 @@ export async function GET(req: NextRequest) {
     const fundUnrealizedPnl = fundPositions.reduce((s, p) => s + p.evalPL, 0);
     const fundRealizedPnl = fundPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
     const fundCumulativePnl = fundUnrealizedPnl + fundRealizedPnl;
-    const fundPnlRate = fundPrincipal > 0 ? fundUnrealizedPnl / fundPrincipal : 0;
 
     // ── 3. KOR Stocks 집계 (KR, STOCK/ETF, KRW) ──────────
     const korStockPositions = longtermPositions.filter(
@@ -113,7 +194,6 @@ export async function GET(req: NextRequest) {
     const korStocksUnrealizedPnl = korStockPositions.reduce((s, p) => s + p.evalPL, 0);
     const korStocksRealizedPnl = korStockPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
     const korStocksCumulativePnl = korStocksUnrealizedPnl + korStocksRealizedPnl;
-    const korStocksPnlRate = korStocksPrincipal > 0 ? korStocksUnrealizedPnl / korStocksPrincipal : 0;
 
     // ── 4. US Stocks 집계 (USD) ───────────────────────────
     const usStockPositions = longtermPositions.filter((p) => p.market === "US" && p.currency === "USD");
@@ -122,16 +202,16 @@ export async function GET(req: NextRequest) {
     const usUnrealizedPnlUsd = usStockPositions.reduce((s, p) => s + p.evalPL, 0);
     const usRealizedPnlUsd = usStockPositions.reduce((s, p) => s + p.totalRealizedPL, 0);
     const usCumulativePnlUsd = usUnrealizedPnlUsd + usRealizedPnlUsd;
-    const usPnlRateUsd = usPrincipalUsd > 0 ? usUnrealizedPnlUsd / usPrincipalUsd : 0;
 
     // ── 5. Stock Deposit (예수금) ─────────────────────────
     // Shortterm 계좌를 주식계좌 KRW 예수금으로 사용
-    // prices에 실시간 가격이 있으면 사용, 없으면 avgCost(evalAmount) fallback
+    // 대시보드 총 평가금액과 동일하게 현재가 확인된 종목만 합산 (avgCost fallback 제외)
     const shorttermPositions = calcShorttermPositions(shorttermTxs, prices);
-    const stockDepositKrw = shorttermPositions.reduce((s, p) => s + p.evalAmount, 0);
+    const shorttermPricedPositions = shorttermPositions.filter((p) => p.currentPrice !== undefined);
+    const stockDepositKrw = shorttermPricedPositions.reduce((s, p) => s + p.evalAmount, 0);
 
     // ── 5-B. Shortterm 포지션 집계 (자산관리 II 표시용) ──
-    const shorttermStockBalance = shorttermPositions.reduce((s, p) => s + p.evalAmount, 0);
+    const shorttermStockBalance = shorttermPricedPositions.reduce((s, p) => s + p.evalAmount, 0);
     const shorttermPrincipal = shorttermPositions.reduce(
       (s, p) => s + p.avgCost * p.quantity,
       0
@@ -157,14 +237,15 @@ export async function GET(req: NextRequest) {
     const irpPnl = irpPositions.reduce((s, p) => s + p.evalPL, 0);
 
     // ── 7. Education 1470 집계 ────────────────────────────
-    // prices에 실시간 가격이 있으면 사용, 없으면 avgPrice fallback
-    const education1470Stock = educationData.positions.reduce(
-      (s, p) => s + (prices[p.stockCode] ?? p.avgPrice) * p.quantity,
-      0
-    );
+    // 신 트랜잭션 시스템: Education Account 페이지와 동일 데이터 소스로 집계
+    const educationPositions = calcShorttermPositions(educationTxs, prices);
+    // 대시보드와 동일하게 현재가 확인된 종목만 합산 (avgCost fallback 제외)
+    const education1470Stock = educationPositions
+      .filter((p) => p.currentPrice !== undefined)
+      .reduce((s, p) => s + p.evalAmount, 0);
     const education1470Deposit = 0; // 별도 예금 계좌 추적 시 업데이트
-    const education1470Principal = educationData.positions.reduce(
-      (s, p) => s + p.avgPrice * p.quantity,
+    const education1470Principal = educationPositions.reduce(
+      (s, p) => s + p.avgCost * p.quantity,
       0
     );
     const education1470Pnl = education1470Stock - education1470Principal;
@@ -214,21 +295,18 @@ export async function GET(req: NextRequest) {
         principal: Math.round(fundPrincipal),
         cumulativePnl: Math.round(fundCumulativePnl),
         unrealizedPnl: Math.round(fundUnrealizedPnl),
-        pnlRate: Math.round(fundPnlRate * 10000) / 10000,
       },
       korStocks: {
         balance: Math.round(korStocksBalance),
         principal: Math.round(korStocksPrincipal),
         cumulativePnl: Math.round(korStocksCumulativePnl),
         unrealizedPnl: Math.round(korStocksUnrealizedPnl),
-        pnlRate: Math.round(korStocksPnlRate * 10000) / 10000,
       },
       usStocks: {
         balanceUsd: Math.round(usBalanceUsd * 100) / 100,
         principalUsd: Math.round(usPrincipalUsd * 100) / 100,
         cumulativePnlUsd: Math.round(usCumulativePnlUsd * 100) / 100,
         unrealizedPnlUsd: Math.round(usUnrealizedPnlUsd * 100) / 100,
-        pnlRateUsd: Math.round(usPnlRateUsd * 10000) / 10000,
         balanceKrw: Math.round(usBalanceUsd * usdKrw),
       },
       stockDepositKrw: Math.round(stockDepositKrw),

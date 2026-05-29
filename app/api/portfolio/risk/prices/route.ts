@@ -9,6 +9,11 @@
  *     · 정규화 후 원본 코드 키로 결과 반환 (포지션 매핑 유지)
  *   - 숫자+영문 혼합 → US (Yahoo Finance v8 chart)
  *
+ * 캐시 전략:
+ *   live-data/route.ts가 통합 조회 후 "portfolio-pension-prices-v1-latest" 키로 저장.
+ *   요청 코드 중 KR 코드가 모두 캐시에 있으면 즉시 반환 (Naver 조회 생략).
+ *   US 코드가 있거나 캐시 미스이면 기존 Naver/Yahoo 직접 조회 경로로 fallback.
+ *
  * 쿼리 파라미터:
  *   codes: 쉼표 구분 종목코드/심볼 (최대 10개)
  *
@@ -19,6 +24,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchNaverCurrentPrices, fetchNaverPriceAndName } from "@/lib/fetchers/naver";
 import { fetchYahooCurrentPrices } from "@/lib/fetchers/yahoo";
+import { readCache, writeCache } from "@/lib/cache";
+import params from "@/config/params.json";
 
 /**
  * KR 종목코드 정규화
@@ -51,6 +58,32 @@ export async function GET(req: NextRequest) {
     const isKrCode = (c: string) => c.length === 6 && /[0-9]/.test(c);
     const krRaw   = codes.filter(isKrCode);
     const usCodes = codes.filter((c) => !isKrCode(c));
+
+    // live-data 캐시 우선 조회 (KR 전용 — US는 캐시에 없으므로 건너뜀)
+    // US 코드가 없고 KR 코드가 모두 캐시에 있으면 Naver 조회 없이 즉시 반환
+    if (usCodes.length === 0 && krRaw.length > 0) {
+      const cached = await readCache<{ prices: Record<string, number>; fetchedAt: string }>(
+        "portfolio-pension-prices-v1-latest"
+      );
+      if (cached) {
+        const resultPrices: Record<string, number> = {};
+        let allHit = true;
+        for (const orig of krRaw) {
+          const norm = normalizeKrCode(orig);
+          const price = cached.prices[norm] ?? cached.prices[orig];
+          if (price !== undefined) {
+            resultPrices[orig] = price;
+          } else {
+            allHit = false;
+            break;
+          }
+        }
+        if (allHit) {
+          console.log(`[risk/prices] 캐시 히트 — ${krRaw.length}개 반환 (Naver 조회 생략)`);
+          return NextResponse.json({ prices: resultPrices, names: {}, fetchedAt: cached.fetchedAt });
+        }
+      }
+    }
 
     // KR 코드 정규화: 원본 → 정규화 코드 매핑 (결과를 원본 키로 되돌리기 위해)
     const krNormMap: Record<string, string> = {};  // normalizedCode → originalCode
