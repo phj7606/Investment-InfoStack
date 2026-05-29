@@ -62,9 +62,9 @@ function buildDraftStatementFromSnapshot(
   const { exchangeRates } = snapshot;
   const { usdKrw, cadKrw } = exchangeRates;
 
-  // 투자자산 — FUND는 사용자가 자산관리 탭에서 직접 입력한 fundMonthly.balance 최우선
-  // (live-data API가 펀드 현재가를 정확히 평가 못 함 → 25M으로 잘못 표시되는 문제 우회)
-  // 자산관리 탭 표시값과 일치 보장
+  // 투자자산 — FUND: 자산관리 탭과 일치 보장 위해 사용자 입력값(fundMonthly.balance) 최우선
+  // CONFIRMED 월: fm.balance === cp.fundBalance (confirm 시 동기화됨) → 결과 변동 없음
+  // DRAFT 월: live-data fund.balance가 부정확할 때 사용자 입력값 반영
   const fundKrw = snapshot.fundMonthly?.balance ?? liveData?.fund.balance ?? cp?.fundBalance ?? 0;
   const korStocksKrw = liveData?.korStocks.balance ?? cp?.korStocksBalance ?? 0;
   const usStocksUsd = liveData?.usStocks.balanceUsd ?? cp?.usStocksBalanceUsd ?? 0;
@@ -99,8 +99,9 @@ function buildDraftStatementFromSnapshot(
   const canadianPensionKrw = Math.round(snapshot.canadianPension.balanceCad * cadKrw);
 
   // 교육 + Digital Asset(크립토)
-  // Education stock/deposit: 자산관리II 탭에서 입력한 educationMonthly 값 최우선
-  // (자산관리II 탭과 동일 산식 — financial-calc.ts:1244~1249)
+  // Education: 자산관리II 탭과 일치 보장 위해 사용자 입력값(educationMonthly) 최우선
+  // CONFIRMED 월: em.deposit === cp.education1470Deposit (confirm 시 동기화) → 결과 변동 없음
+  // DRAFT 월: live-data education1470.deposit는 항상 0 하드코딩, stock은 거래 기반 평가 → 사용자 입력 우선
   const edu1470Stock = snapshot.educationMonthly?.stockBalance
     || liveData?.education1470.stock
     || cp?.education1470Stock
