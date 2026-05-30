@@ -25,6 +25,33 @@ import type { ConfirmSnapshotRequest, FinancialSnapshot } from "@/types/financia
 import { readSnapshots, writeSnapshots } from "../../route";
 import { createDraftSnapshot } from "@/lib/portfolio/financial-calc";
 
+// DELETE — 월말 확정 취소 (CONFIRMED → DRAFT 복원)
+// confirmedPortfolio·confirmedAt 제거, lockedBalances·DRAFT 입력값 보존
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ month: string }> }
+) {
+  const { month } = await params;
+  const snapshots = await readSnapshots();
+  const idx = snapshots.findIndex((s) => s.month === month);
+
+  if (idx === -1) {
+    return NextResponse.json({ error: "해당 월 스냅샷이 없습니다" }, { status: 404 });
+  }
+  if (snapshots[idx].status !== "CONFIRMED") {
+    return NextResponse.json({ error: "확정 상태가 아닙니다" }, { status: 400 });
+  }
+
+  // confirmedPortfolio·confirmedAt 제거, 나머지 DRAFT 필드 보존
+  const { confirmedPortfolio: _cp, confirmedAt: _ca, ...rest } = snapshots[idx] as FinancialSnapshot & {
+    confirmedPortfolio?: unknown; confirmedAt?: unknown;
+  };
+  snapshots[idx] = { ...rest, status: "DRAFT", updatedAt: new Date().toISOString() } as FinancialSnapshot;
+
+  await writeSnapshots(snapshots);
+  return NextResponse.json({ ok: true, month, status: "DRAFT" });
+}
+
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
 import { readTransactions as readEducationTxs } from "@/lib/portfolio/educationTransactionsData";
 import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
