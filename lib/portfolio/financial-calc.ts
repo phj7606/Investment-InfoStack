@@ -310,7 +310,12 @@ export function buildConfirmedStatementData(
       educationKrw,
       investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
-      // CONFIRMED: pensionBreakdown은 undefined — 화면 표시 변경 없음
+      // CONFIRMED도 DRAFT와 동일하게 3개 항목 세분화
+      pensionBreakdown: {
+        pensionFundKrw: pensionFundKrwConf,
+        pensionDepositKrw: pensionDepositKrwConf,
+        respRrspKrw: canadianPensionKrw,
+      },
       investmentPortfolio,
       pension,
       education: { label: "교육저축 (1470)", amountKrw: educationKrw, currency: "KRW" },
