@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Lock, Pencil } from "lucide-react";
+import { Lock, Unlock, Pencil } from "lucide-react";
 import { MonthEndConfirmDialog } from "../MonthEndConfirmDialog";
 import { SnapshotEditDialog } from "../SnapshotEditDialog";
 import type {
@@ -105,6 +105,7 @@ function TotalRow({ label, amount, colorClass = "" }: { label: string; amount: n
 export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialStatementViewProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [revertLoading, setRevertLoading] = useState(false);
 
   const isConfirmed = data.status === "CONFIRMED";
   const { assets, liabilities, netWorth, exchangeRates, capital } = data;
@@ -122,6 +123,25 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
       throw new Error(err.error ?? "확정 실패");
     }
     onRefresh();
+  }, [snapshot.month, onRefresh]);
+
+  // 확정 취소 — CONFIRMED → DRAFT 복원
+  const handleRevertConfirm = useCallback(async () => {
+    if (!window.confirm(`${snapshot.month} 확정을 취소하고 DRAFT로 되돌리겠습니까?`)) return;
+    setRevertLoading(true);
+    try {
+      const res = await fetch(`/api/portfolio/financial/snapshot/${snapshot.month}/confirm`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error ?? "확정 취소 실패");
+        return;
+      }
+      onRefresh();
+    } finally {
+      setRevertLoading(false);
+    }
   }, [snapshot.month, onRefresh]);
 
   // 스냅샷 수정 API 호출 (DRAFT 상태)
@@ -162,7 +182,18 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
           </span>
         </div>
         <div className="flex gap-2">
-          {!isConfirmed && (
+          {isConfirmed ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleRevertConfirm()}
+              disabled={revertLoading}
+              className="text-destructive border-destructive/50 hover:bg-destructive/10"
+            >
+              <Unlock className="w-3.5 h-3.5 mr-1" />
+              {revertLoading ? "취소 중..." : "확정 취소"}
+            </Button>
+          ) : (
             <>
               <Button variant="outline" size="sm" onClick={() => setShowEdit(true)}>
                 <Pencil className="w-3.5 h-3.5 mr-1" />Edit
