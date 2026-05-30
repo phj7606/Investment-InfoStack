@@ -25,6 +25,7 @@ import {
   BarChart3,
   PiggyBank,
   Landmark,
+  Wallet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -83,6 +84,11 @@ const ACTION1_ITEMS = [
 // Phase 9: Short-term / Education / Value Investment 계좌 구현
 // Phase 10: 성과 분석 페이지 추가
 const ACTION2_ITEMS = [
+  {
+    title: "Deposit & FX",
+    href: "/dashboard/portfolio/deposits",
+    icon: Wallet,
+  },
   {
     title: "Short-term Account",
     href: "/dashboard/portfolio/trend",

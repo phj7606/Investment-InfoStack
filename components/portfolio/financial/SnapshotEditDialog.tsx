@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import type { FinancialSnapshot, UpdateSnapshotRequest } from "@/types/financial";
 
 interface SnapshotEditDialogProps {
@@ -98,15 +99,22 @@ export function SnapshotEditDialog({ open, snapshot, onClose, onSave }: Snapshot
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>개인차입금</Label>
-                <Input type="number" min="0" value={privateLoan}
-                  onChange={(e) => setPrivateLoan(Number(e.target.value))} />
-                <p className="text-xs text-muted-foreground">{privateLoan.toLocaleString()}원</p>
+                {/* FormattedInput: KRW 금액 실시간 콤마 포맷 — number 상태이므로 String() 변환 */}
+                <FormattedInput
+                  value={String(privateLoan)}
+                  onChange={(raw) => setPrivateLoan(Number(raw) || 0)}
+                  className="h-9"
+                />
+                <p className="text-xs text-muted-foreground">{privateLoan.toLocaleString()}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>주택담보대출</Label>
-                <Input type="number" min="0" value={mortgageLoan}
-                  onChange={(e) => setMortgageLoan(Number(e.target.value))} />
-                <p className="text-xs text-muted-foreground">{mortgageLoan.toLocaleString()}원</p>
+                <FormattedInput
+                  value={String(mortgageLoan)}
+                  onChange={(raw) => setMortgageLoan(Number(raw) || 0)}
+                  className="h-9"
+                />
+                <p className="text-xs text-muted-foreground">{mortgageLoan.toLocaleString()}</p>
               </div>
             </div>
           </section>
@@ -116,9 +124,13 @@ export function SnapshotEditDialog({ open, snapshot, onClose, onSave }: Snapshot
             <p className="text-sm font-semibold text-muted-foreground">비유동 자산 (Non-current Assets)</p>
             <div className="space-y-1.5">
               <Label>부동산 (Real Estate)</Label>
-              <Input type="number" min="0" value={realEstate}
-                onChange={(e) => setRealEstate(Number(e.target.value))} />
-              <p className="text-xs text-muted-foreground">{realEstate.toLocaleString()}원</p>
+              {/* FormattedInput: KRW 금액 실시간 콤마 포맷 */}
+              <FormattedInput
+                value={String(realEstate)}
+                onChange={(raw) => setRealEstate(Number(raw) || 0)}
+                className="h-9"
+              />
+              <p className="text-xs text-muted-foreground">{realEstate.toLocaleString()}</p>
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -132,8 +144,13 @@ export function SnapshotEditDialog({ open, snapshot, onClose, onSave }: Snapshot
                 <div key={i} className="flex gap-2 items-center">
                   <Input className="flex-1" placeholder="자산명" value={a.name}
                     onChange={(e) => updateOtherAsset(i, "name", e.target.value)} />
-                  <Input className="w-36" type="number" min="0" placeholder="금액" value={a.amount}
-                    onChange={(e) => updateOtherAsset(i, "amount", e.target.value)} />
+                  {/* FormattedInput: 기타자산 금액 실시간 콤마 포맷 */}
+                  <FormattedInput
+                    value={String(a.amount)}
+                    onChange={(raw) => updateOtherAsset(i, "amount", raw)}
+                    className="w-36 h-9"
+                    placeholder="금액"
+                  />
                   <Button variant="ghost" size="sm"
                     onClick={() => setOtherAssets(otherAssets.filter((_, j) => j !== i))}
                     className="text-destructive px-2">✕</Button>

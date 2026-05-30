@@ -37,13 +37,6 @@ import type {
 // 타입 정의
 // ─────────────────────────────────────────
 
-interface NetWorthPoint {
-  month: string;
-  netWorth: number;
-  totalAssets: number;
-  totalDebt: number;
-  status: "DRAFT" | "CONFIRMED";
-}
 
 // ─────────────────────────────────────────
 // DRAFT 스냅샷에서 재무제표 데이터 조립 (클라이언트 사이드)
@@ -91,12 +84,20 @@ function buildDraftStatementFromSnapshot(
     || cp?.stockDepositUsd
     || 0;
 
-  // 연금
+  // 연금 투자잔액 (퇴직연금 + 연금저축 + IRP)
   const pensionFundBalance = liveData?.pensionFund.balance ?? cp?.pensionFundBalance ?? 0;
   const pensionDepositBalance = liveData?.pensionDeposit.balance ?? cp?.pensionDepositBalance ?? 0;
   const irpBalance = liveData?.irp.balance ?? cp?.irpBalance ?? 0;
-  const pensionKrw = pensionFundBalance + pensionDepositBalance + irpBalance;
+  const pensionFundKrw = pensionFundBalance + pensionDepositBalance + irpBalance;
+  // 연금 예수금 — Deposit & FX 페이지에서 직접 입력한 연금 계좌별 현금 잔액
+  const pensionDepositKrw =
+    (snapshot.pensionCashDeposit?.RETIREMENT ?? 0) +
+    (snapshot.pensionCashDeposit?.SAVINGS ?? 0) +
+    (snapshot.pensionCashDeposit?.IRP ?? 0);
+  // RESP/RRSP CAD → KRW
   const canadianPensionKrw = Math.round(snapshot.canadianPension.balanceCad * cadKrw);
+  // 연금 합계 (3개 항목 모두 포함)
+  const pensionKrw = pensionFundKrw + pensionDepositKrw + canadianPensionKrw;
 
   // 교육 + Digital Asset(크립토)
   // Education: 자산관리II 탭과 일치 보장 위해 사용자 입력값(educationMonthly) 최우선
@@ -125,15 +126,15 @@ function buildDraftStatementFromSnapshot(
   // 비유동자산
   const nonCurrentAssetTotal = snapshot.realEstate;
 
-  // 투자자산 합계
+  // 투자자산 합계 (FUND/Derivatives 포함 — CONFIRMED 월과 동일 로직)
   const investmentAssetTotal =
     korStocksKrw + fundKrw + stockDepositKrw +
     usStocksKrw + Math.round(stockDepositUsd * usdKrw);
 
-  // 총자산
+  // 총자산 — pensionKrw에 예수금·RESP/RRSP 포함
   const totalAssets = Math.round(
     currentAssetTotal + nonCurrentAssetTotal + investmentAssetTotal +
-    pensionKrw + canadianPensionKrw + educationKrw +
+    pensionKrw + educationKrw +
     snapshot.otherAssets.reduce((s, a) => s + a.amount, 0)
   );
 
@@ -143,7 +144,7 @@ function buildDraftStatementFromSnapshot(
   const netWorth = totalAssets - totalDebt;
 
   // 투자+연금+교육 합계 (엑셀 INVESTMENT & PENSION TOTAL)
-  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
+  const investmentPensionTotal = investmentAssetTotal + pensionKrw + educationKrw;
 
   // CAPITAL 변동 내역 (전월 대비 섹션별 변동)
   const prevNetWorthVal = prevData?.netWorth ?? 0;
@@ -154,8 +155,11 @@ function buildDraftStatementFromSnapshot(
     ? nonCurrentAssetTotal - prevData.assets.nonCurrentAsset.total : 0;
   const capitalChangeInInvestmentAsset = prevData
     ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
+  // Change in Pension/Education: (pensionFund + pensionDeposit + RESP/RRSP + education) 변동
+  // pensionBreakdown이 있는 이전 월: 저장된 pensionKrw(3개 항목 합산) 기준
+  // CONFIRMED 이전 월: 기존 pensionKrw(펀드+RESP/RRSP) 기준 — 전환 첫 달 일회성 오차 허용
   const capitalChangeInPensionEducation = prevData
-    ? (pensionKrw + canadianPensionKrw + educationKrw) -
+    ? (pensionKrw + educationKrw) -
       (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
   const capitalChangeInLiability = prevData
     ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
@@ -165,8 +169,6 @@ function buildDraftStatementFromSnapshot(
   const cashTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
   const assetTotal = investmentTotal + cashTotal;
   const netDebtSurplus = assetTotal - snapshot.leaseDeposit;
-  const lessDepositReimbursement = netDebtSurplus;
-  const excessDeficit = lessDepositReimbursement - snapshot.leaseDeposit;
 
   return {
     month: snapshot.month,
@@ -187,7 +189,7 @@ function buildDraftStatementFromSnapshot(
       },
       investmentAsset: {
         korStocks: korStocksKrw,
-        fund: fundKrw,
+        fund: fundKrw,           // Fund/Derivatives 값 보존 (자산관리 탭용), FS 표시 제외
         stockDepositKrw,
         usStocksKrw,
         usStocksUsd: usStocksUsd,
@@ -195,10 +197,16 @@ function buildDraftStatementFromSnapshot(
         usStocksDepositUsd: stockDepositUsd,
         total: investmentAssetTotal,
       },
-      pensionKrw: pensionKrw + canadianPensionKrw,
+      pensionKrw,       // pensionFund + pensionDeposit + RESP/RRSP 3개 합산
       educationKrw,
       investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
+      // DRAFT 전용: 연금 세분화 (UI에서 3개 행으로 표시)
+      pensionBreakdown: {
+        pensionFundKrw,
+        pensionDepositKrw,
+        respRrspKrw: canadianPensionKrw,
+      },
       investmentPortfolio: [
         { label: "국내 펀드 (FUND)", amountKrw: fundKrw, currency: "KRW" },
         { label: "국내주식/ETF (KRW)", amountKrw: korStocksKrw, currency: "KRW" },
@@ -211,7 +219,8 @@ function buildDraftStatementFromSnapshot(
         },
       ],
       pension: [
-        { label: "연금 (국내)", amountKrw: pensionKrw, currency: "KRW" },
+        // pension[0]: 국내 연금만 (캐나다 제외) — CONFIRMED 경로와 동일한 분리 구조
+        { label: "연금 (국내)", amountKrw: pensionFundKrw + pensionDepositKrw, currency: "KRW" },
         {
           label: "연금 (캐나다 RESP/RRSP)",
           amountKrw: canadianPensionKrw,
@@ -260,8 +269,6 @@ function buildDraftStatementFromSnapshot(
       assetTotal: Math.round(assetTotal),
       leaseDeposit: snapshot.leaseDeposit,
       netDebtSurplus: Math.round(netDebtSurplus),
-      lessDepositReimbursement: Math.round(lessDepositReimbursement),
-      excessDeficit: Math.round(excessDeficit),
     },
   };
 }
@@ -371,27 +378,6 @@ export function FinancialStatementClient() {
     currentSnapshot.status === "CONFIRMED"
       ? buildConfirmedStatementData(currentSnapshot, prevStatementData)
       : buildDraftStatementFromSnapshot(currentSnapshot, liveData, prevStatementData);
-
-  // ── 순자산 추세 데이터 (최근 12개월) ──────────────────
-  const recentMonths = getRecentMonths(12).reverse();
-  const trendData: NetWorthPoint[] = recentMonths
-    .map((m) => {
-      const snap = snapshots.find((s) => s.month === m);
-      if (!snap) return null;
-      const sd =
-        snap.status === "CONFIRMED"
-          ? buildConfirmedStatementData(snap)
-          : buildDraftStatementFromSnapshot(snap, null);
-      if (!sd) return null;
-      return {
-        month: m,
-        netWorth: sd.netWorth,
-        totalAssets: sd.assets.totalAssets,
-        totalDebt: sd.liabilities.totalDebt,
-        status: snap.status,
-      };
-    })
-    .filter((d): d is NetWorthPoint => d !== null);
 
   // ── 현금흐름 연도 (현재 연도 기준) ──────────────────────
   const cfYear = new Date().getFullYear();
@@ -664,7 +650,6 @@ export function FinancialStatementClient() {
             <FinancialStatementView
               data={statementData}
               snapshot={currentSnapshot}
-              trendData={trendData}
               onRefresh={handleRefresh}
             />
           ) : (
@@ -683,9 +668,6 @@ export function FinancialStatementClient() {
             liveLoading={liveLoading}
             onRefresh={handleRefresh}
             txSummaries={txSummaries}
-            onRateSave={handleRateSave}
-            onRateRefresh={handleRateRefresh}
-            rateRefreshing={rateRefreshing}
           />
         </TabsContent>
 

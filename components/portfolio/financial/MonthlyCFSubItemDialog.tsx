@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import { Pencil, Trash2, Check, X } from "lucide-react";
 import type { MonthlyCFEntry, CFCategoryType } from "@/types/financial";
 
@@ -91,7 +92,7 @@ export function MonthlyCFSubItemDialog({
 
   // ── 표시용 절대값 포맷 ────────────────────────────────────────
   function displayAmt(amount: number): string {
-    return Math.abs(amount).toLocaleString();
+    return Math.abs(Math.round(amount)).toLocaleString("ko-KR");
   }
 
   // ── 추가 ─────────────────────────────────────────────────────
@@ -204,22 +205,16 @@ export function MonthlyCFSubItemDialog({
                     /* ── 편집 모드 ──────────────────────────────── */
                     <div className="py-1.5 space-y-1.5">
                       <div className="flex gap-2">
-                        <Input
-                          autoFocus
+                        {/* FormattedInput: 편집 중 금액 실시간 콤마 포맷 — KRW 기준 (isUsd 없음) */}
+                        <FormattedInput
                           value={editing.amountStr}
-                          onChange={(ev) =>
+                          onChange={(raw) =>
                             setEditing((prev) =>
-                              prev ? { ...prev, amountStr: ev.target.value } : null
+                              prev ? { ...prev, amountStr: raw } : null
                             )
                           }
-                          onKeyDown={(ev) => {
-                            if (ev.key === "Enter") confirmEdit();
-                            if (ev.key === "Escape") cancelEdit();
-                          }}
                           placeholder={isExpense ? "금액 (양수)" : "금액"}
                           className="h-8 text-sm"
-                          type="number"
-                          min={0}
                         />
                         <Input
                           value={editing.note}
@@ -301,7 +296,7 @@ export function MonthlyCFSubItemDialog({
           <div className="flex justify-between text-sm font-semibold pt-1 border-t">
             <span className="text-muted-foreground">합계</span>
             <span className="tabular-nums text-foreground">
-              {Math.abs(catTotal).toLocaleString()}
+              {Math.abs(Math.round(catTotal)).toLocaleString("ko-KR")}
             </span>
           </div>
         )}
@@ -310,14 +305,12 @@ export function MonthlyCFSubItemDialog({
         <div className="space-y-2 pt-2 border-t">
           <p className="text-xs font-medium text-muted-foreground">항목 추가</p>
           <div className="flex gap-2">
-            <Input
-              placeholder={isExpense ? "금액 (양수)" : "금액"}
+            {/* FormattedInput: 추가 폼 금액 실시간 콤마 포맷 — KRW 기준 */}
+            <FormattedInput
               value={addAmount}
-              onChange={(e) => setAddAmount(e.target.value)}
+              onChange={setAddAmount}
+              placeholder={isExpense ? "금액 (양수)" : "금액"}
               className="h-8 text-sm"
-              type="number"
-              min={0}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             />
             <Input
               placeholder="메모 (선택)"

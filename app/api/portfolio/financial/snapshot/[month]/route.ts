@@ -62,6 +62,7 @@ export async function PUT(
       "cashForeignUsd", "cashForeignCad",
       "stockDepositKrw", "stockDepositUsd", "stockDepositByAccount",
       "fundMonthly", "leaseDeposit",
+      "educationMonthly", "shorttermMonthly", "pensionMonthly", "pensionCashDeposit",
     ];
     const requestedFields = Object.keys(body) as (keyof UpdateSnapshotRequest)[];
     const hasLockedField = requestedFields.some((f) => !ALLOWED_MANUAL_FIELDS.includes(f));
@@ -124,6 +125,10 @@ function mergeSnapshotUpdate(
       : snapshot.pensionMonthly,
     // 기타자산
     otherAssets: body.otherAssets ?? snapshot.otherAssets,
+    // 연금 계좌별 예수금
+    pensionCashDeposit: body.pensionCashDeposit
+      ? { ...snapshot.pensionCashDeposit, ...body.pensionCashDeposit }
+      : snapshot.pensionCashDeposit,
     updatedAt: new Date().toISOString(),
   };
 }

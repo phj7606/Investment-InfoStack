@@ -312,20 +312,21 @@ export function MonthlyCFView({
   /** 절대값 표시 (지출 행: 음수 저장 → 양수 표시) */
   function fmtAbs(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
-    return Math.abs(val).toLocaleString();
+    return Math.abs(Math.round(val)).toLocaleString("ko-KR");
   }
 
   /** Expenses Total: 절대값 (부호 없음) */
   function fmtExpTotal(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
-    return Math.abs(val).toLocaleString();
+    return Math.abs(Math.round(val)).toLocaleString("ko-KR");
   }
 
   /** Income 셀: 양수 그대로, 음수는 괄호 표기 */
   function fmtSigned(val: number): string {
     if (val === 0 || isNaN(val)) return "—";
-    if (val < 0) return `(${Math.abs(val).toLocaleString()})`;
-    return val.toLocaleString();
+    const abs = Math.abs(Math.round(val)).toLocaleString("ko-KR");
+    if (val < 0) return `(${abs})`;
+    return abs;
   }
 
   // ── 행 렌더링 ────────────────────────────────────────────────

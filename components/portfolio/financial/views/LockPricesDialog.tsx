@@ -101,7 +101,7 @@ interface LockPricesDialogProps {
 // ─────────────────────────────────────────
 
 const fmtKrw = (v?: number) =>
-  v == null ? "-" : v.toLocaleString("ko-KR");
+  v == null ? "-" : Math.round(v).toLocaleString("ko-KR");
 
 const fmtUsd = (v?: number) =>
   v == null
@@ -302,20 +302,20 @@ export function LockPricesDialog({
 
         {p && mode === "I" && (
           <div className="space-y-0.5 pt-1 border-t">
-            <PriceRow label="FUND" value={`${fmtKrw(p.fund)}원`} />
-            <PriceRow label="FUND 원금" value={`${fmtKrw(p.fundPrincipal)}원`} />
-            <PriceRow label="KOR Stocks" value={`${fmtKrw(p.korStocks)}원`} />
-            <PriceRow label="KOR Stocks 원금" value={`${fmtKrw(p.korStocksPrincipal)}원`} />
+            <PriceRow label="FUND" value={`${fmtKrw(p.fund)}`} />
+            <PriceRow label="FUND 원금" value={`${fmtKrw(p.fundPrincipal)}`} />
+            <PriceRow label="KOR Stocks" value={`${fmtKrw(p.korStocks)}`} />
+            <PriceRow label="KOR Stocks 원금" value={`${fmtKrw(p.korStocksPrincipal)}`} />
           </div>
         )}
         {p && mode === "II" && (
           <div className="space-y-0.5 pt-1 border-t">
-            <PriceRow label="퇴직연금 잔액" value={`${fmtKrw(p.pensionFundBalance)}원`} />
-            <PriceRow label="퇴직연금 원금" value={`${fmtKrw(p.pensionFundPrincipal)}원`} />
-            <PriceRow label="연금저축 잔액" value={`${fmtKrw(p.pensionDepositBalance)}원`} />
-            <PriceRow label="IRP 잔액" value={`${fmtKrw(p.irpBalance)}원`} />
-            <PriceRow label="Education 주식" value={`${fmtKrw(p.education1470Stock)}원`} />
-            <PriceRow label="Short-term 주식" value={`${fmtKrw(p.shorttermStockBalance)}원`} />
+            <PriceRow label="퇴직연금 잔액" value={`${fmtKrw(p.pensionFundBalance)}`} />
+            <PriceRow label="퇴직연금 원금" value={`${fmtKrw(p.pensionFundPrincipal)}`} />
+            <PriceRow label="연금저축 잔액" value={`${fmtKrw(p.pensionDepositBalance)}`} />
+            <PriceRow label="IRP 잔액" value={`${fmtKrw(p.irpBalance)}`} />
+            <PriceRow label="Education 주식" value={`${fmtKrw(p.education1470Stock)}`} />
+            <PriceRow label="Short-term 주식" value={`${fmtKrw(p.shorttermStockBalance)}`} />
           </div>
         )}
 

@@ -12,8 +12,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import { buildAssetManagementIIYearlyData } from "@/lib/portfolio/financial-calc";
 import type {
   FinancialSnapshot,
@@ -42,7 +42,7 @@ const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "S
 
 function fmtKrw(v: number): string {
   if (v === 0) return "–";
-  const abs = Math.abs(v).toLocaleString("ko-KR");
+  const abs = Math.abs(Math.round(v)).toLocaleString("ko-KR");
   return v < 0 ? `(${abs})` : abs;
 }
 
@@ -120,19 +120,10 @@ interface DialogState {
   korbitPrincipal: string;
   binanceBalance: string;
   binancePrincipal: string;
-  // Education 1470
-  educationDeposit: string;
-  educationAccountTransfer: string;
-  // Pension — 원금만 수동 입력, 잔액은 자동계산
-  pensionFundPrincipal: string;
-  pensionDepositPrincipal: string;
-  irpPrincipal: string;
   // RESP/RRSP
   respRrspBalanceCad: string;
-  // Short-term Account (2805)
-  shorttermDeposit: string;
-  shorttermAccountTransfer: string;
-  shorttermStockBalance: string;  // 수동 오버라이드 (비워두면 live-data 사용)
+  // Short-term Account (2805) — 주식 잔액 수동 오버라이드만 (예수금·계좌이체는 Deposit & FX 페이지 관리)
+  shorttermStockBalance: string;
 }
 
 interface InputDialogProps {
@@ -149,8 +140,9 @@ interface InputDialogProps {
 function AssetManagementIIInputDialog({
   open, onClose, state, onChange, onSave, onCopyPrev, hasPrev, saving,
 }: InputDialogProps) {
-  const set = (key: keyof DialogState) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    onChange({ ...state, [key]: e.target.value });
+  // FormattedInput은 raw 문자열을 직접 반환하므로 이벤트 없이 값을 받음
+  const set = (key: keyof DialogState) => (raw: string) =>
+    onChange({ ...state, [key]: raw });
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -183,70 +175,29 @@ function AssetManagementIIInputDialog({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Upbit 잔액 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.upbitBalance} onChange={set("upbitBalance")} placeholder="0" />
+                <FormattedInput value={state.upbitBalance} onChange={set("upbitBalance")} />
               </div>
               <div>
                 <Label className="text-xs">Upbit 원가 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.upbitPrincipal} onChange={set("upbitPrincipal")} placeholder="0" />
+                <FormattedInput value={state.upbitPrincipal} onChange={set("upbitPrincipal")} />
               </div>
               <div>
                 <Label className="text-xs">Korbit 잔액 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.korbitBalance} onChange={set("korbitBalance")} placeholder="0" />
+                <FormattedInput value={state.korbitBalance} onChange={set("korbitBalance")} />
               </div>
               <div>
                 <Label className="text-xs">Korbit 원가 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.korbitPrincipal} onChange={set("korbitPrincipal")} placeholder="0" />
+                <FormattedInput value={state.korbitPrincipal} onChange={set("korbitPrincipal")} />
               </div>
               <div>
                 <Label className="text-xs">Binance 잔액 (USD)</Label>
-                <Input className="h-7 text-xs" value={state.binanceBalance} onChange={set("binanceBalance")} placeholder="0" />
+                <FormattedInput value={state.binanceBalance} onChange={set("binanceBalance")} isUsd />
               </div>
               <div>
                 <Label className="text-xs">Binance 원가 (USD)</Label>
-                <Input className="h-7 text-xs" value={state.binancePrincipal} onChange={set("binancePrincipal")} placeholder="0" />
+                <FormattedInput value={state.binancePrincipal} onChange={set("binancePrincipal")} isUsd />
               </div>
             </div>
-          </section>
-
-          {/* Education 1470 */}
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Education 1470
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">예수금 / Deposit (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.educationDeposit} onChange={set("educationDeposit")} placeholder="0" />
-              </div>
-              <div>
-                <Label className="text-xs">Account Transfer (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.educationAccountTransfer} onChange={set("educationAccountTransfer")} placeholder="0" />
-              </div>
-            </div>
-          </section>
-
-          {/* Pension — 원금만 수동 입력, 잔액은 자동계산 */}
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Pension
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <Label className="text-xs">퇴직연금 원금 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.pensionFundPrincipal} onChange={set("pensionFundPrincipal")} placeholder="" />
-              </div>
-              <div>
-                <Label className="text-xs">연금저축 원금 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.pensionDepositPrincipal} onChange={set("pensionDepositPrincipal")} placeholder="" />
-              </div>
-              <div>
-                <Label className="text-xs">IRP 원금 (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.irpPrincipal} onChange={set("irpPrincipal")} placeholder="" />
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              * 잔액은 거래내역+종가 자동계산 | 비워두면 원금도 자동 계산
-            </p>
           </section>
 
           {/* RESP/RRSP */}
@@ -256,28 +207,18 @@ function AssetManagementIIInputDialog({
             </p>
             <div>
               <Label className="text-xs">잔액 (CAD)</Label>
-              <Input className="h-7 text-xs" value={state.respRrspBalanceCad} onChange={set("respRrspBalanceCad")} placeholder="0" />
+              <FormattedInput value={state.respRrspBalanceCad} onChange={set("respRrspBalanceCad")} isUsd />
             </div>
           </section>
 
-          {/* Short-term Account (2805) */}
+          {/* Short-term Account (2805) — 주식 잔액 오버라이드만 (예수금은 Deposit & FX 페이지 관리) */}
           <section>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               Short-term Account (2805)
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label className="text-xs">예수금 / Deposit (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.shorttermDeposit} onChange={set("shorttermDeposit")} placeholder="0" />
-              </div>
-              <div>
-                <Label className="text-xs">Account Transfer (KRW)</Label>
-                <Input className="h-7 text-xs" value={state.shorttermAccountTransfer} onChange={set("shorttermAccountTransfer")} placeholder="0" />
-              </div>
-            </div>
-            <div className="mt-2">
+            <div>
               <Label className="text-xs">주식 잔액 오버라이드 (KRW)</Label>
-              <Input className="h-7 text-xs" value={state.shorttermStockBalance} onChange={set("shorttermStockBalance")} placeholder="비워두면 live-data 자동 계산" />
+              <FormattedInput value={state.shorttermStockBalance} onChange={set("shorttermStockBalance")} placeholder="비워두면 live-data 자동 계산" />
             </div>
           </section>
         </div>
@@ -315,14 +256,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
     upbitBalance: "0", upbitPrincipal: "0",
     korbitBalance: "0", korbitPrincipal: "0",
     binanceBalance: "0", binancePrincipal: "0",
-    educationDeposit: "0",
-    educationAccountTransfer: "0",
-    pensionFundPrincipal: "",
-    pensionDepositPrincipal: "",
-    irpPrincipal: "",
     respRrspBalanceCad: "0",
-    shorttermDeposit: "0",
-    shorttermAccountTransfer: "0",
     shorttermStockBalance: "",
   });
 
@@ -339,7 +273,6 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
   const handleEdit = useCallback((col: AssetManagementIIColumnData) => {
     const snap = snapMap.get(col.month);
     const crypto = snap?.crypto;
-    const pm = snap?.pensionMonthly;
 
     setDialogState({
       month: col.month,
@@ -349,17 +282,8 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
       korbitPrincipal: String(crypto?.korbit?.principal ?? col.digitalAsset.korbitPrincipal),
       binanceBalance: String(crypto?.binance?.balance ?? col.digitalAsset.binanceBalanceUsd),
       binancePrincipal: String(crypto?.binance?.principal ?? col.digitalAsset.binancePrincipalUsd),
-      // Education: 저장된 수동 입력값 우선, 없으면 현재 집계값
-      educationDeposit: String(snap?.educationMonthly?.deposit ?? col.education.deposit),
-      educationAccountTransfer: String(snap?.educationMonthly?.accountTransfer ?? col.education.accountTransfer),
-      // Pension: 원금만 수동 입력 (잔액은 거래내역+종가 자동계산)
-      pensionFundPrincipal: pm?.fundPrincipal != null ? String(pm.fundPrincipal) : "",
-      pensionDepositPrincipal: pm?.depositPrincipal != null ? String(pm.depositPrincipal) : "",
-      irpPrincipal: pm?.irpPrincipal != null ? String(pm.irpPrincipal) : "",
       respRrspBalanceCad: String(snap?.canadianPension?.balanceCad ?? col.respRrsp.balanceCad),
-      // Short-term: 저장된 수동 입력값 우선, 없으면 현재 집계값
-      shorttermDeposit: String(snap?.shorttermMonthly?.deposit ?? col.shortterm.deposit),
-      shorttermAccountTransfer: String(snap?.shorttermMonthly?.accountTransfer ?? col.shortterm.accountTransfer),
+      // Short-term: 주식 잔액 수동 오버라이드만 (비워두면 live-data 자동 계산)
       shorttermStockBalance: snap?.shorttermMonthly?.stockBalance != null ? String(snap.shorttermMonthly.stockBalance) : "",
     });
     setDialogOpen(true);
@@ -395,9 +319,6 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      // Pension 수동 입력: 빈 문자열이면 null(= 자동 계산 사용), 숫자면 수동 입력값
-      const parsePension = (v: string) => v.trim() === "" ? undefined : (Number(v) || 0);
-
       const body: UpdateSnapshotRequest = {
         crypto: {
           upbit: {
@@ -413,27 +334,16 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             principal: Number(dialogState.binancePrincipal) || 0,
           },
         },
-        educationMonthly: {
-          deposit: Number(dialogState.educationDeposit) || 0,
-          accountTransfer: Number(dialogState.educationAccountTransfer) || 0,
-        },
-        pensionMonthly: {
-          fundPrincipal: parsePension(dialogState.pensionFundPrincipal),
-          depositPrincipal: parsePension(dialogState.pensionDepositPrincipal),
-          irpPrincipal: parsePension(dialogState.irpPrincipal),
-        },
         canadianPension: {
           balanceCad: Number(dialogState.respRrspBalanceCad) || 0,
           monthlyFeeCad: 0,
         },
-        shorttermMonthly: {
-          deposit: Number(dialogState.shorttermDeposit) || 0,
-          accountTransfer: Number(dialogState.shorttermAccountTransfer) || 0,
-          // 비워두면 undefined → financial-calc에서 liveData fallback 사용
-          ...(dialogState.shorttermStockBalance.trim() !== "" && {
+        // Short-term 주식 잔액 수동 오버라이드 (비워두면 live-data fallback 사용)
+        ...(dialogState.shorttermStockBalance.trim() !== "" && {
+          shorttermMonthly: {
             stockBalance: Number(dialogState.shorttermStockBalance) || 0,
-          }),
-        },
+          },
+        }),
       };
 
       const res = await fetch(`/api/portfolio/financial/snapshot/${dialogState.month}`, {
@@ -623,75 +533,64 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── Education 1470 섹션 ── */}
             <SectionHeaderRow label="Education 1470" colCount={columns.length} />
 
+            {/* Principal/Balance/P/L/Deposit — principal=0이면 상세 데이터 없음, "-" 표시 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <LabelCell label="Principal (KRW)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.education.principal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={col.education.principal !== 0 ? fmtKrw(col.education.principal) : "–"} isBaseline={col.isBaseline} />
               ))}
             </tr>
-            {/* Account Transfer — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
-              <LabelCell label="Account Transfer (KRW)" />
+              <LabelCell label="Balance (KRW)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.education.accountTransfer)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={col.education.principal !== 0 ? fmtKrw(col.education.balance) : "–"} isBaseline={col.isBaseline} />
               ))}
             </tr>
-
-            <LabelRow label="Balance (KRW)" indent={0} />
-            {/* Deposit — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
-              <SubLabelCell label="· Deposit" />
-              {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.education.deposit)} isBaseline={col.isBaseline} isManualInput />
-              ))}
-            </tr>
-            {/* Stock — live data, 하이라이트 없음 */}
-            <tr className="hover:bg-muted/20 border-b border-border/30">
-              <SubLabelCell label="· Stock" />
-              {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.education.stockBalance)} isBaseline={col.isBaseline} />
-              ))}
-            </tr>
-            <TotalRow
-              label="Total Balance"
-              columns={columns}
-              getValue={(col) => fmtKrw(col.education.balance)}
-            />
-
-            {/* P/L = Stock - Principal */}
-            <tr className="hover:bg-muted/20 border-b border-border/40">
               <LabelCell label="P/L (KRW)" />
               {columns.map((col) => (
                 <Cell
                   key={col.month}
-                  value={fmtKrw(col.education.pnl)}
-                  className={pnlClass(col.education.pnl)}
+                  value={col.education.principal !== 0 ? fmtKrw(col.education.pnl) : "–"}
+                  className={col.education.principal !== 0 ? pnlClass(col.education.pnl) : undefined}
                   isBaseline={col.isBaseline}
                 />
               ))}
             </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Deposit (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={col.education.principal !== 0 ? fmtKrw(col.education.deposit) : "–"} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            {/* Total Balance = Balance + Deposit */}
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.education.totalBalance)}
+            />
 
             {/* ── Pension 섹션 ── */}
             <SectionHeaderRow label="Pension" colCount={columns.length} />
 
-            {/* Principal — 직접입력 */}
+            {/* Principal — Pension Account live-data 기준 (read-only) */}
             <LabelRow label="Principal (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 퇴직연금 (Pension Fund)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundPrincipal)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionFundPrincipal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· 연금저축 (Pension Deposit)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositPrincipal)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.pensionDepositPrincipal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· IRP" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.pension.irpPrincipal)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.pension.irpPrincipal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <TotalRow
@@ -800,53 +699,42 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── Short-term Account 섹션 ── */}
             <SectionHeaderRow label="Short-term Account (2805)" colCount={columns.length} />
 
+            {/* Principal/Balance/P/L/Deposit — principal=0이면 상세 데이터 없음, "-" 표시 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <LabelCell label="Principal (KRW)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.shortterm.principal)} isBaseline={col.isBaseline} />
+                <Cell key={col.month} value={col.shortterm.principal !== 0 ? fmtKrw(col.shortterm.principal) : "–"} isBaseline={col.isBaseline} />
               ))}
             </tr>
-            {/* Account Transfer — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
-              <LabelCell label="Account Transfer (KRW)" />
+              <LabelCell label="Balance (KRW)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.shortterm.accountTransfer)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={col.shortterm.principal !== 0 ? fmtKrw(col.shortterm.balance) : "–"} isBaseline={col.isBaseline} />
               ))}
             </tr>
-
-            <LabelRow label="Balance (KRW)" indent={0} />
-            {/* Deposit — 직접입력 */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
-              <SubLabelCell label="· Deposit" />
-              {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.shortterm.deposit)} isBaseline={col.isBaseline} isManualInput />
-              ))}
-            </tr>
-            {/* Stock — live data, 하이라이트 없음 */}
-            <tr className="hover:bg-muted/20 border-b border-border/30">
-              <SubLabelCell label="· Stock" />
-              {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.shortterm.stockBalance)} isBaseline={col.isBaseline} />
-              ))}
-            </tr>
-            <TotalRow
-              label="Total Balance"
-              columns={columns}
-              getValue={(col) => fmtKrw(col.shortterm.balance)}
-            />
-
-            {/* P/L = Stock - Principal */}
-            <tr className="hover:bg-muted/20 border-b border-border/40">
               <LabelCell label="P/L (KRW)" />
               {columns.map((col) => (
                 <Cell
                   key={col.month}
-                  value={fmtKrw(col.shortterm.pnl)}
-                  className={pnlClass(col.shortterm.pnl)}
+                  value={col.shortterm.principal !== 0 ? fmtKrw(col.shortterm.pnl) : "–"}
+                  className={col.shortterm.principal !== 0 ? pnlClass(col.shortterm.pnl) : undefined}
                   isBaseline={col.isBaseline}
                 />
               ))}
             </tr>
+            <tr className="hover:bg-muted/20 border-b border-border/30">
+              <LabelCell label="Deposit (KRW)" />
+              {columns.map((col) => (
+                <Cell key={col.month} value={col.shortterm.principal !== 0 ? fmtKrw(col.shortterm.deposit) : "–"} isBaseline={col.isBaseline} />
+              ))}
+            </tr>
+            {/* Total Balance = Balance + Deposit */}
+            <TotalRow
+              label="Total Balance"
+              columns={columns}
+              getValue={(col) => fmtKrw(col.shortterm.totalBalance)}
+            />
           </tbody>
         </table>
       </div>

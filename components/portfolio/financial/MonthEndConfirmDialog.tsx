@@ -173,7 +173,7 @@ export function MonthEndConfirmDialog({ open, snapshot, onClose, onConfirm }: Mo
                 )}
                 {exchangeRates.cadKrw > 0 && (
                   <p className="text-xs text-muted-foreground text-right">
-                    ≈ {Math.round(snapshot.canadianPension.balanceCad * exchangeRates.cadKrw).toLocaleString()}원
+                    ≈ {Math.round(snapshot.canadianPension.balanceCad * exchangeRates.cadKrw).toLocaleString()}
                   </p>
                 )}
               </section>
