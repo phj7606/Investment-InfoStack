@@ -187,12 +187,16 @@ export function buildConfirmedStatementData(
   const cp = snapshot.confirmedPortfolio;
   const { usdKrw, cadKrw } = exchangeRates;
 
-  const fundKrw = cp.fundBalance;
+  // cp.fundBalance가 0이면 수동입력값(fundMonthly) fallback — lock-balances 미포함 시 대응
+  const fundKrw = cp.fundBalance || snapshot.fundMonthly?.balance || 0;
   const korStocksKrw = cp.korStocksBalance;
   const usStocksKrw = cp.usStocksBalanceKrw;
   const usStocksUsd = cp.usStocksBalanceUsd;
   const stockDepositKrw = cp.stockDepositKrw;
-  const stockDepositUsd = cp.stockDepositUsd;
+  // cp.stockDepositUsd가 0이면 stockDepositByAccount USD 합산 — confirm 시 0 저장된 버그 대응
+  const stockDepositUsd = cp.stockDepositUsd > 0
+    ? cp.stockDepositUsd
+    : Object.values(snapshot.stockDepositByAccount ?? {}).reduce((s: number, a) => s + ((a as {usd?: number})?.usd ?? 0), 0);
 
   // 연금 투자잔액 (퇴직연금 + 연금저축 + IRP)
   const pensionFundKrwConf = cp.pensionFundBalance + cp.pensionDepositBalance + cp.irpBalance;

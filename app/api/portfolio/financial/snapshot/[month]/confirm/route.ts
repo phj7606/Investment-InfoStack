@@ -102,7 +102,11 @@ export async function POST(
   const korStocksPrincipal = locked.korStocksPrincipal ?? 0;
   const usStocksBalanceUsd = locked.usStocksUsd ?? 0;
   const usStocksPrincipalUsd = locked.usPrincipalUsd ?? 0;
-  const stockDepositKrw = locked.stockDepositKrw ?? 0;
+  // DRAFT path와 동일하게 stockDepositByAccount KRW 합산 (locked.stockDepositKrw는 shortterm 주식평가액으로 별개)
+  const stockDepositKrw = Object.values(draftSnap.stockDepositByAccount ?? {})
+    .reduce((s, a) => s + (a?.krw ?? 0), 0)
+    || locked.stockDepositKrw
+    || 0;
 
   // cumPnl = 미실현손익(balance - principal) + lock 시점 실현손익 스냅샷
   // locked.realizedPL을 사용하면 lock 이후 거래가 끼어드는 문제를 방지할 수 있음
@@ -124,11 +128,9 @@ export async function POST(
     .reduce((s, a) => s + (a?.usd ?? 0), 0);
 
   // ── 4. Pension 집계 ───────────────────────────────────────
-  // 우선순위: 수동입력(pensionMonthly) → lockedBalances "II" 확정값 → 실시간 Naver 재계산
-  // 각 잔액(fund/deposit/irp)별로 독립적으로 우선순위 적용 — 묶어서 분기하면
-  // locked에 일부만 있을 때 locked 값을 버리고 Naver로 덮어쓰는 버그 발생
-  const pm = draftSnap?.pensionMonthly;
-
+  // 수동입력 필드 없음 — Education/Short-term과 동일한 패턴 적용
+  // 원금: 거래 avgCost 기반 (시세 무관)
+  // 잔액: II lock 확정값 → Naver 재계산
   let pensionFundBalance: number;
   let pensionFundPrincipal: number;
   let pensionDepositBalance: number;
@@ -138,32 +140,30 @@ export async function POST(
 
   {
     const pensionTxs = await readPensionTxs();
-    // principal은 시세 무관 → avgCost 기반으로 항상 재계산
     const rawPensionPos = calcPensionPositions(pensionTxs, {});
     const retirementRaw = rawPensionPos.filter((p) => p.accountType === "RETIREMENT");
     const savingsRaw = rawPensionPos.filter((p) => p.accountType === "SAVINGS");
     const irpRaw = rawPensionPos.filter((p) => p.accountType === "IRP");
 
-    pensionFundPrincipal = pm?.fundPrincipal
-      ?? Math.round(retirementRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    pensionDepositPrincipal = pm?.depositPrincipal
-      ?? Math.round(savingsRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    irpPrincipal = pm?.irpPrincipal
-      ?? Math.round(irpRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    // 원금: Education/Short-term과 동일하게 거래 avgCost만 사용 (수동입력 없음)
+    pensionFundPrincipal    = Math.round(retirementRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionDepositPrincipal = Math.round(savingsRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    irpPrincipal            = Math.round(irpRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
 
-    // 잔액별로 독립 판단: 수동입력도 없고 II lock도 없는 항목만 Naver 재계산 필요
-    const needNaverFund    = pm?.fundBalance    == null && locked.pensionFundBalance    == null;
-    const needNaverDeposit = pm?.depositBalance == null && locked.pensionDepositBalance == null;
-    const needNaverIrp     = pm?.irpBalance     == null && locked.irpBalance            == null;
+    // 잔액: II lock 확정값 → Naver 재계산 (수동입력 없음)
+    const needNaverFund    = locked.pensionFundBalance    == null;
+    const needNaverDeposit = locked.pensionDepositBalance == null;
+    const needNaverIrp     = locked.irpBalance            == null;
 
     let retirementPos: ReturnType<typeof calcPensionPositions> = [];
     let savingsPos:    ReturnType<typeof calcPensionPositions> = [];
     let irpPos:        ReturnType<typeof calcPensionPositions> = [];
 
     if (needNaverFund || needNaverDeposit || needNaverIrp) {
-      // 필요한 항목이 하나라도 있을 때만 Naver 시세 fetch
+      // KR ETF 코드는 6자리 숫자 또는 숫자+대문자 혼합 (예: 0023A0, 0131V0)
+      // 순수 숫자 필터(\d{6})는 알파벳 포함 코드를 제외시키므로 영숫자 6자리로 확장
       const pensionKrStocks = rawPensionPos
-        .filter((p) => /^\d{6}$/.test(p.stockCode))
+        .filter((p) => /^[0-9A-Z]{6}$/i.test(p.stockCode))
         .map((p) => ({ code: p.stockCode, name: p.stockName }));
 
       let pensionPrices: Record<string, number> = {};
@@ -177,15 +177,11 @@ export async function POST(
       irpPos        = pensionPositions.filter((p) => p.accountType === "IRP");
     }
 
-    // 잔액별 최종값: 수동입력 → II lock → Naver 계산 (각각 독립 적용)
-    pensionFundBalance = pm?.fundBalance
-      ?? locked.pensionFundBalance
+    pensionFundBalance    = locked.pensionFundBalance
       ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
-    pensionDepositBalance = pm?.depositBalance
-      ?? locked.pensionDepositBalance
+    pensionDepositBalance = locked.pensionDepositBalance
       ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
-    irpBalance = pm?.irpBalance
-      ?? locked.irpBalance
+    irpBalance            = locked.irpBalance
       ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
   }
 
