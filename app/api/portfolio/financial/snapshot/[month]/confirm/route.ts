@@ -124,7 +124,8 @@ export async function POST(
 
   // ── 4. Pension 집계 ───────────────────────────────────────
   // 우선순위: 수동입력(pensionMonthly) → lockedBalances "II" 확정값 → 실시간 Naver 재계산
-  // 확정 버튼 누르는 시점 가격으로 재계산하면 lock 시점과 달라지는 문제를 방지
+  // 각 잔액(fund/deposit/irp)별로 독립적으로 우선순위 적용 — 묶어서 분기하면
+  // locked에 일부만 있을 때 locked 값을 버리고 Naver로 덮어쓰는 버그 발생
   const pm = draftSnap?.pensionMonthly;
 
   let pensionFundBalance: number;
@@ -136,7 +137,7 @@ export async function POST(
 
   {
     const pensionTxs = await readPensionTxs();
-    // principal은 가격 무관 → 항상 avgCost로 계산
+    // principal은 시세 무관 → avgCost 기반으로 항상 재계산
     const rawPensionPos = calcPensionPositions(pensionTxs, {});
     const retirementRaw = rawPensionPos.filter((p) => p.accountType === "RETIREMENT");
     const savingsRaw = rawPensionPos.filter((p) => p.accountType === "SAVINGS");
@@ -149,13 +150,17 @@ export async function POST(
     irpPrincipal = pm?.irpPrincipal
       ?? Math.round(irpRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
 
-    // 수동입력이 없고 lock-balances "II"도 없는 경우만 Naver 실시간 fetch
-    const needFreshCalc =
-      (pm?.fundBalance == null && locked.pensionFundBalance == null) ||
-      (pm?.depositBalance == null && locked.pensionDepositBalance == null) ||
-      (pm?.irpBalance == null && locked.irpBalance == null);
+    // 잔액별로 독립 판단: 수동입력도 없고 II lock도 없는 항목만 Naver 재계산 필요
+    const needNaverFund    = pm?.fundBalance    == null && locked.pensionFundBalance    == null;
+    const needNaverDeposit = pm?.depositBalance == null && locked.pensionDepositBalance == null;
+    const needNaverIrp     = pm?.irpBalance     == null && locked.irpBalance            == null;
 
-    if (needFreshCalc) {
+    let retirementPos: ReturnType<typeof calcPensionPositions> = [];
+    let savingsPos:    ReturnType<typeof calcPensionPositions> = [];
+    let irpPos:        ReturnType<typeof calcPensionPositions> = [];
+
+    if (needNaverFund || needNaverDeposit || needNaverIrp) {
+      // 필요한 항목이 하나라도 있을 때만 Naver 시세 fetch
       const pensionKrStocks = rawPensionPos
         .filter((p) => /^\d{6}$/.test(p.stockCode))
         .map((p) => ({ code: p.stockCode, name: p.stockName }));
@@ -166,22 +171,21 @@ export async function POST(
       }
 
       const pensionPositions = calcPensionPositions(pensionTxs, pensionPrices);
-      const retirementPos = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
-      const savingsPos = pensionPositions.filter((p) => p.accountType === "SAVINGS");
-      const irpPos = pensionPositions.filter((p) => p.accountType === "IRP");
-
-      pensionFundBalance = pm?.fundBalance
-        ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
-      pensionDepositBalance = pm?.depositBalance
-        ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
-      irpBalance = pm?.irpBalance
-        ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
-    } else {
-      // 수동입력 또는 lock-balances "II" 확정값 사용 (실시간 재계산 생략)
-      pensionFundBalance = pm?.fundBalance ?? locked.pensionFundBalance ?? 0;
-      pensionDepositBalance = pm?.depositBalance ?? locked.pensionDepositBalance ?? 0;
-      irpBalance = pm?.irpBalance ?? locked.irpBalance ?? 0;
+      retirementPos = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
+      savingsPos    = pensionPositions.filter((p) => p.accountType === "SAVINGS");
+      irpPos        = pensionPositions.filter((p) => p.accountType === "IRP");
     }
+
+    // 잔액별 최종값: 수동입력 → II lock → Naver 계산 (각각 독립 적용)
+    pensionFundBalance = pm?.fundBalance
+      ?? locked.pensionFundBalance
+      ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
+    pensionDepositBalance = pm?.depositBalance
+      ?? locked.pensionDepositBalance
+      ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
+    irpBalance = pm?.irpBalance
+      ?? locked.irpBalance
+      ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
   }
 
   // 캐나다 연금 KRW 환산
