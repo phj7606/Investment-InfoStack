@@ -187,12 +187,16 @@ export function buildConfirmedStatementData(
   const cp = snapshot.confirmedPortfolio;
   const { usdKrw, cadKrw } = exchangeRates;
 
-  const fundKrw = cp.fundBalance;
+  // cp.fundBalance가 0이면 수동입력값(fundMonthly) fallback — lock-balances 미포함 시 대응
+  const fundKrw = cp.fundBalance || snapshot.fundMonthly?.balance || 0;
   const korStocksKrw = cp.korStocksBalance;
   const usStocksKrw = cp.usStocksBalanceKrw;
   const usStocksUsd = cp.usStocksBalanceUsd;
   const stockDepositKrw = cp.stockDepositKrw;
-  const stockDepositUsd = cp.stockDepositUsd;
+  // cp.stockDepositUsd가 0이면 stockDepositByAccount USD 합산 — confirm 시 0 저장된 버그 대응
+  const stockDepositUsd = cp.stockDepositUsd > 0
+    ? cp.stockDepositUsd
+    : Object.values(snapshot.stockDepositByAccount ?? {}).reduce((s: number, a) => s + ((a as {usd?: number})?.usd ?? 0), 0);
 
   // 연금 투자잔액 (퇴직연금 + 연금저축 + IRP)
   const pensionFundKrwConf = cp.pensionFundBalance + cp.pensionDepositBalance + cp.irpBalance;
@@ -310,7 +314,12 @@ export function buildConfirmedStatementData(
       educationKrw,
       investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
-      // CONFIRMED: pensionBreakdown은 undefined — 화면 표시 변경 없음
+      // CONFIRMED도 DRAFT와 동일하게 3개 항목 세분화
+      pensionBreakdown: {
+        pensionFundKrw: pensionFundKrwConf,
+        pensionDepositKrw: pensionDepositKrwConf,
+        respRrspKrw: canadianPensionKrw,
+      },
       investmentPortfolio,
       pension,
       education: { label: "교육저축 (1470)", amountKrw: educationKrw, currency: "KRW" },

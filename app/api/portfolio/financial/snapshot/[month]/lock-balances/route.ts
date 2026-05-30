@@ -172,8 +172,10 @@ export async function POST(
     const rawEducationPositions = calcShorttermPositions(educationTxs, {});
     const rawShorttermPositions = calcShorttermPositions(shorttermTxs, {});
 
+    // KR ETF 코드는 6자리 숫자 또는 숫자+대문자 혼합 (예: 0023A0, 0131V0)
+    // 순수 숫자 필터(\d{6})는 알파벳 포함 코드를 제외시키므로 영숫자 6자리로 확장
     const pensionKrStocks = rawPensionPositions
-      .filter((p) => /^\d{6}$/.test(p.stockCode))
+      .filter((p) => /^[0-9A-Z]{6}$/i.test(p.stockCode))
       .map((p) => ({ code: p.stockCode, name: p.stockName }));
     const eduStocks   = rawEducationPositions.map((p) => ({ code: p.stockCode, name: p.stockName }));
     const shortStocks = rawShorttermPositions.map((p) => ({ code: p.stockCode, name: p.stockName }));
