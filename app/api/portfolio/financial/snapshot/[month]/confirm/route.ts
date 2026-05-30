@@ -11,8 +11,13 @@
  *   cumPnl = (balance - principal) + locked.realizedPL (lock 시점 실현손익 스냅샷)
  *
  * [자산관리II 탭]
- *   educationMonthly / pensionMonthly / shorttermMonthly 저장값 우선,
- *   없으면 Naver 종가 fetch 후 계산
+ *   우선순위: pensionMonthly/educationMonthly/shorttermMonthly 수동 입력값
+ *            → lock-balances "II" 확정값 (lockedBalances)
+ *            → Naver 현재가 실시간 재계산 (fallback — 두 값이 모두 없을 때만)
+ *
+ * [Deposit 탭]
+ *   stockDepositUsd: stockDepositByAccount의 USD 합산 사용
+ *   (확정 시 0으로 초기화되는 버그 수정)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -23,7 +28,6 @@ import { createDraftSnapshot } from "@/lib/portfolio/financial-calc";
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
 import { readTransactions as readEducationTxs } from "@/lib/portfolio/educationTransactionsData";
 import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
-import { calcPositions as calcLongtermPositions } from "@/lib/portfolio/longterm-calc";
 import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
 import { calcPensionPositions } from "@/lib/portfolio/pension-calc";
 import { fetchNaverCurrentPrices } from "@/lib/fetchers/naver";
@@ -86,9 +90,14 @@ export async function POST(
 
   const usStocksBalanceKrw = Math.round(usStocksBalanceUsd * body.usdKrw);
 
+  // [Bug fix] USD 예수금: stockDepositByAccount의 USD 합산
+  // 기존 코드에서 stockDepositUsd: 0 으로 하드코딩되어 US Stock Deposit이 누락됨
+  const stockDepositUsd = Object.values(draftSnap.stockDepositByAccount ?? {})
+    .reduce((s, a) => s + (a?.usd ?? 0), 0);
+
   // ── 4. Pension 집계 ───────────────────────────────────────
-  // pensionMonthly 수동 입력값 우선(자산관리II 편집 다이얼로그로 저장된 값)
-  // 없으면 Naver 종가 fetch 후 계산
+  // 우선순위: 수동입력(pensionMonthly) → lockedBalances "II" 확정값 → 실시간 Naver 재계산
+  // 확정 버튼 누르는 시점 가격으로 재계산하면 lock 시점과 달라지는 문제를 방지
   const pm = draftSnap?.pensionMonthly;
 
   let pensionFundBalance: number;
@@ -100,38 +109,59 @@ export async function POST(
 
   {
     const pensionTxs = await readPensionTxs();
-
-    // pension: 표준 6자리 코드만 Naver 조회 (비표준 코드는 avgCost fallback)
+    // principal은 가격 무관 → 항상 avgCost로 계산
     const rawPensionPos = calcPensionPositions(pensionTxs, {});
-    const pensionKrStocks = rawPensionPos
-      .filter((p) => /^\d{6}$/.test(p.stockCode))
-      .map((p) => ({ code: p.stockCode, name: p.stockName }));
+    const retirementRaw = rawPensionPos.filter((p) => p.accountType === "RETIREMENT");
+    const savingsRaw = rawPensionPos.filter((p) => p.accountType === "SAVINGS");
+    const irpRaw = rawPensionPos.filter((p) => p.accountType === "IRP");
 
-    let pensionPrices: Record<string, number> = {};
-    if (pensionKrStocks.length > 0) {
-      pensionPrices = await fetchNaverCurrentPrices(pensionKrStocks);
+    pensionFundPrincipal = pm?.fundPrincipal
+      ?? Math.round(retirementRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    pensionDepositPrincipal = pm?.depositPrincipal
+      ?? Math.round(savingsRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+    irpPrincipal = pm?.irpPrincipal
+      ?? Math.round(irpRaw.reduce((s, p) => s + p.avgCost * p.quantity, 0));
+
+    // 수동입력이 없고 lock-balances "II"도 없는 경우만 Naver 실시간 fetch
+    const needFreshCalc =
+      (pm?.fundBalance == null && locked.pensionFundBalance == null) ||
+      (pm?.depositBalance == null && locked.pensionDepositBalance == null) ||
+      (pm?.irpBalance == null && locked.irpBalance == null);
+
+    if (needFreshCalc) {
+      const pensionKrStocks = rawPensionPos
+        .filter((p) => /^\d{6}$/.test(p.stockCode))
+        .map((p) => ({ code: p.stockCode, name: p.stockName }));
+
+      let pensionPrices: Record<string, number> = {};
+      if (pensionKrStocks.length > 0) {
+        pensionPrices = await fetchNaverCurrentPrices(pensionKrStocks);
+      }
+
+      const pensionPositions = calcPensionPositions(pensionTxs, pensionPrices);
+      const retirementPos = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
+      const savingsPos = pensionPositions.filter((p) => p.accountType === "SAVINGS");
+      const irpPos = pensionPositions.filter((p) => p.accountType === "IRP");
+
+      pensionFundBalance = pm?.fundBalance
+        ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
+      pensionDepositBalance = pm?.depositBalance
+        ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
+      irpBalance = pm?.irpBalance
+        ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
+    } else {
+      // 수동입력 또는 lock-balances "II" 확정값 사용 (실시간 재계산 생략)
+      pensionFundBalance = pm?.fundBalance ?? locked.pensionFundBalance ?? 0;
+      pensionDepositBalance = pm?.depositBalance ?? locked.pensionDepositBalance ?? 0;
+      irpBalance = pm?.irpBalance ?? locked.irpBalance ?? 0;
     }
-
-    const pensionPositions = calcPensionPositions(pensionTxs, pensionPrices);
-    const retirementPos = pensionPositions.filter((p) => p.accountType === "RETIREMENT");
-    const savingsPos = pensionPositions.filter((p) => p.accountType === "SAVINGS");
-    const irpPos = pensionPositions.filter((p) => p.accountType === "IRP");
-
-    // pensionMonthly 수동 입력값 우선 (자산관리II 편집 저장값)
-    pensionFundBalance = pm?.fundBalance ?? Math.round(retirementPos.reduce((s, p) => s + p.evalAmount, 0));
-    pensionFundPrincipal = pm?.fundPrincipal ?? Math.round(retirementPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    pensionDepositBalance = pm?.depositBalance ?? Math.round(savingsPos.reduce((s, p) => s + p.evalAmount, 0));
-    pensionDepositPrincipal = pm?.depositPrincipal ?? Math.round(savingsPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    irpBalance = pm?.irpBalance ?? Math.round(irpPos.reduce((s, p) => s + p.evalAmount, 0));
-    irpPrincipal = pm?.irpPrincipal ?? Math.round(irpPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
   }
 
   // 캐나다 연금 KRW 환산
   const canadianPensionKrw = Math.round(body.canadianPension.balanceCad * body.cadKrw);
 
   // ── 5. Education 1470 집계 ────────────────────────────────
-  // educationMonthly.stockBalance 수동 입력값 우선 (자산관리II 편집 다이얼로그로 저장된 값)
-  // 없으면 신 트랜잭션 시스템 + Naver 종가로 계산
+  // 우선순위: educationMonthly 수동입력 → lockedBalances "II" 확정값 → Naver 재계산
   let education1470Stock: number;
   let education1470Principal: number;
 
@@ -139,24 +169,32 @@ export async function POST(
     const em = draftSnap?.educationMonthly;
     const educationTxs = await readEducationTxs();
     const rawEduPos = calcShorttermPositions(educationTxs, {});
-    const eduKrStocks = rawEduPos.map((p) => ({ code: p.stockCode, name: p.stockName }));
-
-    let eduPrices: Record<string, number> = {};
-    if (eduKrStocks.length > 0) {
-      eduPrices = await fetchNaverCurrentPrices(eduKrStocks);
-    }
-    const eduPositions = calcShorttermPositions(educationTxs, eduPrices);
 
     education1470Principal = Math.round(rawEduPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
-    // educationMonthly 수동 입력값 우선, 없으면 종가 기준 자동 계산
-    education1470Stock = em?.stockBalance ?? Math.round(eduPositions.reduce((s, p) => s + p.evalAmount, 0));
+
+    if (em?.stockBalance != null) {
+      // 수동입력 우선
+      education1470Stock = em.stockBalance;
+    } else if (locked.education1470Stock != null) {
+      // lock-balances "II" 확정값
+      education1470Stock = locked.education1470Stock;
+    } else {
+      // 둘 다 없으면 Naver 실시간 fetch
+      const eduKrStocks = rawEduPos.map((p) => ({ code: p.stockCode, name: p.stockName }));
+      let eduPrices: Record<string, number> = {};
+      if (eduKrStocks.length > 0) {
+        eduPrices = await fetchNaverCurrentPrices(eduKrStocks);
+      }
+      const eduPositions = calcShorttermPositions(educationTxs, eduPrices);
+      education1470Stock = Math.round(eduPositions.reduce((s, p) => s + p.evalAmount, 0));
+    }
   }
 
   // ── 6. Short-term (자산관리II) 집계 ──────────────────────
-  // shorttermMonthly.stockBalance 수동 입력값 우선
-  // 없으면 종가확정(lockedBalances)에서 가져온 stockDepositKrw 사용
+  // 우선순위: shorttermMonthly 수동입력 → lockedBalances "II" 확정값 → KR lock stockDepositKrw
   const sm = draftSnap?.shorttermMonthly;
-  const shorttermStockBalance = sm?.stockBalance ?? stockDepositKrw;
+  const shorttermStockBalance =
+    sm?.stockBalance ?? locked.shorttermStockBalance ?? stockDepositKrw;
   const shorttermDeposit = sm?.deposit ?? 0;
 
   // shorttermPrincipal: avgCost 기반 — 가격과 무관하므로 별도 계산
@@ -212,7 +250,7 @@ export async function POST(
       usStocksCumPnlUsd,
       usStocksBalanceKrw,
       stockDepositKrw,
-      stockDepositUsd: 0,
+      stockDepositUsd,
       // Pension
       pensionFundBalance,
       pensionFundPrincipal,
