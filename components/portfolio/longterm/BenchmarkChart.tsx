@@ -77,7 +77,7 @@ function CustomTooltip({
         const formatted =
           currency === "USD"
             ? `${v >= 0 ? "+" : ""}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            : `${v >= 0 ? "+" : ""}${v.toLocaleString()}원`;
+            : `${v >= 0 ? "+" : ""}${v.toLocaleString()}`;
 
         return (
           <p key={entry.dataKey} style={{ color: entry.color }} className="font-semibold">
@@ -180,7 +180,7 @@ export function BenchmarkChart({
               {finalValue >= 0 ? "+" : ""}
               {currency === "USD"
                 ? `$${Math.abs(finalValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : `${finalValue.toLocaleString()}원`}
+                : `${finalValue.toLocaleString()}`}
             </p>
           </div>
         </div>

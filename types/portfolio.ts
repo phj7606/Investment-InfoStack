@@ -219,7 +219,7 @@ export const DEFAULT_RISK_CONFIG: RiskManagementConfig = {
 export interface LongtermTransaction {
   id: string;                            // crypto.randomUUID()
   date: string;                          // YYYY-MM-DD
-  accountNo: "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+  accountNo: "4802" | "1635" | "1402" | "2805" | "1470";
   market: "KR" | "US";
   assetType: "STOCK" | "FUND" | "ETF";
   tradeType: "BUY" | "SELL" | "DIVIDEND";

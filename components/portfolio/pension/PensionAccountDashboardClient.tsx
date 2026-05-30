@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn, naverStockUrl } from "@/lib/utils";
 import { PensionTransactionForm } from "./PensionTransactionForm";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import type {
   PensionPosition,
   PensionTransaction,
@@ -1086,7 +1087,7 @@ export function PensionAccountDashboardClient() {
                                 <td className={cn("px-3 py-2.5 text-right tabular-nums font-medium",
                                   hasCur ? plColor(pos.evalPL) : "text-muted-foreground")}>
                                   {hasCur
-                                    ? `${pos.evalPL >= 0 ? "+" : ""}${fmt(pos.evalPL)}원`
+                                    ? `${pos.evalPL >= 0 ? "+" : ""}${fmt(pos.evalPL)}`
                                     : "-"}
                                 </td>
                                 {/* 수익률 */}
@@ -1100,7 +1101,7 @@ export function PensionAccountDashboardClient() {
                                 <td className={cn("px-3 py-2.5 text-right tabular-nums",
                                   pos.totalRealizedPL !== 0 ? plColor(pos.totalRealizedPL) : "text-muted-foreground")}>
                                   {pos.totalRealizedPL !== 0
-                                    ? `${pos.totalRealizedPL >= 0 ? "+" : ""}${fmt(pos.totalRealizedPL)}원`
+                                    ? `${pos.totalRealizedPL >= 0 ? "+" : ""}${fmt(pos.totalRealizedPL)}`
                                     : "-"}
                                 </td>
                                 {/* 월평균 기하수익률 — (1+r)^(1/months)-1, 현재가 없으면 "-" */}
@@ -1133,13 +1134,13 @@ export function PensionAccountDashboardClient() {
                                 colSpan={hasCat ? 5 : 4}>합계</td>
                               {/* 평가금액 */}
                               <td className="px-3 py-2 text-right tabular-nums">
-                                {fmt(totalEval)}원
+                                {fmt(totalEval)}
                               </td>
                               {/* 평가손익 */}
                               <td className={cn("px-3 py-2 text-right tabular-nums",
                                 withPrice.length > 0 ? plColor(totalEvalPL) : "text-muted-foreground")}>
                                 {withPrice.length > 0
-                                  ? `${totalEvalPL >= 0 ? "+" : ""}${fmt(totalEvalPL)}원`
+                                  ? `${totalEvalPL >= 0 ? "+" : ""}${fmt(totalEvalPL)}`
                                   : "-"}
                               </td>
                               {/* 수익률 */}
@@ -1153,7 +1154,7 @@ export function PensionAccountDashboardClient() {
                               <td className={cn("px-3 py-2 text-right tabular-nums",
                                 totalRealPL !== 0 ? plColor(totalRealPL) : "text-muted-foreground")}>
                                 {totalRealPL !== 0
-                                  ? `${totalRealPL >= 0 ? "+" : ""}${fmt(totalRealPL)}원`
+                                  ? `${totalRealPL >= 0 ? "+" : ""}${fmt(totalRealPL)}`
                                   : "-"}
                               </td>
                               {/* 월평균 기하수익률 가중평균 (evalAmount 기준) */}
@@ -1443,7 +1444,7 @@ export function PensionAccountDashboardClient() {
                 value={`${Math.round(executedSummary.winRate * 100)}%`}
               />
               <ExSummaryCard label="누적 손익"
-                value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}원`}
+                value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}`}
                 valueClass={plColor(exTradeTotalPL)}
               />
               <ExSummaryCard label="손익비 (PF)"
@@ -1467,9 +1468,9 @@ export function PensionAccountDashboardClient() {
 
           {/* 계좌 총합 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <ExSummaryCard label="총 매수금액"   value={`${fmt(exTradeTotalBuy)}원`} />
+            <ExSummaryCard label="총 매수금액"   value={`${fmt(exTradeTotalBuy)}`} />
             <ExSummaryCard label="총 실현 손익"
-              value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}원`}
+              value={`${exTradeTotalPL >= 0 ? "+" : ""}${fmt(exTradeTotalPL)}`}
               valueClass={plColor(exTradeTotalPL)}
             />
             <ExSummaryCard label="실현 수익률"
@@ -2082,7 +2083,7 @@ function RebalancingPanel({
                     </td>
                     {/* 목표금액 */}
                     <td className="px-3 py-2 text-right tabular-nums">
-                      {allocPct > 0 ? `${fmt(targetAmt)}원` : <span className="text-muted-foreground">-</span>}
+                      {allocPct > 0 ? `${fmt(targetAmt)}` : <span className="text-muted-foreground">-</span>}
                     </td>
                     {/* 필요금액 (매수/매도) */}
                     <td className={cn("px-3 py-2 text-right tabular-nums font-medium",
@@ -2105,7 +2106,7 @@ function RebalancingPanel({
                 <tr className="border-t bg-muted/20 font-medium">
                   <td className="px-3 py-2 text-muted-foreground">합계</td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {fmt(positions.reduce((s, p) => s + p.evalAmount, 0))}원
+                    {fmt(positions.reduce((s, p) => s + p.evalAmount, 0))}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">100%</td>
                   {/* 월평균 가중평균 (evalAmount 기준) */}
@@ -2129,7 +2130,7 @@ function RebalancingPanel({
                     {totalAlloc.toFixed(1)}%
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
-                    {totalAlloc > 0 ? `${fmt(targetCatEval)}원` : <span className="text-muted-foreground">-</span>}
+                    {totalAlloc > 0 ? `${fmt(targetCatEval)}` : <span className="text-muted-foreground">-</span>}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {totalAlloc > 0 && isValid ? (
@@ -2169,15 +2170,16 @@ function RebalancingPanel({
             {/* 보유 현금 — 총평가금액 기준에 포함되어 리밸런싱 목표 금액 계산에 반영됨 */}
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">보유 현금 (원)</Label>
-              <Input
-                className="h-8 text-xs w-32 tabular-nums"
-                placeholder="0"
+              {/* FormattedInput: KRW 현금 실시간 콤마 포맷 — raw(숫자 문자열) → number 변환 후 콜백 */}
+              <FormattedInput
                 value={localCash}
-                onChange={(e) => {
-                  const raw = parseInt(e.target.value.replace(/,/g, ""), 10);
-                  const clean = isNaN(raw) ? 0 : raw;
-                  onCashChange(clean, isNaN(raw) ? "" : clean.toLocaleString("ko-KR"));
+                onChange={(rawStr) => {
+                  const n = parseInt(rawStr, 10);
+                  const clean = isNaN(n) ? 0 : n;
+                  onCashChange(clean, rawStr);
                 }}
+                placeholder="0"
+                className="h-8 w-32"
               />
             </div>
             <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
@@ -2212,7 +2214,7 @@ function RebalancingPanel({
                     <Cell key={idx} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [`${fmt(value)}${hasData ? "원" : "%"}`, ""]} />
+                <Tooltip formatter={(value: number) => [hasData ? fmt(value) : `${fmt(value)}%`, ""]} />
                 <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
               </PieChart>
             </ResponsiveContainer>

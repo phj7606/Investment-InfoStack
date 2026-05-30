@@ -245,7 +245,7 @@ export function TradeHistoryTable({
             <span>{filteredTotal}건</span>
             <span>WIN {filteredWins} / LOSS {filteredTotal - filteredWins}</span>
             <span className={cn("font-medium", plColor(filteredPL))}>
-              {filteredPL >= 0 ? "+" : ""}{filteredPL.toLocaleString()}원
+              {filteredPL >= 0 ? "+" : ""}{filteredPL.toLocaleString()}
             </span>
           </div>
         )}

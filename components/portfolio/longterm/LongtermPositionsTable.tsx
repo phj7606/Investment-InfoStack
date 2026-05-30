@@ -40,9 +40,9 @@ interface LongtermPositionsTableProps {
 
 // KR / US 만 허용 — 전체(all) 제거 (통화 혼산 방지)
 type MarketFilter = "KR" | "US";
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470";
 
-const DEFAULT_ACCOUNT_OPTIONS: readonly AccountFilter[] = ["all", "4802", "1635", "1402", "2805", "1470", "8654"];
+const DEFAULT_ACCOUNT_OPTIONS: readonly AccountFilter[] = ["all", "4802", "1635", "1402", "2805", "1470"];
 
 // 정렬 컬럼 타입
 type SortCol =
@@ -63,7 +63,7 @@ function formatAmount(amount: number, currency: "KRW" | "USD"): string {
   if (currency === "USD") {
     return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  return `${Math.round(amount).toLocaleString()}원`;
+  return `${Math.round(amount).toLocaleString()}`;
 }
 
 // 가격 포맷 — KRW는 소수점 없이, USD는 소수점 2자리
@@ -283,7 +283,7 @@ export function LongtermPositionsTable({
   // 현재 필터의 합계 — 평가금액
   const filteredTotal = filtered.reduce((s, p) => s + p.evalAmount, 0);
   const totalLabel = currency === "KRW"
-    ? `${Math.round(filteredTotal).toLocaleString()}원`
+    ? `${Math.round(filteredTotal).toLocaleString()}`
     : `$${filteredTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   // 현재가 있는 종목만 평가손익·수익률 합산

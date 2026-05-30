@@ -158,7 +158,7 @@ function PLCell({ pl, currency }: { pl: number | null | undefined; currency: "KR
           minimumFractionDigits: 2,
           maximumFractionDigits: 2,
         })}`
-      : `${v >= 0 ? "+" : ""}${v.toLocaleString()}원`;
+      : `${v >= 0 ? "+" : ""}${v.toLocaleString()}`;
 
   return (
     <span className={`font-medium tabular-nums ${color}`}>{formatted}</span>

@@ -16,14 +16,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import type { LongtermTransaction } from "@/types/portfolio";
 
 // 폼 내부 상태 타입 (모든 입력값을 문자열로 관리)
 interface FormState {
   date: string;
-  accountNo: "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+  accountNo: "4802" | "1635" | "1402" | "2805" | "1470";
   market: "KR" | "US";
-  assetType: "STOCK" | "FUND" | "ETF";
+  assetType: "STOCK" | "ETF";
   tradeType: "BUY" | "SELL" | "DIVIDEND";
   stockCode: string;
   stockName: string;
@@ -86,7 +87,7 @@ function txToFormState(tx: LongtermTransaction): FormState {
     date: tx.date,
     accountNo: tx.accountNo,
     market: tx.market,
-    assetType: tx.assetType,
+    assetType: (tx.assetType === "FUND" ? "STOCK" : tx.assetType) as FormState["assetType"],
     tradeType: tx.tradeType,
     stockCode: tx.stockCode,
     stockName: tx.stockName,
@@ -157,8 +158,6 @@ export function TransactionForm({
       const minLen = market === "KR" ? 6 : 1;
       if (trimmed.length < minLen) return;
 
-      // FUND는 코드가 불규칙하므로 조회 스킵
-      if (form.assetType === "FUND") return;
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(async () => {
@@ -298,7 +297,6 @@ export function TransactionForm({
                 <option value="1402">1402</option>
                 <option value="2805">2805</option>
                 <option value="1470">1470</option>
-                <option value="8654">8654</option>
               </select>
             </div>
             <div>
@@ -331,7 +329,6 @@ export function TransactionForm({
                 className={selectClass}
               >
                 <option value="STOCK">STOCK</option>
-                <option value="FUND">FUND</option>
                 <option value="ETF">ETF</option>
               </select>
             </div>
@@ -406,25 +403,22 @@ export function TransactionForm({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-[11px] font-medium text-muted-foreground">수량</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
+                {/* FormattedInput: 수량 실시간 콤마 포맷 — KRW/USD 공통, raw 문자열로 amount 자동 계산 */}
+                <FormattedInput
                   value={form.quantity}
-                  onChange={(e) => handleQuantityOrPrice("quantity", e.target.value)}
+                  onChange={(raw) => handleQuantityOrPrice("quantity", raw)}
                   placeholder="0"
                   className={inputClass}
                 />
               </div>
               <div>
                 <label className="text-[11px] font-medium text-muted-foreground">단가</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
+                {/* 시장(KR/US)에 따라 통화 다름 — 단가는 항상 KRW 정수 or USD 소수 */}
+                <FormattedInput
                   value={form.price}
-                  onChange={(e) => handleQuantityOrPrice("price", e.target.value)}
+                  onChange={(raw) => handleQuantityOrPrice("price", raw)}
                   placeholder="0"
+                  isUsd={form.market === "US"}
                   className={inputClass}
                 />
               </div>
@@ -440,13 +434,12 @@ export function TransactionForm({
                   <span className="ml-0.5 text-[10px] text-muted-foreground">(자동)</span>
                 )}
               </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
+              {/* 금액: KRW는 정수, USD는 소수 허용 */}
+              <FormattedInput
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                onChange={(raw) => setForm({ ...form, amount: raw })}
                 placeholder={isDividend ? "배당금액" : "자동계산"}
+                isUsd={form.market === "US"}
                 className={inputClass}
               />
             </div>
@@ -455,13 +448,12 @@ export function TransactionForm({
                 수수료
                 <span className="ml-0.5 text-[10px] text-muted-foreground">(선택)</span>
               </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
+              {/* 수수료: 시장에 따라 통화 결정 */}
+              <FormattedInput
                 value={form.fee}
-                onChange={(e) => setForm({ ...form, fee: e.target.value })}
+                onChange={(raw) => setForm({ ...form, fee: raw })}
                 placeholder="0"
+                isUsd={form.market === "US"}
                 className={inputClass}
               />
             </div>
