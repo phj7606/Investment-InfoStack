@@ -23,7 +23,7 @@ interface StockSummary {
   stockCode: string;
   stockName: string;
   market: "KR" | "US";
-  assetType: "STOCK" | "ETF" | "FUND";
+  assetType: "STOCK" | "FUND" | "ETF";
   accountNo: string;
   currency: "KRW" | "USD";
   sector?: string;    // 섹터 (Short-term 계좌용)
@@ -149,7 +149,7 @@ function fmtPct(n: number): string {
 function StockAccordion({ stock, showSector = false }: { stock: StockSummary; showSector?: boolean }) {
   const [open, setOpen] = useState(false);
   const ccy  = stock.currency;
-  const unit = ccy === "KRW" ? "원" : "$";
+  const unit = ccy === "KRW" ? "" : "$";
 
   const mktCls  = stock.market === "KR" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700";
   const assCls  = stock.assetType === "ETF" ? "bg-violet-100 text-violet-700"
@@ -339,9 +339,9 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
 // ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470";
 
-type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
+type AssetTypeFilter = "all" | "STOCK" | "ETF";
 
 interface StockHistoryTableProps {
   transactions: LongtermTransaction[];
@@ -437,7 +437,7 @@ export function StockHistoryTable({
 
           {/* 계좌 필터 */}
           <div className="flex gap-2 text-xs">
-            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as AccountFilter[]).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470"] as AccountFilter[]).map((a) => (
               <button
                 key={a}
                 onClick={() => handleAccountChange(a)}
@@ -454,7 +454,7 @@ export function StockHistoryTable({
 
           {/* 종류 필터 */}
           <div className="flex gap-2 text-xs">
-            {(["all", "STOCK", "FUND", "ETF"] as AssetTypeFilter[]).map((t) => (
+            {(["all", "STOCK", "ETF"] as AssetTypeFilter[]).map((t) => (
               <button
                 key={t}
                 onClick={() => handleAssetTypeChange(t)}

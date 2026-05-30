@@ -24,9 +24,12 @@ function plColor(value: number): string {
   return "text-muted-foreground";
 }
 
-// 부호 포함 문자열 포맷
+// 부호 포함 문자열 포맷 — KRW 정수로 반올림 후 ko-KR 쉼표 포맷
 function signedStr(v: number): string {
-  return v >= 0 ? `+${v.toLocaleString()}` : v.toLocaleString();
+  const rounded = Math.round(v);
+  return rounded >= 0
+    ? `+${rounded.toLocaleString("ko-KR")}`
+    : rounded.toLocaleString("ko-KR");
 }
 
 // KPI 미니 카드 컴포넌트
@@ -118,15 +121,15 @@ export function AccountSummaryCards({
           {/* 총 평가금액 */}
           <KpiCard
             label="총 평가금액"
-            value={`${krSummary.totalEvalAmount.toLocaleString()}원`}
-            sub={`투자원금 ${krSummary.totalInvested.toLocaleString()}원`}
+            value={`${Math.round(krSummary.totalEvalAmount).toLocaleString("ko-KR")}`}
+            sub={`투자원금 ${Math.round(krSummary.totalInvested).toLocaleString("ko-KR")}`}
             icon={Wallet}
           />
 
           {/* 누적 실현손익 */}
           <KpiCard
             label="누적 실현손익"
-            value={`${signedStr(krSummary.totalRealizedPL)}원`}
+            value={`${signedStr(krSummary.totalRealizedPL)}`}
             icon={BarChart2}
             valueClass={plColor(krSummary.totalRealizedPL)}
           />
@@ -136,7 +139,7 @@ export function AccountSummaryCards({
             label="현재 평가손익"
             value={
               krSummary.totalEvalPL !== 0 || krPositions.some((p) => p.currentPrice !== undefined)
-                ? `${signedStr(krSummary.totalEvalPL)}원`
+                ? `${signedStr(krSummary.totalEvalPL)}`
                 : "-"
             }
             icon={TrendingUp}
@@ -146,7 +149,7 @@ export function AccountSummaryCards({
           {/* 배당금 */}
           <KpiCard
             label="배당금 합계"
-            value={`${krSummary.dividendTotal.toLocaleString()}원`}
+            value={`${Math.round(krSummary.dividendTotal).toLocaleString("ko-KR")}`}
             icon={DollarSign}
             valueClass={krSummary.dividendTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : undefined}
           />
@@ -165,24 +168,15 @@ export function AccountSummaryCards({
           {/* 총 평가금액 */}
           <KpiCard
             label="총 평가금액"
-            value={`$${usSummary.totalEvalAmount.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
-            sub={`투자원금 $${usSummary.totalInvested.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
+            value={`$${Math.round(usSummary.totalEvalAmount).toLocaleString("en-US")}`}
+            sub={`투자원금 $${Math.round(usSummary.totalInvested).toLocaleString("en-US")}`}
             icon={Wallet}
           />
 
           {/* 누적 실현손익 */}
           <KpiCard
             label="누적 실현손익"
-            value={`${usSummary.totalRealizedPL >= 0 ? "+" : ""}$${Math.abs(usSummary.totalRealizedPL).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
+            value={`${usSummary.totalRealizedPL >= 0 ? "+" : ""}$${Math.abs(Math.round(usSummary.totalRealizedPL)).toLocaleString("en-US")}`}
             icon={BarChart2}
             valueClass={plColor(usSummary.totalRealizedPL)}
           />
@@ -192,10 +186,7 @@ export function AccountSummaryCards({
             label="현재 평가손익"
             value={
               usSummary.totalEvalPL !== 0 || usPositions.some((p) => p.currentPrice !== undefined)
-                ? `${usSummary.totalEvalPL >= 0 ? "+" : ""}$${Math.abs(usSummary.totalEvalPL).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`
+                ? `${usSummary.totalEvalPL >= 0 ? "+" : ""}$${Math.abs(Math.round(usSummary.totalEvalPL)).toLocaleString("en-US")}`
                 : "-"
             }
             icon={usSummary.totalEvalPL >= 0 ? TrendingUp : TrendingDown}
@@ -205,10 +196,7 @@ export function AccountSummaryCards({
           {/* 배당금 합계 */}
           <KpiCard
             label="배당금 합계"
-            value={`$${usSummary.dividendTotal.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
+            value={`$${Math.round(usSummary.dividendTotal).toLocaleString("en-US")}`}
             icon={DollarSign}
             valueClass={usSummary.dividendTotal > 0 ? "text-emerald-600" : undefined}
           />

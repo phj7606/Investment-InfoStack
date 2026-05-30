@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import {
   Select,
   SelectContent,
@@ -135,16 +136,16 @@ export function MonthlyCFForm({ open, month, onClose, onSubmit }: MonthlyCFFormP
                 <span className="ml-2 text-xs text-muted-foreground">지출은 자동으로 음수 처리</span>
               )}
             </Label>
-            <Input
-              type="number"
-              min="0"
-              placeholder="예) 3000000"
+            {/* FormattedInput: 금액 실시간 콤마 포맷 — KRW 기준, raw 문자열 관리 */}
+            <FormattedInput
               value={amountStr}
-              onChange={(e) => setAmountStr(e.target.value)}
+              onChange={setAmountStr}
+              placeholder="예) 3000000"
+              className="h-9"
             />
             {amountStr && !isNaN(parseFloat(amountStr)) && (
               <p className="text-xs text-muted-foreground">
-                {isExpense ? "−" : "+"}{parseFloat(amountStr).toLocaleString()}원
+                {isExpense ? "−" : "+"}{parseFloat(amountStr).toLocaleString()}
               </p>
             )}
           </div>

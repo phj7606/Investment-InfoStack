@@ -3,7 +3,7 @@
  * POST /api/portfolio/longterm/transactions  — 거래 추가
  *
  * 쿼리 파라미터 (GET):
- *   account?: "4802" | "1635" | "1402" | "8654"  — 계좌 필터
+ *   account?: "4802" | "1635" | "1402"  — 계좌 필터
  *   market?:  "KR" | "US"               — 시장 필터
  *   type?:    "STOCK" | "FUND" | "ETF"  — 종류 필터
  */

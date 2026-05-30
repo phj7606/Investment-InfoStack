@@ -99,12 +99,13 @@ export async function GET(req: NextRequest) {
     // ── 벤치마크 히스토리 조회 ────────────────────
     // KR 보유 시 ^KS11, US 보유 시 ^GSPC — 최초 BUY 날짜부터 오늘까지 필요
     // 가장 이른 BUY 날짜를 기준으로 한 번만 조회
-    const hasKR = positionsWithPrices.some((p) => p.market === "KR");
-    const hasUS = positionsWithPrices.some((p) => p.market === "US");
+    // market/stockCode는 가격과 무관하므로 prices 없는 positions 사용
+    const hasKR = positions.some((p) => p.market === "KR");
+    const hasUS = positions.some((p) => p.market === "US");
 
     // 각 통화별 최초 BUY 날짜 (벤치마크 시작점)
     function findEarliestBuy(market: "KR" | "US"): string {
-      const stockCodes = positionsWithPrices
+      const stockCodes = positions
         .filter((p) => p.market === market)
         .map((p) => p.stockCode);
       const buyDates = txs
@@ -141,8 +142,9 @@ export async function GET(req: NextRequest) {
     // KR: ${stockCode}.KS, US: stockCode 그대로
     const stockBarsMap = new Map<string, YahooHistoricalBar[]>();
 
+    // 히스토리 조회도 market/assetType만 필요하므로 positions 사용
     await Promise.all(
-      positionsWithPrices
+      positions
         .filter((p) => p.assetType !== "FUND")
         .map(async (p) => {
           // 해당 종목의 최초 BUY 날짜 추출
@@ -178,7 +180,6 @@ export async function GET(req: NextRequest) {
 
     // ── 종목별 성과 계산 ──────────────────────────
     // FUND 포지션 제외: Yahoo Finance 미지원 → 현재가/시계열 없음 → 의미 있는 지표 산출 불가
-    // 전체 계좌 선택 시 8654 펀드 계좌의 펀드 포지션이 섞이면 빈 행이 다수 생겨 레이아웃이 어색해짐
     const rawHoldings = positionsWithPrices
       .filter((p) => p.assetType !== "FUND")
       .map((position) => {

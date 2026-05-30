@@ -99,7 +99,7 @@ export function PositionSizingCalculator({ config }: PositionSizingCalculatorPro
                 <span className="text-muted-foreground">
                   허용 손실액 ({Math.round(config.multipleR * 100)}% R)
                 </span>
-                <span className="font-medium">{riskAmount.toLocaleString()}원</span>
+                <span className="font-medium">{riskAmount.toLocaleString()}</span>
               </div>
 
               {/* 손절 폭 */}
@@ -108,7 +108,7 @@ export function PositionSizingCalculator({ config }: PositionSizingCalculatorPro
                   주당 손절폭{stopPct !== 0 ? ` (${stopPct.toFixed(1)}%)` : ""}
                 </span>
                 <span className="font-medium">
-                  {stopRange > 0 ? `${stopRange.toLocaleString()}원` : "-"}
+                  {stopRange > 0 ? `${stopRange.toLocaleString()}` : "-"}
                 </span>
               </div>
             </div>
@@ -135,14 +135,14 @@ export function PositionSizingCalculator({ config }: PositionSizingCalculatorPro
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">투자 금액</span>
                   <span className={cn("font-semibold", isOverLimit ? "text-red-500" : "")}>
-                    {investAmount.toLocaleString()}원
+                    {investAmount.toLocaleString()}
                   </span>
                 </div>
 
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">실제 손실 (손절 시)</span>
                   <span className="font-medium text-red-500 dark:text-red-400">
-                    -{actualLoss.toLocaleString()}원
+                    -{actualLoss.toLocaleString()}
                   </span>
                 </div>
 
@@ -156,7 +156,7 @@ export function PositionSizingCalculator({ config }: PositionSizingCalculatorPro
                   )}>
                     <span>1회 투자 한도</span>
                     <span className="font-semibold">
-                      {oneTimeLimit.toLocaleString()}원
+                      {oneTimeLimit.toLocaleString()}
                       {isOverLimit && " ⚠ 초과"}
                     </span>
                   </div>

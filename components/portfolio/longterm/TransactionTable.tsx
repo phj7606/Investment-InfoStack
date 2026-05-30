@@ -24,14 +24,12 @@ interface TransactionTableProps {
   hideAccountFilter?: boolean;
   /** 단일 시장 환경에서 시장 필터 UI 숨김 */
   hideMarketFilter?: boolean;
-  /** true이면 종류 필터에서 FUND 버튼 숨김 (Short-term 계좌용) */
-  hideFundFilter?: boolean;
 }
 
 // 필터 상태 타입
-type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654";
+type AccountFilter = "all" | "4802" | "1635" | "1402" | "2805" | "1470";
 type MarketFilter = "all" | "KR" | "US";
-type AssetTypeFilter = "all" | "STOCK" | "FUND" | "ETF";
+type AssetTypeFilter = "all" | "STOCK" | "ETF";
 type TradeTypeFilter = "all" | "BUY" | "SELL" | "DIVIDEND";
 
 // 정렬 컬럼 타입
@@ -62,7 +60,7 @@ function formatAmount(amount: number, currency: "KRW" | "USD"): string {
   if (currency === "USD") {
     return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
-  return `${amount.toLocaleString()}원`;
+  return `${amount.toLocaleString()}`;
 }
 
 export function TransactionTable({
@@ -72,7 +70,6 @@ export function TransactionTable({
   onEdit,
   hideAccountFilter = false,
   hideMarketFilter = false,
-  hideFundFilter = false,
 }: TransactionTableProps) {
   // ── 검색어 상태 ──
   const [search, setSearch] = useState("");
@@ -243,7 +240,7 @@ export function TransactionTable({
           {/* 계좌 필터 — 단일 계좌 환경에서는 숨김 */}
           {!hideAccountFilter && (
             <div className="flex gap-1">
-              {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as AccountFilter[]).map((f) => (
+              {(["all", "4802", "1635", "1402", "2805", "1470"] as AccountFilter[]).map((f) => (
                 <Button
                   key={f}
                   variant={accountFilter === f ? "default" : "outline"}
@@ -257,10 +254,9 @@ export function TransactionTable({
             </div>
           )}
 
-          {/* 종류 필터 — hideFundFilter=true 이면 FUND 버튼 제외 */}
+          {/* 종류 필터 */}
           <div className="flex gap-1">
-            {(["all", "STOCK", "FUND", "ETF"] as AssetTypeFilter[])
-              .filter((f) => !(hideFundFilter && f === "FUND"))
+            {(["all", "STOCK", "ETF"] as AssetTypeFilter[])
               .map((f) => (
                 <Button
                   key={f}

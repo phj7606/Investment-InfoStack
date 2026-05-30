@@ -49,10 +49,10 @@ interface RiskManagementPanelProps {
 // 포맷 헬퍼
 // ────────────────────────────────────────
 
-/** 원화 금액을 쉼표 구분 + "원" 단위로 표시 */
+/** 원화 금액을 쉼표 구분으로 표시 */
 function fmtAmount(v: number): string {
   if (v === 0) return "-";
-  return `${v.toLocaleString()}원`;
+  return `${v.toLocaleString()}`;
 }
 
 /** 퍼센트 값을 소수점 1자리로 표시 */

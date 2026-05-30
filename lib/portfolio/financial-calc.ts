@@ -24,6 +24,7 @@ import type {
   AssetManagementColumnData,
   AssetManagementSectionData,
   AssetManagementIIColumnData,
+  DepositsColumnData,
   LivePortfolioData,
   TxSummaryByMonth,
 } from "@/types/financial";
@@ -172,217 +173,6 @@ export const calcShorttermKrwTotal = calcEducationKrwTotal;
 // 재무제표 조립
 // ─────────────────────────────────────────
 
-export interface PortfolioValues {
-  longtermPositions: LongtermPosition[];
-  pensionPositions: PensionPosition[];
-  educationPositions: EducationPosition[];
-  shorttermPositions: EducationPosition[];
-}
-
-/**
- * 현재 월(DRAFT) 재무제표 데이터 조립
- * 포트폴리오 값은 실시간 포지션 데이터 기반, 환율은 스냅샷에서 읽어 적용
- *
- * 엑셀 FS-May 2026 구조:
- * - CURRENT ASSET: 정기예금 KRW, 외화예금
- * - NON-CURRENT ASSET: 부동산
- * - INVESTMENT ASSET: 국내주식, 펀드, 예수금, 미국주식
- * - LIABILITY: 유동부채, 개인차입금, 임차보증금
- */
-export function buildFinancialStatementData(
-  snapshot: FinancialSnapshot,
-  portfolio: PortfolioValues,
-  prevData?: FinancialStatementData | null
-): FinancialStatementData {
-  const { exchangeRates, otherAssets, canadianPension } = snapshot;
-  const { usdKrw, cadKrw } = exchangeRates;
-
-  // ── 투자자산 계산 ─────────────────────────────────────
-  const fundKrw = calcFundKrwTotal(portfolio.longtermPositions);
-  const korStocksKrw = calcKorStocksKrwTotal(portfolio.longtermPositions);
-  const usStocksUsd = calcUsStocksUsdTotal(portfolio.longtermPositions);
-  const usStocksKrw = Math.round(usStocksUsd * usdKrw);
-
-  // 예수금 (현재는 shortterm 포지션으로 표시)
-  const stockDepositKrw = calcShorttermKrwTotal(portfolio.shorttermPositions);
-  const stockDepositUsd = 0; // 별도 USD 예수금 추적 시 업데이트
-
-  // ── 연금 계산 ─────────────────────────────────────────
-  const pensionKrw = calcPensionKrwTotal(portfolio.pensionPositions);
-  const canadianPensionKrw = Math.round(canadianPension.balanceCad * cadKrw);
-
-  // ── 교육자산 + Digital Asset(크립토) 계산 ──────────────
-  const educationBase = calcEducationKrwTotal(portfolio.educationPositions);
-  // 가상자산 잔액 — snapshot.crypto에서 수동 입력값 사용
-  const cryptoKrw =
-    (snapshot.crypto.upbit.balance || 0) +
-    (snapshot.crypto.korbit.balance || 0) +
-    Math.round((snapshot.crypto.binance.balance || 0) * usdKrw);
-  const educationKrw = educationBase + cryptoKrw;
-
-  // ── 정기예금 KRW 환산 ─────────────────────────────────
-  const fixedDepositKrwVal = snapshot.fixedDepositKrw;
-  const fixedDepositUsdKrw = Math.round(snapshot.fixedDepositUsd * usdKrw);
-
-  // ── 유동자산 합계 ─────────────────────────────────────
-  const currentAssetTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
-
-  // ── 비유동자산 합계 ───────────────────────────────────
-  const nonCurrentAssetTotal = snapshot.realEstate;
-
-  // ── 투자자산 합계 ─────────────────────────────────────
-  const investmentAssetTotal =
-    korStocksKrw + fundKrw + stockDepositKrw +
-    usStocksKrw + Math.round(stockDepositUsd * usdKrw);
-
-  // ── 총자산 ────────────────────────────────────────────
-  const totalAssets = Math.round(
-    currentAssetTotal + nonCurrentAssetTotal + investmentAssetTotal +
-    pensionKrw + canadianPensionKrw + educationKrw +
-    otherAssets.reduce((s, a) => s + a.amount, 0)
-  );
-
-  // ── 부채 ──────────────────────────────────────────────
-  const nonCurrentLiabilityTotal = snapshot.privateLoan + snapshot.leaseDeposit + snapshot.mortgageLoan;
-  const totalDebt = nonCurrentLiabilityTotal; // 현재 유동부채 없음
-
-  const netWorth = totalAssets - totalDebt;
-
-  // ── 투자+연금+교육 합계 (엑셀 INVESTMENT & PENSION TOTAL) ──
-  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
-
-  // ── CAPITAL 변동 내역 (전월 대비 섹션별 변동) ─────────
-  const prevNetWorthVal = prevData?.netWorth ?? 0;
-  const capitalNetChanges = prevData ? netWorth - prevNetWorthVal : 0;
-  const capitalChangeInCurrentAsset = prevData
-    ? currentAssetTotal - prevData.assets.currentAsset.total : 0;
-  const capitalChangeInNonCurrentAsset = prevData
-    ? nonCurrentAssetTotal - prevData.assets.nonCurrentAsset.total : 0;
-  const capitalChangeInInvestmentAsset = prevData
-    ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
-  const capitalChangeInPensionEducation = prevData
-    ? (pensionKrw + canadianPensionKrw + educationKrw) -
-      (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
-  // 부채 감소 = 순자산 증가이므로, 부채 변동의 부호를 반전
-  const capitalChangeInLiability = prevData
-    ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
-
-  // ── Asset Management Net Debt/Surplus 계산 ───────────
-  // 엑셀 공식: Asset Total = Investment Total + Cash and Equivalent Total
-  const investmentTotal = investmentAssetTotal;
-  const cashTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
-  const assetTotal = investmentTotal + cashTotal;
-  // Net Debt/Surplus = Asset Total - Lease Deposit
-  const netDebtSurplus = assetTotal - snapshot.leaseDeposit;
-  // Less Deposit Reimbursement = Asset Total - Lease Deposit (보증금 반환 후 여유 자산)
-  const lessDepositReimbursement = assetTotal - snapshot.leaseDeposit;
-  // Excess/Deficit = Less Deposit Reimbursement - Lease Deposit (또다른 기준)
-  const excessDeficit = lessDepositReimbursement - snapshot.leaseDeposit;
-
-  // ── 이전 버전 호환 라인아이템 구성 ───────────────────
-  const investmentPortfolio: AssetLineItem[] = [
-    { label: "국내 펀드 (FUND)", amountKrw: fundKrw, currency: "KRW" },
-    { label: "국내주식/ETF (KRW)", amountKrw: korStocksKrw, currency: "KRW" },
-    {
-      label: "미국주식/ETF (USD)",
-      amountKrw: usStocksKrw,
-      currency: "USD",
-      originalAmount: usStocksUsd,
-      exchangeRate: usdKrw,
-    },
-  ];
-
-  const pension: AssetLineItem[] = [
-    { label: "연금 (국내)", amountKrw: pensionKrw, currency: "KRW" },
-    {
-      label: "연금 (캐나다 RESP/RRSP)",
-      amountKrw: canadianPensionKrw,
-      currency: "CAD",
-      originalAmount: canadianPension.balanceCad,
-      exchangeRate: cadKrw,
-    },
-  ];
-
-  return {
-    month: snapshot.month,
-    status: snapshot.status,
-    exchangeRates,
-    assets: {
-      currentAsset: {
-        cashEquivalent: 0, // 별도 CMA 추적 시 업데이트
-        foreignDepositUsd: 0,
-        foreignDepositCad: 0,
-        fixedDepositUsd: fixedDepositUsdKrw,
-        fixedDepositKrw: fixedDepositKrwVal,
-        total: currentAssetTotal,
-      },
-      nonCurrentAsset: {
-        realEstate: snapshot.realEstate,
-        total: nonCurrentAssetTotal,
-      },
-      investmentAsset: {
-        korStocks: korStocksKrw,
-        fund: fundKrw,
-        stockDepositKrw,
-        usStocksKrw,
-        usStocksUsd: usStocksUsd,
-        usStocksDepositKrw: Math.round(stockDepositUsd * usdKrw),
-        usStocksDepositUsd: stockDepositUsd,
-        total: investmentAssetTotal,
-      },
-      pensionKrw: pensionKrw + canadianPensionKrw,
-      educationKrw,
-      investmentPensionTotal: Math.round(investmentPensionTotal),
-      totalAssets,
-      // 이전 버전 호환 필드
-      investmentPortfolio,
-      pension,
-      education: { label: "교육저축 (1470)", amountKrw: educationKrw, currency: "KRW" },
-      shortterm: { label: "Short-term 계좌", amountKrw: stockDepositKrw, currency: "KRW" },
-      digitalAssets: { label: "가상자산", amountKrw: 0, currency: "KRW" },
-      cash: { label: "정기예금 KRW", amountKrw: fixedDepositKrwVal, currency: "KRW" },
-      otherAssets: [
-        { label: "부동산", amountKrw: snapshot.realEstate },
-        ...otherAssets.map((a) => ({ label: a.name, amountKrw: a.amount })),
-      ],
-    },
-    liabilities: {
-      currentLiability: 0,
-      privateLoan: snapshot.privateLoan,
-      leaseDeposit: snapshot.leaseDeposit,
-      nonCurrentLiabilityTotal,
-      totalDebt,
-    },
-    netWorth: Math.round(netWorth),
-    capital: {
-      prevNetWorth: Math.round(prevNetWorthVal),
-      netChanges: Math.round(capitalNetChanges),
-      changeInCurrentAsset: Math.round(capitalChangeInCurrentAsset),
-      changeInNonCurrentAsset: Math.round(capitalChangeInNonCurrentAsset),
-      changeInInvestmentAsset: Math.round(capitalChangeInInvestmentAsset),
-      changeInPensionEducation: Math.round(capitalChangeInPensionEducation),
-      changeInLiability: Math.round(capitalChangeInLiability),
-    },
-    assetManagement: {
-      fundKrw,
-      korStocksKrw,
-      usStocksKrw,
-      usStocksUsd,
-      stockDepositKrw,
-      stockDepositUsd,
-      investmentTotal: Math.round(investmentTotal),
-      fixedDepositKrw: fixedDepositKrwVal,
-      cashEquivalent: 0,
-      cashTotal: Math.round(cashTotal),
-      assetTotal: Math.round(assetTotal),
-      leaseDeposit: snapshot.leaseDeposit,
-      netDebtSurplus: Math.round(netDebtSurplus),
-      lessDepositReimbursement: Math.round(lessDepositReimbursement),
-      excessDeficit: Math.round(excessDeficit),
-    },
-  };
-}
-
 /**
  * 과거 월(CONFIRMED) 재무제표 데이터 조립
  * 포트폴리오 값은 confirmedPortfolio에 저장된 고정값 사용 (재계산 없음)
@@ -404,11 +194,19 @@ export function buildConfirmedStatementData(
   const stockDepositKrw = cp.stockDepositKrw;
   const stockDepositUsd = cp.stockDepositUsd;
 
-  const pensionKrw = cp.pensionFundBalance + cp.pensionDepositBalance + cp.irpBalance;
+  // 연금 투자잔액 (퇴직연금 + 연금저축 + IRP)
+  const pensionFundKrwConf = cp.pensionFundBalance + cp.pensionDepositBalance + cp.irpBalance;
   // canadianPensionKrw가 0이어도 balanceCad에서 재계산 (과거 confirm 시 누락 대응)
   const canadianPensionKrw = (cp.canadianPensionKrw && cp.canadianPensionKrw > 0)
     ? cp.canadianPensionKrw
     : Math.round(canadianPension.balanceCad * cadKrw);
+  // CONFIRMED 월: pensionCashDeposit는 snap에서 직접 읽음
+  const pensionDepositKrwConf =
+    (snapshot.pensionCashDeposit?.RETIREMENT ?? 0) +
+    (snapshot.pensionCashDeposit?.SAVINGS ?? 0) +
+    (snapshot.pensionCashDeposit?.IRP ?? 0);
+  // FS pensionKrw 합계 — CONFIRMED도 새 공식 적용 (total asset만 변경, 화면 표시는 불변)
+  const pensionKrwConf = pensionFundKrwConf + pensionDepositKrwConf + canadianPensionKrw;
   // 교육 + Digital Asset(크립토)
   const cryptoKrw =
     (snapshot.crypto.upbit.balance || 0) +
@@ -420,12 +218,13 @@ export function buildConfirmedStatementData(
   const fixedDepositUsdKrw = Math.round(snapshot.fixedDepositUsd * usdKrw);
   const currentAssetTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
   const nonCurrentAssetTotal = snapshot.realEstate;
+  // 투자자산 합계 (FUND/Derivatives 포함)
   const investmentAssetTotal = korStocksKrw + fundKrw + stockDepositKrw +
     usStocksKrw + Math.round(stockDepositUsd * usdKrw);
 
   const totalAssets = Math.round(
     currentAssetTotal + nonCurrentAssetTotal + investmentAssetTotal +
-    pensionKrw + canadianPensionKrw + educationKrw +
+    pensionKrwConf + educationKrw +
     otherAssets.reduce((s, a) => s + a.amount, 0)
   );
 
@@ -434,7 +233,7 @@ export function buildConfirmedStatementData(
   const netWorth = totalAssets - totalDebt;
 
   // 투자+연금+교육 합계
-  const investmentPensionTotal = investmentAssetTotal + pensionKrw + canadianPensionKrw + educationKrw;
+  const investmentPensionTotal = investmentAssetTotal + pensionKrwConf + educationKrw;
 
   // CAPITAL 변동 내역 (전월 대비)
   const prevNetWorthVal = prevData?.netWorth ?? 0;
@@ -446,7 +245,7 @@ export function buildConfirmedStatementData(
   const capitalChangeInInvestmentAsset = prevData
     ? investmentAssetTotal - prevData.assets.investmentAsset.total : 0;
   const capitalChangeInPensionEducation = prevData
-    ? (pensionKrw + canadianPensionKrw + educationKrw) -
+    ? (pensionKrwConf + educationKrw) -
       (prevData.assets.pensionKrw + prevData.assets.educationKrw) : 0;
   const capitalChangeInLiability = prevData
     ? -(totalDebt - prevData.liabilities.totalDebt) : 0;
@@ -455,8 +254,6 @@ export function buildConfirmedStatementData(
   const cashTotal = fixedDepositKrwVal + fixedDepositUsdKrw;
   const assetTotal = investmentTotal + cashTotal;
   const netDebtSurplus = assetTotal - snapshot.leaseDeposit;
-  const lessDepositReimbursement = assetTotal - snapshot.leaseDeposit;
-  const excessDeficit = lessDepositReimbursement - snapshot.leaseDeposit;
 
   const investmentPortfolio: AssetLineItem[] = [
     { label: "국내 펀드 (FUND)", amountKrw: fundKrw, currency: "KRW" },
@@ -471,7 +268,8 @@ export function buildConfirmedStatementData(
   ];
 
   const pension: AssetLineItem[] = [
-    { label: "연금 (국내)", amountKrw: pensionKrw, currency: "KRW" },
+    // DRAFT와 동일하게 펀드잔액 + 현금예수금 합산 (캐나다 제외 — 별도 항목)
+    { label: "연금 (국내)", amountKrw: pensionFundKrwConf + pensionDepositKrwConf, currency: "KRW" },
     {
       label: "연금 (캐나다 RESP/RRSP)",
       amountKrw: canadianPensionKrw,
@@ -500,7 +298,7 @@ export function buildConfirmedStatementData(
       },
       investmentAsset: {
         korStocks: korStocksKrw,
-        fund: fundKrw,
+        fund: fundKrw,  // 값 보존 (자산관리 탭용), FS 표시는 제외
         stockDepositKrw,
         usStocksKrw,
         usStocksUsd,
@@ -508,10 +306,11 @@ export function buildConfirmedStatementData(
         usStocksDepositUsd: stockDepositUsd,
         total: investmentAssetTotal,
       },
-      pensionKrw: pensionKrw + canadianPensionKrw,
+      pensionKrw: pensionKrwConf,   // 3개 항목 합산 (CONFIRMED도 동일 구조)
       educationKrw,
       investmentPensionTotal: Math.round(investmentPensionTotal),
       totalAssets,
+      // CONFIRMED: pensionBreakdown은 undefined — 화면 표시 변경 없음
       investmentPortfolio,
       pension,
       education: { label: "교육저축 (1470)", amountKrw: educationKrw, currency: "KRW" },
@@ -554,8 +353,6 @@ export function buildConfirmedStatementData(
       assetTotal: Math.round(assetTotal),
       leaseDeposit: snapshot.leaseDeposit,
       netDebtSurplus: Math.round(netDebtSurplus),
-      lessDepositReimbursement: Math.round(lessDepositReimbursement),
-      excessDeficit: Math.round(excessDeficit),
     },
   };
 }
@@ -704,6 +501,9 @@ export function buildAssetManagementYearlyData(
         cashTotal: 0,
         assetTotal: 0,
         leaseDeposit: 0,
+        krwStocksBalance: 0,
+        usStocksBalanceKrw: 0,
+        stockDepositUsdKrw: 0,
       });
       continue;
     }
@@ -1027,15 +827,17 @@ export function buildAssetManagementYearlyData(
       .reduce((sum, v) => sum + (v.usd ?? 0), 0);
 
     if (isDraft) {
-      // byAccount 합산 우선 — 없으면 liveData (shortterm 포지션 합계) fallback
-      stockDepositKrw = byAccountKrwTotal || (liveData?.stockDepositKrw ?? 0);
+      // byAccount 합산 우선 → Edit 다이얼로그 직접 입력 → liveData fallback
+      stockDepositKrw = byAccountKrwTotal || snap.stockDepositKrw || (liveData?.stockDepositKrw ?? 0);
       // liveData USD는 항상 0이므로 byAccount 합산 사용
       stockDepositUsd = byAccountUsdTotal || (liveData?.stockDepositUsd ?? 0);
     } else if (cp) {
       // CONFIRMED: KRW는 byAccount 합산 (수동 입력값이 cp와 동일하거나 더 최신)
       //            USD는 cp 저장값 사용 — byAccount는 정수(소수점 없음)라서
       //            엑셀의 소수점 포함 확정값(ex: 37.61)과 차이 발생
-      stockDepositKrw = byAccountKrwTotal || cp.stockDepositKrw;
+      // || 대신 키 존재 여부로 분기 — 실제 잔액이 0원인 경우와 미입력을 구분
+      const hasByAccountInput = Object.keys(snap.stockDepositByAccount ?? {}).length > 0;
+      stockDepositKrw = hasByAccountInput ? byAccountKrwTotal : cp.stockDepositKrw;
       stockDepositUsd = cp.stockDepositUsd;
     }
 
@@ -1061,8 +863,8 @@ export function buildAssetManagementYearlyData(
     // stockDepositUsd: CONFIRMED는 cp 저장값(소수점 포함, ex: 37.61) 사용
     //                  byAccount는 정수라 .61 등이 소실됨
     const stockDepositUsdKrwRaw = stockDepositUsd * usdKrw;
-    // 최종 합산 후 1회 반올림 — Excel과 정확히 일치
-    const investmentTotal = Math.round(krwBalance + usBalanceKrwRaw + stockDepositKrw + stockDepositUsdKrwRaw);
+    // FUND/Derivatives 포함 — KOR Stocks + FUND + US Stocks + Stock Deposit 합산
+    const investmentTotal = Math.round(fundData.balance + korData.balance + usBalanceKrwRaw + stockDepositKrw + stockDepositUsdKrwRaw);
 
     // Cash Total = 외화예금 KRW환산 + 정기예금
     const cashForeignUsdKrw = Math.round(cashForeignUsd * usdKrw);
@@ -1109,6 +911,13 @@ export function buildAssetManagementYearlyData(
       cashTotal,
       assetTotal,
       leaseDeposit,
+      // ── Summary 세부항목 ────────────────────────────────────
+      // krwStocksBalance: KOR Stocks만 (FUND 제외)
+      krwStocksBalance: korData.balance,
+      // usStocksBalanceKrw: US Stocks KRW 환산 (DRAFT: liveData 기반)
+      usStocksBalanceKrw: usBalanceKrwRaw,
+      // stockDepositUsdKrw: USD 예수금 KRW 환산
+      stockDepositUsdKrw: stockDepositUsdKrwRaw,
     });
   }
 
@@ -1138,6 +947,96 @@ export function buildAssetManagementYearlyData(
       col.usStocks.cumPct = (baseUs + col.usStocks.cumBid) > 0
         ? col.usStocks.cumPnl / (baseUs + col.usStocks.cumBid) : 0;
     }
+  }
+
+  return columns;
+}
+
+// ─────────────────────────────────────────
+// Deposit & FX 연간 테이블
+// ─────────────────────────────────────────
+
+/**
+ * Deposit & FX 관리 페이지용 연간 데이터 빌드
+ * Dec-{year-1}(baseline) + Jan~Dec{year} 컬럼 배열 반환
+ */
+export function buildDepositsYearlyData(
+  snapshots: FinancialSnapshot[],
+  year: number
+): DepositsColumnData[] {
+  const columns: DepositsColumnData[] = [];
+
+  // baseline + 12개월 순서로 처리
+  const months: Array<{ month: string; isBaseline: boolean }> = [
+    { month: `${year - 1}-12`, isBaseline: true },
+    ...Array.from({ length: 12 }, (_, i) => ({
+      month: `${year}-${String(i + 1).padStart(2, "0")}`,
+      isBaseline: false,
+    })),
+  ];
+
+  const curMonth = currentMonth();
+
+  for (const { month, isBaseline } of months) {
+    const snap = snapshots.find((s) => s.month === month);
+    const isDraft = !isBaseline && month === curMonth && (!snap || snap.status !== "CONFIRMED");
+
+    if (!snap) {
+      // 해당 월 스냅샷 없음 — 빈 컬럼
+      columns.push({
+        month,
+        isBaseline,
+        isDraft,
+        hasData: false,
+        exchangeRates: { usdKrw: 1300, cadKrw: 1000 },
+        stockDepositByAccount: {
+          "4802": { krw: 0, usd: 0 },
+          "1635": { krw: 0, usd: 0 },
+          "1402": { krw: 0, usd: 0 },
+        },
+        shortterm2805Deposit: 0,
+        education1470Deposit: 0,
+        pensionCashDeposit: { RETIREMENT: 0, SAVINGS: 0, IRP: 0 },
+        cashForeignUsd: 0,
+        cashForeignCad: 0,
+        fixedDepositKrw: 0,
+        fixedDepositUsd: 0,
+        leaseDeposit: 0,
+      });
+      continue;
+    }
+
+    const usdKrw = snap.exchangeRates.usdKrw;
+    const cadKrw = snap.exchangeRates.cadKrw ?? 1086.59;
+
+    // Stock Deposit 계좌별 값
+    const byAcc = snap.stockDepositByAccount ?? {};
+    const stockDepositByAccount = {
+      "4802": { krw: byAcc["4802"]?.krw ?? 0, usd: byAcc["4802"]?.usd ?? 0 },
+      "1635": { krw: byAcc["1635"]?.krw ?? 0, usd: byAcc["1635"]?.usd ?? 0 },
+      "1402": { krw: byAcc["1402"]?.krw ?? 0, usd: byAcc["1402"]?.usd ?? 0 },
+    };
+
+    columns.push({
+      month,
+      isBaseline,
+      isDraft,
+      hasData: true,
+      exchangeRates: { usdKrw, cadKrw },
+      stockDepositByAccount,
+      shortterm2805Deposit: snap.shorttermMonthly?.deposit ?? 0,
+      education1470Deposit: snap.educationMonthly?.deposit ?? 0,
+      pensionCashDeposit: {
+        RETIREMENT: snap.pensionCashDeposit?.RETIREMENT ?? 0,
+        SAVINGS: snap.pensionCashDeposit?.SAVINGS ?? 0,
+        IRP: snap.pensionCashDeposit?.IRP ?? 0,
+      },
+      cashForeignUsd: snap.cashForeignUsd ?? 0,
+      cashForeignCad: snap.cashForeignCad ?? 0,
+      fixedDepositKrw: snap.fixedDepositKrw,
+      fixedDepositUsd: snap.fixedDepositUsd,
+      leaseDeposit: snap.leaseDeposit,
+    });
   }
 
   return columns;
@@ -1180,7 +1079,7 @@ export function buildAssetManagementIIYearlyData(
       binanceBalanceUsd: 0, binancePrincipalUsd: 0,
       totalKrw: 0, totalPrincipalKrw: 0, pnlKrw: 0, pnlPct: 0,
     },
-    education: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 },
+    education: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, totalBalance: 0 },
     pension: {
       pensionFundBalance: 0, pensionFundPrincipal: 0, pensionFundPnl: 0,
       pensionDepositBalance: 0, pensionDepositPrincipal: 0, pensionDepositPnl: 0,
@@ -1188,7 +1087,7 @@ export function buildAssetManagementIIYearlyData(
       totalBalance: 0, totalPrincipal: 0, totalPnl: 0, totalPnlPct: 0,
     },
     respRrsp: { balanceCad: 0, balanceKrw: 0 },
-    shortterm: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 },
+    shortterm: { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, totalBalance: 0 },
   });
 
   const columns: AssetManagementIIColumnData[] = [];
@@ -1243,40 +1142,39 @@ export function buildAssetManagementIIYearlyData(
     let education: AssetManagementIIColumnData["education"];
     if (isDraft) {
       const deposit = snap.educationMonthly?.deposit ?? 0;
-      const accountTransfer = snap.educationMonthly?.accountTransfer ?? 0;
       // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
       const stockBalance = snap.educationMonthly?.stockBalance || (liveData?.education1470.stock ?? 0);
       const principal = liveData?.education1470.principal ?? 0;
-      const balance = deposit + stockBalance;
-      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
-      const pnl = balance - principal;
-      education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
+      // balance = 주식 잔액만 (P/L 산정 기준), totalBalance = deposit + stockBalance
+      const balance = stockBalance;
+      const pnl = stockBalance - principal;
+      const totalBalance = deposit + stockBalance;
+      education = { deposit, stockBalance, balance, principal, pnl, totalBalance };
     } else if (cp) {
       const deposit = cp.education1470Deposit ?? 0;
-      const accountTransfer = snap.educationMonthly?.accountTransfer ?? 0;
       const stockBalance = cp.education1470Stock ?? 0;
       const principal = cp.education1470Principal ?? 0;
-      const balance = deposit + stockBalance;
-      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
-      const pnl = balance - principal;
-      education = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
+      const balance = stockBalance;
+      const pnl = stockBalance - principal;
+      const totalBalance = deposit + stockBalance;
+      education = { deposit, stockBalance, balance, principal, pnl, totalBalance };
     } else {
-      education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
+      education = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, totalBalance: 0 };
     }
 
     // ── Pension 집계 (계좌별 분리) ───────────────────
     let pension: AssetManagementIIColumnData["pension"];
     if (isDraft) {
-      // 수동 입력값 우선 (pensionMonthly), 없으면 live-data 자동 계산
+      // 잔액은 liveData 실시간, 원금도 liveData에서 직접 가져옴 (Pension Account 기준)
       const pm = snap.pensionMonthly;
       const pensionFundBalance = pm?.fundBalance ?? liveData?.pensionFund.balance ?? 0;
-      const pensionFundPrincipal = pm?.fundPrincipal ?? liveData?.pensionFund.principal ?? 0;
+      const pensionFundPrincipal = liveData?.pensionFund.principal ?? 0;
       const pensionFundPnl = pensionFundBalance - pensionFundPrincipal;
       const pensionDepositBalance = pm?.depositBalance ?? liveData?.pensionDeposit.balance ?? 0;
-      const pensionDepositPrincipal = pm?.depositPrincipal ?? liveData?.pensionDeposit.principal ?? 0;
+      const pensionDepositPrincipal = liveData?.pensionDeposit.principal ?? 0;
       const pensionDepositPnl = pensionDepositBalance - pensionDepositPrincipal;
       const irpBalance = pm?.irpBalance ?? liveData?.irp.balance ?? 0;
-      const irpPrincipal = pm?.irpPrincipal ?? liveData?.irp.principal ?? 0;
+      const irpPrincipal = liveData?.irp.principal ?? 0;
       const irpPnl = irpBalance - irpPrincipal;
       const totalBalance = pensionFundBalance + pensionDepositBalance + irpBalance;
       const totalPrincipal = pensionFundPrincipal + pensionDepositPrincipal + irpPrincipal;
@@ -1328,25 +1226,24 @@ export function buildAssetManagementIIYearlyData(
     let shortterm: AssetManagementIIColumnData["shortterm"];
     if (isDraft) {
       const deposit = snap.shorttermMonthly?.deposit ?? 0;
-      const accountTransfer = snap.shorttermMonthly?.accountTransfer ?? 0;
       // stockBalance: 수동 입력값 우선 (0이면 live-data 실시간 집계 사용)
       const stockBalance = snap.shorttermMonthly?.stockBalance || (liveData?.shortterm.stockBalance ?? 0);
       const principal = liveData?.shortterm.principal ?? 0;
-      const balance = deposit + stockBalance;
-      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
-      const pnl = balance - principal;
-      shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
+      // balance = 주식 잔액만 (P/L 산정 기준), totalBalance = deposit + stockBalance
+      const balance = stockBalance;
+      const pnl = stockBalance - principal;
+      const totalBalance = deposit + stockBalance;
+      shortterm = { deposit, stockBalance, balance, principal, pnl, totalBalance };
     } else if (cp) {
       const deposit = cp.shorttermDeposit ?? 0;
-      const accountTransfer = snap.shorttermMonthly?.accountTransfer ?? 0;
       const stockBalance = cp.shorttermStockBalance ?? 0;
       const principal = cp.shorttermPrincipal ?? 0;
-      const balance = deposit + stockBalance;
-      // P/L = Total Balance - Principal (예수금 포함 전체 잔액 기준)
-      const pnl = balance - principal;
-      shortterm = { deposit, stockBalance, balance, principal, accountTransfer, pnl };
+      const balance = stockBalance;
+      const pnl = stockBalance - principal;
+      const totalBalance = deposit + stockBalance;
+      shortterm = { deposit, stockBalance, balance, principal, pnl, totalBalance };
     } else {
-      shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, accountTransfer: 0, pnl: 0 };
+      shortterm = { deposit: 0, stockBalance: 0, balance: 0, principal: 0, pnl: 0, totalBalance: 0 };
     }
 
     columns.push({

@@ -15,18 +15,9 @@ import type {
   UpdateSnapshotRequest,
 } from "@/types/financial";
 
-interface NetWorthPoint {
-  month: string;
-  netWorth: number;
-  totalAssets: number;
-  totalDebt: number;
-  status: "DRAFT" | "CONFIRMED";
-}
-
 interface FinancialStatementViewProps {
   data: FinancialStatementData;
   snapshot: FinancialSnapshot;
-  trendData: NetWorthPoint[];
   onRefresh: () => void;
 }
 
@@ -36,13 +27,13 @@ interface FinancialStatementViewProps {
 
 /** KRW 금액 표시 — 음수는 회계 관행에 따라 (1,234) 괄호 표기 */
 function fmtAmt(v: number): string {
-  if (v < 0) return `(${Math.abs(v).toLocaleString()})`;
-  return v.toLocaleString();
+  const abs = Math.abs(Math.round(v)).toLocaleString("ko-KR");
+  return v < 0 ? `(${abs})` : abs;
 }
 
-/** USD 금액 표시 (소수점 2자리, 음수 괄호 표기) */
+/** USD/CAD 금액 표시 (소수점 없음, 음수 괄호 표기) */
 function fmtUsd(v: number): string {
-  const abs = Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const abs = Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return v < 0 ? `(${abs})` : abs;
 }
 
@@ -250,8 +241,11 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
             {/* INVESTMENT ASSET */}
             <div>
               <p className="text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wide">Investment Asset</p>
+              {/* FUND/Derivatives: 잔액 있을 때만 표시 (계좌 해지 후 0원이면 숨김) */}
+              {ia.fund > 0 && (
+                <BSRow label="Fund/Derivatives (KRW)" amount={ia.fund} indent />
+              )}
               <BSRow label="Marketable securities (KR)" amount={ia.korStocks} indent />
-              <BSRow label="Fund/Derivatives" amount={ia.fund} indent />
               <BSRow label="Stock deposit (KRW)" amount={ia.stockDepositKrw} indent />
               {/* 엑셀은 US Stocks를 USD 원본으로 표시 */}
               <BSRowUsd label="US Stocks/ETF (USD)" amountUsd={ia.usStocksUsd} indent />
@@ -261,9 +255,33 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
 
             <Separator />
 
-            {/* 연금·교육 (Investment 아래 배치 — 엑셀 Row 33~34) */}
+            {/* 연금·교육 (Investment 아래 배치 — 엑셀 Row 33~34)
+                DRAFT: 3개 항목 세분화 / CONFIRMED: 단일 행 유지 */}
             <div>
-              <BSRow label="Pension fund" amount={assets.pensionKrw} indent />
+              {assets.pensionBreakdown ? (
+                /* DRAFT 전용: Pension fund → 3개 세부 항목 */
+                <>
+                  <BSRow
+                    label="Pension fund"
+                    amount={assets.pensionBreakdown.pensionFundKrw}
+                    indent
+                  />
+                  <BSRow
+                    label="Pension deposit"
+                    amount={assets.pensionBreakdown.pensionDepositKrw}
+                    indent
+                  />
+                  {/* RESP/RRSP는 CAD 원화 표시 — KRW 환산은 합계에만 반영 */}
+                  <BSRowUsd
+                    label="RESP/RRSP (CAD)"
+                    amountUsd={snapshot.canadianPension.balanceCad}
+                    indent
+                  />
+                </>
+              ) : (
+                /* CONFIRMED: 기존 단일 행 */
+                <BSRow label="Pension fund" amount={assets.pensionKrw} indent />
+              )}
               <BSRow label="Education Savings" amount={assets.educationKrw} indent />
               <TotalRow label="INVESTMENT & PENSION TOTAL" amount={assets.investmentPensionTotal} />
             </div>

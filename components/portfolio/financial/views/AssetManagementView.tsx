@@ -3,36 +3,22 @@
 /**
  * 자산관리 연간 테이블 뷰
  *
- * 엑셀 Asset Management 시트를 웹으로 구현:
- * - 컬럼: Dec-{year-1}(기준값) | Jan~Dec {year} | YTD
- * - 섹션: FUND | KOR Stocks | US Stocks(USD) | Stock Deposit | Cash & Equivalent | Summary
- * - 모든 컬럼(CONFIRMED 포함) 헤더에 편집 버튼 — MonthlyInputDialog 오픈
- * - Fund 편집: DRAFT 컬럼에만 표시 (Balance, Bid, Ask BV, Fixed P/L)
- * - Net Debt/Surplus: Cash 섹션에서 제거, Summary 섹션에만 존재
+ * 섹션: KOR Stocks | US Stocks(USD) | Summary
+ * Stock Deposit / Cash & Equivalent / Exchange Rates → Deposit & FX 페이지로 이동
  */
 
 import { useState, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ClipboardPen, RefreshCw, Copy, Lock, CheckSquare } from "lucide-react";
+import { RefreshCw, CheckSquare } from "lucide-react";
 import { LockPricesDialog } from "./LockPricesDialog";
-import { RateCell } from "@/components/portfolio/financial/RateCell";
 import { buildAssetManagementYearlyData, currentMonth } from "@/lib/portfolio/financial-calc";
 import type {
   FinancialSnapshot,
   LivePortfolioData,
   AssetManagementColumnData,
   AssetManagementSectionData,
-  UpdateSnapshotRequest,
   TxSummaryByMonth,
 } from "@/types/financial";
 
@@ -46,12 +32,6 @@ interface AssetManagementViewProps {
   liveLoading: boolean;
   onRefresh: () => void;
   txSummaries?: TxSummaryByMonth;
-  /** 환율 수정 콜백 — DRAFT 월 환율 셀 인라인 편집 */
-  onRateSave?: (field: "usdKrw" | "cadKrw", value: number) => Promise<void>;
-  /** 실시간 환율 갱신 콜백 (yfinance) */
-  onRateRefresh?: () => Promise<void>;
-  /** 실시간 갱신 로딩 상태 */
-  rateRefreshing?: boolean;
 }
 
 // ─────────────────────────────────────────
@@ -61,7 +41,7 @@ interface AssetManagementViewProps {
 /** KRW 금액: 쉼표 구분, 음수는 괄호 표기 (예: 1,482,352,065 / (1,234)) */
 function fmtKrw(v: number): string {
   if (v === 0) return "–";
-  const abs = Math.abs(v);
+  const abs = Math.abs(Math.round(v));
   const str = abs.toLocaleString("ko-KR");
   return v < 0 ? `(${str})` : str;
 }
@@ -165,7 +145,7 @@ function DataCell({
 }
 
 // ─────────────────────────────────────────
-// 섹션 행 그룹 렌더러 (FUND / KOR Stocks / US Stocks)
+// 섹션 행 그룹 렌더러 (KOR Stocks / US Stocks)
 // ─────────────────────────────────────────
 
 function SectionRows({
@@ -357,271 +337,6 @@ function SimpleRow({
 }
 
 // ─────────────────────────────────────────
-// 통합 입력 다이얼로그 — FUND + Stock Deposit + Cash + Liabilities
-// CONFIRMED 월 포함 편집 가능
-// ─────────────────────────────────────────
-
-const DEPOSIT_ACCOUNTS = ["4802", "1635", "1402"] as const;
-type DepositAccount = typeof DEPOSIT_ACCOUNTS[number];
-
-interface UnifiedInputDialogProps {
-  open: boolean;
-  month: string;
-  snapshot: FinancialSnapshot | null;      // 해당 월 스냅샷 (없으면 null)
-  prevSnapshot: FinancialSnapshot | null;  // 전월 스냅샷 (없으면 null)
-  onClose: () => void;
-  onSave: () => void;
-}
-
-function UnifiedInputDialog({
-  open,
-  month,
-  snapshot,
-  prevSnapshot,
-  onClose,
-  onSave,
-}: UnifiedInputDialogProps) {
-  const byAccount = snapshot?.stockDepositByAccount;
-  const fm = snapshot?.fundMonthly;
-
-  // FUND 직접입력 상태
-  const [fundBalance, setFundBalance] = useState(String(fm?.balance ?? 0));
-  const [fundBid, setFundBid] = useState(String(fm?.bid ?? 0));
-  const [fundAskBv, setFundAskBv] = useState(String(fm?.askBv ?? 0));
-  const [fundFixedPnl, setFundFixedPnl] = useState(String(fm?.fixedPnl ?? 0));
-
-  // 계좌별 예수금 초기값
-  const [values, setValues] = useState<Record<DepositAccount, { krw: string; usd: string }>>({
-    "4802": { krw: String(byAccount?.["4802"]?.krw ?? 0), usd: String(byAccount?.["4802"]?.usd ?? 0) },
-    "1635": { krw: String(byAccount?.["1635"]?.krw ?? 0), usd: String(byAccount?.["1635"]?.usd ?? 0) },
-    "1402": { krw: String(byAccount?.["1402"]?.krw ?? 0), usd: String(byAccount?.["1402"]?.usd ?? 0) },
-  });
-
-  // Cash & Equivalent 초기값
-  const [cashForeignUsd, setCashForeignUsd] = useState(String(snapshot?.cashForeignUsd ?? 0));
-  const [cashForeignCad, setCashForeignCad] = useState(String(snapshot?.cashForeignCad ?? 0));
-  const [fixedDepositKrw, setFixedDepositKrw] = useState(String(snapshot?.fixedDepositKrw ?? 0));
-  const [fixedDepositUsd, setFixedDepositUsd] = useState(String(snapshot?.fixedDepositUsd ?? 0));
-
-  // 부채 — 임차보증금
-  const [leaseDeposit, setLeaseDeposit] = useState(String(snapshot?.leaseDeposit ?? 0));
-
-  const [saving, setSaving] = useState(false);
-
-  const setField = (acc: DepositAccount, field: "krw" | "usd", val: string) => {
-    setValues((prev) => ({ ...prev, [acc]: { ...prev[acc], [field]: val } }));
-  };
-
-  /**
-   * 전월 동일 버튼 — prevSnapshot 값을 현재 입력 필드에 복사
-   * stockDepositByAccount + cashForeignUsd/Cad + fixedDepositKrw/Usd 복사
-   */
-  const handleCopyPrev = () => {
-    if (!prevSnapshot) return;
-    const prev = prevSnapshot.stockDepositByAccount;
-    setValues({
-      "4802": { krw: String(prev?.["4802"]?.krw ?? 0), usd: String(prev?.["4802"]?.usd ?? 0) },
-      "1635": { krw: String(prev?.["1635"]?.krw ?? 0), usd: String(prev?.["1635"]?.usd ?? 0) },
-      "1402": { krw: String(prev?.["1402"]?.krw ?? 0), usd: String(prev?.["1402"]?.usd ?? 0) },
-    });
-    setCashForeignUsd(String(prevSnapshot.cashForeignUsd ?? 0));
-    setCashForeignCad(String(prevSnapshot.cashForeignCad ?? 0));
-    setFixedDepositKrw(String(prevSnapshot.fixedDepositKrw ?? 0));
-    setFixedDepositUsd(String(prevSnapshot.fixedDepositUsd ?? 0));
-    setLeaseDeposit(String(prevSnapshot.leaseDeposit ?? 0));
-    const prevFm = prevSnapshot.fundMonthly;
-    setFundBalance(String(prevFm?.balance ?? 0));
-    setFundBid(String(prevFm?.bid ?? 0));
-    setFundAskBv(String(prevFm?.askBv ?? 0));
-    setFundFixedPnl(String(prevFm?.fixedPnl ?? 0));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      // 계좌별 합산 → 전체 예수금 총계
-      const totalKrw = DEPOSIT_ACCOUNTS.reduce((s, a) => s + (Number(values[a].krw) || 0), 0);
-      const totalUsd = DEPOSIT_ACCOUNTS.reduce((s, a) => s + (Number(values[a].usd) || 0), 0);
-
-      const body: UpdateSnapshotRequest = {
-        fundMonthly: {
-          principal: snapshot?.fundMonthly?.principal ?? 0,
-          bid: Number(fundBid) || 0,
-          askBv: Number(fundAskBv) || 0,
-          fixedPnl: Number(fundFixedPnl) || 0,
-          balance: Number(fundBalance) || 0,
-        },
-        stockDepositKrw: totalKrw,
-        stockDepositUsd: totalUsd,
-        stockDepositByAccount: {
-          "4802": { krw: Number(values["4802"].krw) || 0, usd: Number(values["4802"].usd) || 0 },
-          "1635": { krw: Number(values["1635"].krw) || 0, usd: Number(values["1635"].usd) || 0 },
-          "1402": { krw: Number(values["1402"].krw) || 0, usd: Number(values["1402"].usd) || 0 },
-        },
-        cashForeignUsd: Number(cashForeignUsd) || 0,
-        cashForeignCad: Number(cashForeignCad) || 0,
-        fixedDepositKrw: Number(fixedDepositKrw) || 0,
-        fixedDepositUsd: Number(fixedDepositUsd) || 0,
-        leaseDeposit: Number(leaseDeposit) || 0,
-      };
-
-      const res = await fetch(`/api/portfolio/financial/snapshot/${month}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error("[UnifiedInputDialog]", errText);
-        setSaving(false);
-        return;
-      }
-      onSave();
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // 합산 미리보기
-  const totalKrw = DEPOSIT_ACCOUNTS.reduce((s, a) => s + (Number(values[a].krw) || 0), 0);
-  const totalUsd = DEPOSIT_ACCOUNTS.reduce((s, a) => s + (Number(values[a].usd) || 0), 0);
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>월별 입력 — {month}</span>
-            {/* 전월 동일 버튼 — prevSnapshot이 있을 때만 활성화 */}
-            {prevSnapshot && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-6 text-xs gap-1"
-                onClick={handleCopyPrev}
-              >
-                <Copy className="w-3 h-3" />
-                전월과 동일
-              </Button>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* FUND 섹션 */}
-        <div className="space-y-3 py-2">
-          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">FUND</p>
-          {[
-            { label: "Balance (잔액)", value: fundBalance, set: setFundBalance },
-            { label: "Bid (매수)", value: fundBid, set: setFundBid },
-            { label: "Ask BV (매도 장부가)", value: fundAskBv, set: setFundAskBv },
-            { label: "Fixed P/L (실현손익)", value: fundFixedPnl, set: setFundFixedPnl },
-          ].map(({ label, value, set }) => (
-            <div key={label} className="grid grid-cols-2 items-center gap-2">
-              <Label className="text-xs text-right text-muted-foreground">{label}</Label>
-              <Input
-                type="number"
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                className="h-7 text-xs"
-                placeholder="0"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* Stock Deposit 섹션 */}
-        <div className="space-y-3 py-2">
-          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">Stock Deposit</p>
-          {DEPOSIT_ACCOUNTS.map((acc) => (
-            <div key={acc} className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">계좌 {acc}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground">KRW</Label>
-                  <Input
-                    type="number"
-                    value={values[acc].krw}
-                    onChange={(e) => setField(acc, "krw", e.target.value)}
-                    className="h-7 text-xs"
-                    placeholder="0"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground">USD ($)</Label>
-                  <Input
-                    type="number"
-                    value={values[acc].usd}
-                    onChange={(e) => setField(acc, "usd", e.target.value)}
-                    className="h-7 text-xs"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-          {/* 합계 미리보기 */}
-          <div className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <span className="font-medium">합계: </span>
-            KRW {totalKrw.toLocaleString("ko-KR")} &nbsp;|&nbsp;
-            USD ${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </div>
-        </div>
-
-        {/* Cash & Equivalent 섹션 */}
-        <div className="space-y-3 py-2">
-          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">Cash &amp; Equivalent</p>
-          {[
-            { label: "Foreign deposit (USD)", value: cashForeignUsd, set: setCashForeignUsd },
-            { label: "Foreign deposit (CAD)", value: cashForeignCad, set: setCashForeignCad },
-            { label: "Fixed deposit (KRW)", value: fixedDepositKrw, set: setFixedDepositKrw },
-            { label: "Fixed deposit (USD)", value: fixedDepositUsd, set: setFixedDepositUsd },
-          ].map(({ label, value, set }) => (
-            <div key={label} className="grid grid-cols-2 items-center gap-2">
-              <Label className="text-xs text-right text-muted-foreground">{label}</Label>
-              <Input
-                type="number"
-                value={value}
-                onChange={(e) => set(e.target.value)}
-                className="h-7 text-xs"
-                placeholder="0"
-              />
-            </div>
-          ))}
-        </div>
-
-        {/* 부채 섹션 — 임차보증금 */}
-        <div className="space-y-3 py-2">
-          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">Liabilities</p>
-          <div className="grid grid-cols-2 items-center gap-2">
-            <Label className="text-xs text-right text-red-600">Lease Deposit (임차보증금)</Label>
-            <Input
-              type="number"
-              value={leaseDeposit}
-              onChange={(e) => setLeaseDeposit(e.target.value)}
-              className="h-7 text-xs border-red-300 focus-visible:ring-red-400"
-              placeholder="0"
-            />
-          </div>
-          {Number(leaseDeposit) > 0 && (
-            <p className="text-xs text-red-600 text-right">
-              ({Number(leaseDeposit).toLocaleString("ko-KR")})
-            </p>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={onClose}>취소</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
-            {saving ? "저장 중…" : "저장"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─────────────────────────────────────────
 // 메인 컴포넌트
 // ─────────────────────────────────────────
 
@@ -631,16 +346,10 @@ export function AssetManagementView({
   liveLoading,
   onRefresh,
   txSummaries,
-  onRateSave,
-  onRateRefresh,
-  rateRefreshing = false,
 }: AssetManagementViewProps) {
   const curMonthStr = currentMonth();
   const curYear = Number(curMonthStr.split("-")[0]);
   const [selectedYear, setSelectedYear] = useState(curYear);
-
-  // 다이얼로그 상태 — 모든 월 통합 입력
-  const [monthlyDialogMonth, setMonthlyDialogMonth] = useState<string | null>(null);
 
   // 종가 확정 다이얼로그
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
@@ -656,24 +365,6 @@ export function AssetManagementView({
 
   // 전체 컬럼 배열 (baseline 포함)
   const allCols = [baselineCol, ...monthCols];
-
-  /**
-   * 특정 월의 스냅샷 조회 (MonthlyInputDialog에 전달)
-   * 없으면 null 반환 — 다이얼로그 내에서 신규 생성
-   */
-  const getSnapshotForMonth = (month: string): FinancialSnapshot | null =>
-    snapshots.find((s) => s.month === month) ?? null;
-
-  /**
-   * 전월 스냅샷 조회 — "전월과 동일" 버튼 기능용
-   * month = "2026-05" → 전월 = "2026-04"
-   */
-  const getPrevSnapshot = (month: string): FinancialSnapshot | null => {
-    const [y, m] = month.split("-").map(Number);
-    const prevDate = new Date(y, m - 2, 1); // m-1(0-indexed) - 1 = m-2
-    const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
-    return snapshots.find((s) => s.month === prevMonth) ?? null;
-  };
 
   return (
     <div className="space-y-4">
@@ -744,22 +435,10 @@ export function AssetManagementView({
                 >
                   <div className="flex flex-col items-end gap-0.5">
                     <span>{fmtMonthLabel(col.month, false)}</span>
-                    {col.hasData && (
-                      <div className="flex items-center gap-1">
-                        {col.isDraft && (
-                          <Badge variant="outline" className="text-[9px] py-0 px-1 text-amber-600 border-amber-400">
-                            DRAFT
-                          </Badge>
-                        )}
-                        {/* 통합 입력 버튼 — FUND + Stock Deposit + Cash + Liabilities */}
-                        <button
-                          onClick={() => setMonthlyDialogMonth(col.month)}
-                          className="text-muted-foreground hover:text-foreground"
-                          title="월별 데이터 입력"
-                        >
-                          <ClipboardPen className="w-3 h-3" />
-                        </button>
-                      </div>
+                    {col.hasData && col.isDraft && (
+                      <Badge variant="outline" className="text-[9px] py-0 px-1 text-amber-600 border-amber-400">
+                        DRAFT
+                      </Badge>
                     )}
                   </div>
                 </th>
@@ -785,14 +464,6 @@ export function AssetManagementView({
               </tr>
             ) : (
               <>
-                {/* ── FUND 섹션 — Balance·Bid·Ask(BV)·Fixed P/L만 직접입력 (노란색) ── */}
-                <SectionRows
-                  label="FUND"
-                  columns={allCols}
-                  getData={(col) => col.fund}
-                  manualInputKeys={new Set<SectionRowKey>(["balance", "bid", "askBv", "fixedPnl"])}
-                />
-
                 {/* ── KOR Stocks 섹션 ──────────────────────── */}
                 <SectionRows
                   label="KOR Stocks"
@@ -808,103 +479,8 @@ export function AssetManagementView({
                   isUsd
                 />
 
-                {/* ── Stock Deposit 섹션 (계좌별) ──────────── */}
-                {/* 헤더 편집 버튼 제거 — 각 컬럼 헤더에서 per-month 편집 */}
-                <tr className="bg-muted/60 border-t-2 border-border">
-                  <td
-                    colSpan={allCols.length + 2}
-                    className="px-3 py-1.5 text-xs font-semibold sticky left-0 bg-muted/60"
-                  >
-                    Stock Deposit
-                  </td>
-                </tr>
 
-                {/* 계좌별 KRW 행 — 직접입력 (노란색 하이라이트) */}
-                {DEPOSIT_ACCOUNTS.map((acc) => (
-                  <SimpleRow
-                    key={`${acc}-krw`}
-                    label={`${acc} (KRW)`}
-                    cols={allCols}
-                    getValue={(c) => {
-                      const byAcc = (c as AssetManagementColumnData & {
-                        stockDepositByAccount?: Record<string, { krw: number; usd: number }>;
-                      }).stockDepositByAccount;
-                      return byAcc?.[acc]?.krw ?? 0;
-                    }}
-                    isManualInput
-                  />
-                ))}
-                {/* 계좌별 USD 행 — 직접입력 (노란색 하이라이트) */}
-                {DEPOSIT_ACCOUNTS.map((acc) => (
-                  <SimpleRow
-                    key={`${acc}-usd`}
-                    label={`${acc} (USD)`}
-                    cols={allCols}
-                    getValue={(c) => {
-                      const byAcc = (c as AssetManagementColumnData & {
-                        stockDepositByAccount?: Record<string, { krw: number; usd: number }>;
-                      }).stockDepositByAccount;
-                      return byAcc?.[acc]?.usd ?? 0;
-                    }}
-                    isUsd
-                    isManualInput
-                  />
-                ))}
-                {/* 합계 행 */}
-                <SimpleRow
-                  label="Total (KRW)"
-                  cols={allCols}
-                  getValue={(c) => c.stockDepositKrw}
-                  isBold
-                />
-                <SimpleRow
-                  label="Total (USD)"
-                  cols={allCols}
-                  getValue={(c) => c.stockDepositUsd}
-                  isUsd
-                  isBold
-                />
-
-                {/* ── Cash & Equivalent 섹션 ───────────────── */}
-                {/* Net Debt/Surplus 행 제거 — Summary 섹션에만 존재 */}
-                <tr className="bg-muted/60 border-t-2 border-border">
-                  <td
-                    colSpan={allCols.length + 2}
-                    className="px-3 py-1.5 text-xs font-semibold sticky left-0 bg-muted/60"
-                  >
-                    Cash and Equivalent
-                  </td>
-                </tr>
-                {/* Cash 전체 행 — 직접입력 (노란색 하이라이트) */}
-                <SimpleRow
-                  label="Foreign deposit (USD)"
-                  cols={allCols}
-                  getValue={(c) => c.cashForeignUsd}
-                  isUsd
-                  isManualInput
-                />
-                <SimpleRow
-                  label="Foreign deposit (CAD)"
-                  cols={allCols}
-                  getValue={(c) => c.cashForeignCad}
-                  isUsd
-                  isManualInput
-                />
-                <SimpleRow
-                  label="Fixed deposit (KRW)"
-                  cols={allCols}
-                  getValue={(c) => c.fixedDepositKrw}
-                  isManualInput
-                />
-                <SimpleRow
-                  label="Fixed deposit (USD)"
-                  cols={allCols}
-                  getValue={(c) => c.fixedDepositUsd}
-                  isUsd
-                  isManualInput
-                />
-
-                {/* ── Summary 섹션 — Net Debt/Surplus 여기에만 존재 ── */}
+                {/* ── Summary 섹션 ─────────────────────────────────── */}
                 <tr className="bg-muted/60 border-t-2 border-border">
                   <td
                     colSpan={allCols.length + 2}
@@ -913,16 +489,64 @@ export function AssetManagementView({
                     Summary
                   </td>
                 </tr>
+
+                {/* Investment Total — 굵은 합계 행 */}
+                <tr className="border-b border-border/30 font-semibold hover:bg-muted/20">
+                  <td className="sticky left-0 px-3 py-1 text-xs text-foreground bg-background whitespace-nowrap">
+                    Investment Total
+                  </td>
+                  {allCols.map((col) => (
+                    <td key={col.month} className="px-2 py-1 text-right text-xs tabular-nums">
+                      {col.hasData ? fmtKrw(col.investmentTotal) : "–"}
+                    </td>
+                  ))}
+                  <td className="px-2 py-1 text-right text-xs text-muted-foreground/40">–</td>
+                </tr>
+
+                {/* Investment Total 세부항목 — 들여쓰기 서브행 */}
                 {[
-                  { label: "Investment Total", key: "investmentTotal" as const },
-                  { label: "Cash and Equivalent Total", key: "cashTotal" as const },
+                  {
+                    label: "FUND/Derivatives",
+                    getValue: (c: AssetManagementColumnData) => c.fund.balance,
+                  },
+                  {
+                    label: "KRW Stocks",
+                    getValue: (c: AssetManagementColumnData) => c.krwStocksBalance,
+                  },
+                  {
+                    label: "US Stocks (KRW)",
+                    getValue: (c: AssetManagementColumnData) => c.usStocksBalanceKrw,
+                  },
+                  {
+                    label: "KRW Stocks Deposit",
+                    getValue: (c: AssetManagementColumnData) => c.stockDepositKrw,
+                  },
+                  {
+                    label: "US Stocks Deposit (KRW)",
+                    getValue: (c: AssetManagementColumnData) => c.stockDepositUsdKrw,
+                  },
+                ].map(({ label, getValue }) => (
+                  <tr key={label} className="border-b border-border/20 hover:bg-muted/10">
+                    {/* 들여쓰기로 계층 표시 */}
+                    <td className="sticky left-0 px-3 py-0.5 text-[11px] text-muted-foreground bg-background whitespace-nowrap pl-7">
+                      {label}
+                    </td>
+                    {allCols.map((col) => (
+                      <td key={col.month} className="px-2 py-0.5 text-right text-[11px] tabular-nums text-muted-foreground">
+                        {col.hasData ? fmtKrw(getValue(col)) : "–"}
+                      </td>
+                    ))}
+                    <td className="px-2 py-0.5 text-right text-[11px] text-muted-foreground/40">–</td>
+                  </tr>
+                ))}
+
+                {/* Currency Deposit / Asset Total / Lease Deposit / Net Debt/Surplus */}
+                {[
+                  { label: "Currency Deposit", key: "cashTotal" as const },
                   { label: "Asset Total", key: "assetTotal" as const },
-                  { label: "Lease Deposit", key: "leaseDeposit" as const, isDebt: true, isManualInput: true },
+                  { label: "Lease Deposit", key: "leaseDeposit" as const, isDebt: true },
                   { label: "Net Debt/Surplus", key: "netDebtSurplus" as const, isPnl: true },
-                ].map(({ label, key, isDebt, isPnl, isManualInput }) => {
-                  // 직접입력 행(Lease Deposit): 데이터 셀 노란색 하이라이트
-                  const cellBg = isManualInput ? "bg-yellow-50/60 dark:bg-yellow-950/20" : "";
-                  return (
+                ].map(({ label, key, isDebt, isPnl }) => (
                   <tr key={key} className="border-b border-border/30 hover:bg-muted/20">
                     <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap">
                       {label}
@@ -931,105 +555,19 @@ export function AssetManagementView({
                       const v = col[key];
                       const cls = isPnl ? plClass(v) : isDebt ? "text-red-600 dark:text-red-400" : "";
                       return (
-                        /* tabular-nums만 적용 — font-mono 제거 */
-                        <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls} ${cellBg}`}>
+                        <td key={col.month} className={`px-2 py-1 text-right text-xs tabular-nums ${cls}`}>
                           {col.hasData
                             ? isDebt
-                              ? `−${fmtKrw(Math.abs(v))}`
+                              ? `(${fmtKrw(v)})`
                               : fmtKrw(v)
                             : "–"}
                         </td>
                       );
                     })}
-                    {/* YTD: Summary 섹션은 YTD 계산 미지원 — 공란 */}
-                    <td className={`px-2 py-1 text-right text-xs text-muted-foreground/40 ${cellBg}`}>–</td>
+                    <td className="px-2 py-1 text-right text-xs text-muted-foreground/40">–</td>
                   </tr>
-                  );
-                })}
+                ))}
 
-                {/* ── 환율 섹션 — 엑셀 Asset Management 87/88행 대응 ── */}
-                <tr className="bg-muted/60 border-t-2 border-border">
-                  <td
-                    colSpan={allCols.length + 2}
-                    className="px-3 py-1.5 text-xs font-semibold sticky left-0 bg-muted/60"
-                  >
-                    <div className="flex items-center justify-between pr-2">
-                      <span>Exchange Rates</span>
-                      {/* DRAFT 월 존재 시 실시간 갱신 버튼 표시 */}
-                      {allCols.some((c) => c.isDraft) && onRateRefresh && (
-                        <button
-                          onClick={onRateRefresh}
-                          disabled={rateRefreshing}
-                          className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-                          title="yfinance에서 실시간 환율 가져오기"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${rateRefreshing ? "animate-spin" : ""}`} />
-                          {rateRefreshing ? "조회 중…" : "실시간 갱신"}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                {[
-                  { label: "USD/KRW", key: "usdKrw" as const },
-                  { label: "CAD/KRW", key: "cadKrw" as const },
-                ].map(({ label, key }) => {
-                  // YTD 위치: 마지막 유효 컬럼의 환율 표시
-                  const lastCol = [...monthCols].reverse().find((c) => c.hasData);
-                  // 환율 행 — 직접입력 (DRAFT: RateCell, CONFIRMED: 읽기 전용) → 노란색 하이라이트
-                  return (
-                    <tr key={key} className="border-b border-border/30 hover:bg-muted/20">
-                      <td className="sticky left-0 px-3 py-1 text-xs text-muted-foreground bg-background whitespace-nowrap">
-                        {label}
-                      </td>
-                      {allCols.map((col) => {
-                        if (!col.hasData) {
-                          return (
-                            <td key={col.month} className="px-2 py-1 text-right text-xs text-muted-foreground/40 bg-yellow-50/60 dark:bg-yellow-950/20">
-                              –
-                            </td>
-                          );
-                        }
-                        // DRAFT 월: 인라인 편집 가능 (RateCell compact 모드)
-                        if (col.isDraft && onRateSave) {
-                          return (
-                            <td key={col.month} className="px-1 py-0.5 bg-yellow-50/60 dark:bg-yellow-950/20">
-                              <RateCell
-                                value={col.exchangeRates[key]}
-                                onSave={(v) => onRateSave(key, v)}
-                                compact
-                              />
-                            </td>
-                          );
-                        }
-                        // CONFIRMED 월: 읽기 전용 + 잠금 아이콘
-                        return (
-                          <td
-                            key={col.month}
-                            className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground bg-yellow-50/60 dark:bg-yellow-950/20"
-                          >
-                            <span className="inline-flex items-center justify-end gap-1">
-                              {col.exchangeRates[key].toLocaleString("ko-KR", {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                              <Lock className="w-2.5 h-2.5 text-muted-foreground/40 flex-shrink-0" />
-                            </span>
-                          </td>
-                        );
-                      })}
-                      {/* YTD 컬럼 — 마지막 유효 월의 환율 (읽기 전용) */}
-                      <td className="px-2 py-1 text-right text-xs tabular-nums text-muted-foreground bg-yellow-50/60 dark:bg-yellow-950/20">
-                        {lastCol
-                          ? lastCol.exchangeRates[key].toLocaleString("ko-KR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : "–"}
-                      </td>
-                    </tr>
-                  );
-                })}
               </>
             )}
           </tbody>
@@ -1048,18 +586,6 @@ export function AssetManagementView({
           직접입력 필드
         </span>
       </div>
-
-      {/* 통합 입력 다이얼로그 — FUND + Stock Deposit + Cash + Liabilities */}
-      {monthlyDialogMonth && (
-        <UnifiedInputDialog
-          open={!!monthlyDialogMonth}
-          month={monthlyDialogMonth}
-          snapshot={getSnapshotForMonth(monthlyDialogMonth)}
-          prevSnapshot={getPrevSnapshot(monthlyDialogMonth)}
-          onClose={() => setMonthlyDialogMonth(null)}
-          onSave={handleSaved}
-        />
-      )}
 
       {/* 종가 확정 다이얼로그 */}
       <LockPricesDialog

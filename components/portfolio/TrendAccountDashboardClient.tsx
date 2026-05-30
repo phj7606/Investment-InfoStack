@@ -218,14 +218,14 @@ export function TrendAccountDashboardClient({ accountType }: TrendAccountDashboa
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <KpiCard
               label="총 평가금액"
-              value={positionsLoading ? "-" : `${totalEvalAmount.toLocaleString()}원`}
+              value={positionsLoading ? "-" : `${totalEvalAmount.toLocaleString()}`}
             />
             <KpiCard
               label="총 평가손익"
               value={
                 positionsLoading
                   ? "-"
-                  : `${totalPL >= 0 ? "+" : ""}${totalPL.toLocaleString()}원`
+                  : `${totalPL >= 0 ? "+" : ""}${totalPL.toLocaleString()}`
               }
               valueClass={plColor(totalPL)}
             />
@@ -254,7 +254,7 @@ export function TrendAccountDashboardClient({ accountType }: TrendAccountDashboa
               />
               <KpiCard
                 label="누적 손익"
-                value={`${summary.cumulativeProfitLoss >= 0 ? "+" : ""}${summary.cumulativeProfitLoss.toLocaleString()}원`}
+                value={`${summary.cumulativeProfitLoss >= 0 ? "+" : ""}${summary.cumulativeProfitLoss.toLocaleString()}`}
                 valueClass={plColor(summary.cumulativeProfitLoss)}
               />
               <KpiCard label="총 거래" value={`${summary.totalTrades}건`} />

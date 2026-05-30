@@ -100,11 +100,11 @@ export function HoldingsBarChart({ positions, isLoading, marketTab, onMarketTabC
       .slice(0, 10);
   }, [positions, marketTab]);
 
-  // 바 색상 (수익률 기준: 양수=red, 음수=blue, 미입력=회색)
+  // 바 색상 (수익률 기준: 양수=green, 음수=red, 미입력=회색)
   function barColor(entry: typeof chartData[0]): string {
     if (!entry.hasCurrent) return "#94a3b8"; // 슬레이트-400
-    if (entry.evalPLPct > 0) return "#ef4444";  // red-500 (한국 컨벤션)
-    if (entry.evalPLPct < 0) return "#3b82f6";  // blue-500
+    if (entry.evalPLPct > 0) return "#10b981";  // emerald-500
+    if (entry.evalPLPct < 0) return "#ef4444";  // red-500
     return "#94a3b8";
   }
 
@@ -188,7 +188,7 @@ export function HoldingsBarChart({ positions, isLoading, marketTab, onMarketTabC
           </ResponsiveContainer>
         )}
         <p className="text-[10px] text-muted-foreground mt-2">
-          * 현재가 미입력 종목은 취득원가 기준 표시. 색상: 수익=빨강 / 손실=파랑 (한국 컨벤션)
+          * 현재가 미입력 종목은 취득원가 기준 표시. 색상: 수익=초록 / 손실=빨강 / 미입력=회색
         </p>
       </CardContent>
     </Card>

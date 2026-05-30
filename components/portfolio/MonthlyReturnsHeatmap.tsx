@@ -125,7 +125,7 @@ export function MonthlyReturnsHeatmap({
                 hoveredData.profitLoss > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
               )}>
                 {hoveredData.profitLoss >= 0 ? "+" : ""}
-                {hoveredData.profitLoss.toLocaleString()}원
+                {hoveredData.profitLoss.toLocaleString()}
               </p>
             </div>
           )}

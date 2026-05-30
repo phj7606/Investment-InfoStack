@@ -198,16 +198,16 @@ export interface FinancialSnapshot {
   };
 
   // ── 자산관리 II 월별 직접입력 ─────────────────────────
-  /** 교육 계좌(1470) 예수금 · 주식잔액 월별 직접입력 */
+  /** 교육 계좌(1470) 예수금 · 주식잔액 월별 직접입력 — 예수금은 Deposit & FX 페이지 관리 */
   educationMonthly?: {
-    deposit: number;
+    deposit?: number;
     stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 21)
     accountTransfer?: number; // 계좌이체 입금액
   };
 
-  /** Short-term 계좌(2805) 예수금 · 주식잔액 월별 직접입력 */
+  /** Short-term 계좌(2805) 예수금 · 주식잔액 월별 직접입력 — 예수금은 Deposit & FX 페이지 관리 */
   shorttermMonthly?: {
-    deposit: number;
+    deposit?: number;
     stockBalance?: number;  // currentPrice=0일 때 수동 입력 (엑셀 Row 53)
     accountTransfer?: number; // 계좌이체 입금액
   };
@@ -220,6 +220,13 @@ export interface FinancialSnapshot {
     depositPrincipal?: number;  // 연금저축 원금 (엑셀 Row 34)
     irpBalance?: number;        // IRP 잔액 (엑셀 Row 30)
     irpPrincipal?: number;      // IRP 원금 (엑셀 Row 35)
+  };
+
+  /** 연금 계좌별 예수금 — 각 계좌의 미투자 현금 잔액 수동 입력 */
+  pensionCashDeposit?: {
+    RETIREMENT?: number;  // 퇴직연금 예수금
+    SAVINGS?: number;     // 연금저축 예수금
+    IRP?: number;         // IRP 예수금
   };
 
   /**
@@ -388,9 +395,18 @@ export interface FinancialStatementData {
       total: number;                    // 투자자산 합계 (KRW) — INVESTMENT TOTAL (KRW)
     };
     // 연금·교육자산
-    pensionKrw: number;                 // 연금 합계 KRW — Pension fund
+    pensionKrw: number;                 // 연금 합계 KRW — Pension fund (3개 항목 합산)
     educationKrw: number;               // 교육저축 합계 KRW — Education Savings
     investmentPensionTotal: number;     // 투자+연금+교육 합계 — INVESTMENT & PENSION TOTAL
+    /**
+     * 당월(DRAFT)만 채워지는 연금 세분화 — CONFIRMED는 undefined (화면 변경 없음)
+     * UI: isBreakdown=true 시 단일 "Pension fund" 행 대신 3개 세부 행 표시
+     */
+    pensionBreakdown?: {
+      pensionFundKrw: number;     // 퇴직연금 + 연금저축 + IRP 잔액 합산
+      pensionDepositKrw: number;  // Deposit & FX 페이지 연금 예수금 합계
+      respRrspKrw: number;        // RESP/RRSP CAD → KRW 환산
+    };
 
     totalAssets: number;                // 총자산 합계 — TOTAL ASSETS
 
@@ -451,8 +467,6 @@ export interface FinancialStatementData {
     // 부채 분석
     leaseDeposit: number;               // 임차보증금 (음수로 계산)
     netDebtSurplus: number;             // Asset Total - Lease Deposit
-    lessDepositReimbursement: number;   // 보증금 반환 후 잔액
-    excessDeficit: number;              // 초과/부족
   };
 }
 
@@ -525,6 +539,55 @@ export interface AssetManagementColumnData {
   cashTotal: number;
   assetTotal: number;
   leaseDeposit: number;
+
+  // ── Summary 세부항목 (Investment Total 하위) ──
+  /** Fund + KOR Stocks KRW 잔액 합계 (= krwTotal.balance) */
+  krwStocksBalance: number;
+  /** US Stocks KRW 환산 (DRAFT: liveData 기반, CONFIRMED: balance * usdKrw) */
+  usStocksBalanceKrw: number;
+  /** Value Investment Account 예수금 USD → KRW 환산 (4802+1635+1402 USD * usdKrw) */
+  stockDepositUsdKrw: number;
+}
+
+// ─────────────────────────────────────────
+// Deposit & FX 연간 테이블 타입
+// ─────────────────────────────────────────
+
+/**
+ * Deposit & FX 관리 페이지 — 단일 컬럼 데이터
+ * Stock Deposit / Cash & Equivalent / Lease Deposit / Exchange Rates 섹션
+ */
+export interface DepositsColumnData {
+  month: string;
+  isBaseline: boolean;
+  isDraft: boolean;
+  hasData: boolean;
+
+  /** 적용 환율 */
+  exchangeRates: { usdKrw: number; cadKrw: number };
+
+  // ── Stock Deposit ──────────────────────────
+  /** Value Investment Account 계좌별 예수금 */
+  stockDepositByAccount: {
+    "4802": { krw: number; usd: number };
+    "1635": { krw: number; usd: number };
+    "1402": { krw: number; usd: number };
+  };
+  /** Short-term 2805 예수금 */
+  shortterm2805Deposit: number;
+  /** Education 1470 예수금 */
+  education1470Deposit: number;
+  /** 연금 계좌별 예수금 */
+  pensionCashDeposit: { RETIREMENT: number; SAVINGS: number; IRP: number };
+
+  // ── Cash & Equivalent ─────────────────────
+  cashForeignUsd: number;
+  cashForeignCad: number;
+  fixedDepositKrw: number;
+  fixedDepositUsd: number;
+
+  // ── Lease Deposit ─────────────────────────
+  leaseDeposit: number;
 }
 
 // ─────────────────────────────────────────
@@ -558,14 +621,14 @@ export interface AssetManagementIIColumnData {
     pnlPct: number;               // 총 수익률
   };
 
-  // (2) Education 1470 — stock/principal: live/confirmed, deposit: 수동입력
+  // (2) Education 1470 — stock/principal: live/confirmed, deposit: Deposit & FX 페이지 관리
   education: {
-    deposit: number;          // 예수금 (educationMonthly.deposit)
+    deposit: number;          // 예수금 (Deposit & FX 페이지에서 관리, read-only)
     stockBalance: number;     // 주식 평가액 (live-data / confirmedPortfolio)
-    balance: number;          // 총 잔액 = deposit + stockBalance
+    balance: number;          // 주식 잔액 = stockBalance (P/L 산정 기준)
     principal: number;        // 원금
-    accountTransfer: number;  // 계좌이체 입금액 (수동입력)
     pnl: number;              // 손익 = stockBalance - principal
+    totalBalance: number;     // 총 잔액 = deposit + stockBalance
   };
 
   // (3) Pension — live/confirmed
@@ -585,14 +648,14 @@ export interface AssetManagementIIColumnData {
     balanceKrw: number;
   };
 
-  // (5) Short-term Account (2805) — stock/principal: live/confirmed, deposit: 수동입력
+  // (5) Short-term Account (2805) — stock/principal: live/confirmed, deposit: Deposit & FX 페이지 관리
   shortterm: {
-    deposit: number;          // 예수금 (shorttermMonthly.deposit)
+    deposit: number;          // 예수금 (Deposit & FX 페이지에서 관리, read-only)
     stockBalance: number;     // 주식 평가액 (live-data / confirmedPortfolio)
-    balance: number;          // 총 잔액 = deposit + stockBalance
+    balance: number;          // 주식 잔액 = stockBalance (P/L 산정 기준)
     principal: number;        // 원금
-    accountTransfer: number;  // 계좌이체 입금액 (수동입력)
     pnl: number;              // 손익 = stockBalance - principal
+    totalBalance: number;     // 총 잔액 = deposit + stockBalance
   };
 }
 
@@ -797,9 +860,9 @@ export interface UpdateSnapshotRequest {
     cumSpent: number;
     balance: number;
   };
-  // 자산관리 II 월별 직접입력
-  educationMonthly?: { deposit: number; stockBalance?: number; accountTransfer?: number };
-  shorttermMonthly?: { deposit: number; stockBalance?: number; accountTransfer?: number };
+  // 자산관리 II 월별 직접입력 — Deposit & FX 페이지로 이관 후 deposit은 선택적
+  educationMonthly?: { deposit?: number; stockBalance?: number; accountTransfer?: number };
+  shorttermMonthly?: { deposit?: number; stockBalance?: number; accountTransfer?: number };
   pensionMonthly?: {
     fundBalance?: number;
     fundPrincipal?: number;
@@ -809,4 +872,10 @@ export interface UpdateSnapshotRequest {
     irpPrincipal?: number;
   };
   otherAssets?: { name: string; amount: number }[];
+  /** 연금 계좌별 예수금 */
+  pensionCashDeposit?: {
+    RETIREMENT?: number;
+    SAVINGS?: number;
+    IRP?: number;
+  };
 }

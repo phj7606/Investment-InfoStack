@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edit 아이콘 미리보기</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: sans-serif; background: #f8f8f8; padding: 32px; }
+    h2 { margin-bottom: 24px; color: #333; }
+    .grid { display: flex; flex-wrap: wrap; gap: 20px; }
+    .item {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      min-width: 120px;
+      cursor: pointer;
+    }
+    .item:hover { border-color: #6366f1; box-shadow: 0 0 0 2px #6366f133; }
+    .item.current { border-color: #10b981; background: #f0fdf4; }
+    .label { font-size: 12px; color: #555; font-family: monospace; }
+    .badge { font-size: 10px; background: #10b981; color: white; padding: 1px 6px; border-radius: 4px; }
+    svg { color: #374151; }
+  </style>
+</head>
+<body>
+  <h2>🖊 Edit 아이콘 후보 (24px 기준)</h2>
+  <div class="grid">
+    <div class="item current">
+      <i data-lucide="file-pen" style="width:24px;height:24px"></i>
+      <span class="label">FilePen</span>
+      <span class="badge">현재</span>
+    </div>
+    <div class="item">
+      <i data-lucide="pencil" style="width:24px;height:24px"></i>
+      <span class="label">Pencil</span>
+      <span class="badge" style="background:#94a3b8">이전</span>
+    </div>
+    <div class="item">
+      <i data-lucide="pen-line" style="width:24px;height:24px"></i>
+      <span class="label">PenLine</span>
+    </div>
+    <div class="item">
+      <i data-lucide="square-pen" style="width:24px;height:24px"></i>
+      <span class="label">SquarePen</span>
+    </div>
+    <div class="item">
+      <i data-lucide="pen" style="width:24px;height:24px"></i>
+      <span class="label">Pen</span>
+    </div>
+    <div class="item">
+      <i data-lucide="edit" style="width:24px;height:24px"></i>
+      <span class="label">Edit</span>
+    </div>
+    <div class="item">
+      <i data-lucide="notebook-pen" style="width:24px;height:24px"></i>
+      <span class="label">NotebookPen</span>
+    </div>
+    <div class="item">
+      <i data-lucide="file-edit" style="width:24px;height:24px"></i>
+      <span class="label">FileEdit</span>
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

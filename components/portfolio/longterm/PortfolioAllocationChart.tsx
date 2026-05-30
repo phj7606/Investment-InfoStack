@@ -171,7 +171,7 @@ export function PortfolioAllocationChart({ positions, isLoading }: PortfolioAllo
     }
 
     const total = entries.reduce((s, e) => s + e.value, 0);
-    return { data: entries, total, unit: "원", isCount: false };
+    return { data: entries, total, unit: "", isCount: false };
   }, [positions, viewMode]);
 
   if (isLoading) {

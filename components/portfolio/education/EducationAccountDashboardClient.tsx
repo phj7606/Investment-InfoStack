@@ -95,7 +95,7 @@ export function EducationAccountDashboardClient() {
   const [sectorFilter, setSectorFilter] = useState<string>("all");
 
   // ── 종목별 탭 필터 ──────────────────────────
-  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654">("all");
+  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
   const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
 
   const [backupLoading, setBackupLoading] = useState(false);
@@ -686,7 +686,6 @@ export function EducationAccountDashboardClient() {
             onEdit={handleLtTxEdit}
             hideAccountFilter
             hideMarketFilter
-            hideFundFilter
           />
         </TabsContent>
 
@@ -706,7 +705,7 @@ export function EducationAccountDashboardClient() {
                 value={`${Math.round(derivedSummary.winRate * 100)}%`}
               />
               <SummaryCard label="누적 손익"
-                value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}원`}
+                value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}`}
                 valueClass={plColor(tradeTotalPL)}
               />
               <SummaryCard label="손익비 (PF)"
@@ -730,9 +729,9 @@ export function EducationAccountDashboardClient() {
 
           {/* ── 계좌 총합 ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            <SummaryCard label="총 매수금액" value={`${fmt(tradeTotalBuy)}원`} />
+            <SummaryCard label="총 매수금액" value={`${fmt(tradeTotalBuy)}`} />
             <SummaryCard label="총 실현 손익"
-              value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}원`}
+              value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}`}
               valueClass={plColor(tradeTotalPL)}
             />
             <SummaryCard label="실현 수익률"
@@ -919,7 +918,7 @@ export function EducationAccountDashboardClient() {
         <TabsContent value="history" className="mt-4 space-y-3">
           {/* 계좌 필터 + 종류 필터 — 한 줄 (Short-term Account와 동일) */}
           <div className="flex flex-wrap gap-1.5">
-            {(["all", "4802", "1635", "1402", "2805", "1470", "8654"] as const).map((a) => (
+            {(["all", "4802", "1635", "1402", "2805", "1470"] as const).map((a) => (
               <Button key={a} size="sm" variant={stocksAcct === a ? "default" : "outline"}
                 className={cn("h-7 px-2.5 text-[11px]", stocksAcct === a && "bg-emerald-600 hover:bg-emerald-700 text-white")}
                 onClick={() => setStocksAcct(a)}
@@ -944,7 +943,7 @@ export function EducationAccountDashboardClient() {
             showSector
             hideMarketFilter
             accountFilter={stocksAcct}
-            onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470" | "8654")}
+            onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470")}
             assetTypeFilter={stocksType}
             onAssetTypeFilterChange={(v) => setStocksType(v as "all" | "STOCK" | "ETF")}
           />
