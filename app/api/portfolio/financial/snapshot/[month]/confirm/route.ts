@@ -96,7 +96,7 @@ export async function POST(
   const locked = draftSnap.lockedBalances;
 
   // locked.fund가 없으면 사용자가 자산관리 탭에 직접 입력한 값 사용
-  const fundBalance = locked.fund || draftSnap?.fundMonthly?.balance || 0;
+  const fundBalance = locked.fund ?? draftSnap?.fundMonthly?.balance ?? 0;
   const fundPrincipal = locked.fundPrincipal ?? 0;
   const korStocksBalance = locked.korStocks ?? 0;
   const korStocksPrincipal = locked.korStocksPrincipal ?? 0;
