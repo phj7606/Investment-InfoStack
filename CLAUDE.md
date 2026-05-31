@@ -31,3 +31,20 @@ npx tsc --noEmit # 타입 검사만
 ### recharts 클라이언트 격리
 
 recharts는 반드시 `"use client"` 컴포넌트로 분리한다. React 19 RSC에서 직접 사용하면 호환성 오류 발생.
+
+### 구현 완료 기준 (IMPORTANT)
+
+**데이터 수집/API 기능 구현 시**
+- 관련 store/data 파일(`lib/portfolio/`) 전수 확인 후 누락된 계좌/데이터소스 없는지 검증
+- 구현 전 체크: `grep -r "readTransactions\|readPositions" lib/portfolio/` 등으로 모든 소스 파악
+- 완료 선언 전 반드시 `curl http://localhost:3000/api/...` 실제 응답 확인
+
+**편집 시**
+- 한국어 포함 문자열 교체는 python3 스크립트 사용 (Edit 도구 인코딩 오류 방지)
+
+**이 프로젝트의 계좌 목록 (누락 금지)**
+- `longterm` — `lib/portfolio/longterm-store.ts`
+- `education` — `lib/portfolio/educationTransactionsData.ts`
+- `pension` — `lib/portfolio/pension-store.ts`
+- `shortterm` — `lib/portfolio/shorttermData.ts`
+- 새 계좌 추가 시 이 목록 갱신 필수

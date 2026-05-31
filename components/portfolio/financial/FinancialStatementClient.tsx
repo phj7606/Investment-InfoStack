@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Lock, RefreshCw, CloudUpload, CloudDownload } from "lucide-react";
+import { Lock, RefreshCw, CloudUpload, CloudDownload, Upload } from "lucide-react";
 import { RateCell } from "./RateCell";
 import { Button } from "@/components/ui/button";
 import { FinancialStatementView } from "./views/FinancialStatementView";
@@ -294,6 +294,28 @@ export function FinancialStatementClient() {
   // ── 백업/복원 ────────────────────────────────────────────
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+
+  // ── AI 분석 내보내기 (Claude Desktop용) ───────────────
+  const [aiExporting, setAiExporting] = useState(false);
+  const handleAiExport = useCallback(async () => {
+    setAiExporting(true);
+    try {
+      const res = await fetch("/api/portfolio/analysis-snapshot");
+      if (!res.ok) throw new Error("스냅샷 생성 실패");
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `portfolio-analysis-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("AI 분석 데이터 내보내기 실패");
+    } finally {
+      setAiExporting(false);
+    }
+  }, []);
 
   // ── 메인 데이터 로딩 ──────────────────────────────────
   const loadData = useCallback(async () => {
@@ -662,6 +684,20 @@ export function FinancialStatementClient() {
 
         {/* Tab 2: 자산관리 — 연간 테이블 뷰 (월 선택 불필요) */}
         <TabsContent value="assets" className="mt-6">
+          {/* CLI: curl http://localhost:3000/api/portfolio/analysis-snapshot | jq . */}
+          <div className="flex justify-end mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleAiExport()}
+              disabled={aiExporting}
+              className="gap-1.5"
+              title="Claude Desktop 분석용 스냅샷 내보내기"
+            >
+              <Upload className={`h-3.5 w-3.5 ${aiExporting ? "animate-pulse" : ""}`} />
+              <span>AI 분석 내보내기</span>
+            </Button>
+          </div>
           <AssetManagementView
             snapshots={snapshots}
             liveData={liveData}
