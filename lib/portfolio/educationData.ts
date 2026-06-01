@@ -30,7 +30,7 @@ export function calcEducationSummary(trades: EducationTrade[]): PerformanceSumma
   if (trades.length === 0) {
     return {
       totalTrades: 0, winCount: 0, lossCount: 0,
-      winRate: 0, profitFactor: 0,
+      winRate: 0, profitFactor: 0, payoffRatio: 0,
       avgWinPct: 0, avgLossPct: 0, expectedValue: 0,
       maxConsecutiveLoss: 0, cumulativeProfitLoss: 0,
       mdd: 0, equityCurve: [], monthlyReturns: [],
@@ -99,9 +99,11 @@ export function calcEducationSummary(trades: EducationTrade[]): PerformanceSumma
       return { year, month, returnPct: 0, profitLoss: Math.round(pl) };
     });
 
+  const payoffRatio = avgLossPct > 0 ? avgWinPct / avgLossPct : Infinity;
   return {
     totalTrades, winCount, lossCount, winRate,
     profitFactor: Math.round(profitFactor * 100) / 100,
+    payoffRatio: Math.round(payoffRatio * 100) / 100,
     avgWinPct: Math.round(avgWinPct * 100) / 100,
     avgLossPct: Math.round(avgLossPct * 100) / 100,
     expectedValue: Math.round(expectedValue * 100) / 100,

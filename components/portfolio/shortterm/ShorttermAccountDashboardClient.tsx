@@ -327,6 +327,7 @@ export function ShorttermAccountDashboardClient() {
       lossCount: losses.length,
       winRate,
       profitFactor,
+      payoffRatio: avgLossPct > 0 ? avgWinPct / avgLossPct : Infinity,
       avgWinPct,
       avgLossPct,
       expectedValue: winRate * avgWinPct - (1 - winRate) * avgLossPct,

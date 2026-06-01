@@ -410,6 +410,8 @@ export function EducationAccountDashboardClient() {
       ? wins.reduce((s, t) => s + t.profitLossPct, 0) / wins.length : 0;
     const avgLossPct   = losses.length > 0
       ? Math.abs(losses.reduce((s, t) => s + t.profitLossPct, 0)) / losses.length : 0;
+    // % 기준 손익비: 그룹 평균 수익률 ÷ 그룹 평균 손실률
+    const payoffRatio  = avgLossPct > 0 ? avgWinPct / avgLossPct : Infinity;
 
     // 최대 연속 손실
     let maxConsecutiveLoss = 0, curLoss = 0;
@@ -442,6 +444,7 @@ export function EducationAccountDashboardClient() {
       lossCount: losses.length,
       winRate,
       profitFactor,
+      payoffRatio,
       avgWinPct,
       avgLossPct,
       expectedValue: winRate * avgWinPct - (1 - winRate) * avgLossPct,
@@ -453,11 +456,11 @@ export function EducationAccountDashboardClient() {
     };
   }, [derivedTrades]);
 
-  // TPI = winRate × (profitFactor + 1)  (엑셀 S열 공식 역산)
+  // TPI = 승률 × (손익비 + 1), 손익비는 % 기준 (avgWinPct ÷ avgLossPct)
   const tpi = useMemo(() => {
     if (!derivedSummary || derivedSummary.totalTrades === 0) return null;
-    const pf = isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor : 0;
-    return Math.round(derivedSummary.winRate * (pf + 1) * 10000) / 10000;
+    const pr = isFinite(derivedSummary.payoffRatio) ? derivedSummary.payoffRatio : 0;
+    return Math.round(derivedSummary.winRate * (pr + 1) * 10000) / 10000;
   }, [derivedSummary]);
 
   // tradeTotalBuy/PL은 filteredTrades 정의 후로 이동 (필터 연동)
@@ -708,8 +711,9 @@ export function EducationAccountDashboardClient() {
                 value={`${tradeTotalPL >= 0 ? "+" : ""}${fmt(tradeTotalPL)}`}
                 valueClass={plColor(tradeTotalPL)}
               />
-              <SummaryCard label="손익비 (PF)"
-                value={isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor.toFixed(2) : "∞"}
+              <SummaryCard label="손익비"
+                value={isFinite(derivedSummary.payoffRatio) ? derivedSummary.payoffRatio.toFixed(2) : "∞"}
+                sub="avg win% ÷ avg loss%"
               />
               <SummaryCard label="평균 수익"
                 value={`+${derivedSummary.avgWinPct.toFixed(1)}%`}
@@ -721,7 +725,7 @@ export function EducationAccountDashboardClient() {
               />
               <SummaryCard label="TPI"
                 value={tpi !== null ? tpi.toFixed(2) : "-"}
-                sub="winRate × (PF+1)"
+                sub="승률 × (손익비+1)"
                 valueClass={tpi !== null ? (tpi >= 1 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400") : undefined}
               />
             </div>
