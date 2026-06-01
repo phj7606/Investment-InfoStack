@@ -673,6 +673,7 @@ export function PensionAccountDashboardClient() {
       // enrichedPositions에서 해당 종목의 현재 잔량 확인
       const pos = enrichedPositions.find((p) =>
         p.stockCode === g.stockCode &&
+        p.stockName === g.stockName &&
         p.accountType === g.accountType &&
         (p.category ?? "") === (g.category ?? "")
       );

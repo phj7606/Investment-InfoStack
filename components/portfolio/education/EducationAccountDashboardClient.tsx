@@ -370,7 +370,7 @@ export function EducationAccountDashboardClient() {
 
       // ltPositions 기준 잔량 확인 (미로드 시 거래 합산으로 대체)
       const pos = ltPositions.find(
-        (p) => p.stockCode === g.stockCode && p.accountNo === g.accountNo
+        (p) => p.stockCode === g.stockCode && p.stockName === g.stockName && p.accountNo === g.accountNo
       );
       const balance = pos?.quantity ?? Math.max(0, totalBuyQty - totalSellQty);
       if (balance !== 0) continue;  // 잔량 남아있으면 미완료 → 제외

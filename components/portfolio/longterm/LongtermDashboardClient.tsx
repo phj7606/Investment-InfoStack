@@ -315,7 +315,7 @@ export function LongtermDashboardClient() {
 
       // positions에서 잔량 확인; positions 미로드 시 트랜잭션 계산치로 대체
       const pos = positions.find(
-        (p) => p.stockCode === g.stockCode && p.accountNo === g.accountNo
+        (p) => p.stockCode === g.stockCode && p.stockName === g.stockName && p.accountNo === g.accountNo
       );
       const balance = pos?.quantity ?? Math.max(0, totalBuyQty - totalSellQty);
 
