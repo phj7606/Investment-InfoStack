@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo } from "react";
+import { currentMonth } from "@/lib/portfolio/financial-calc";
 import {
   Table,
   TableBody,
@@ -59,8 +60,6 @@ function toShortLabel(period: string): string {
   return `${parseInt(period.slice(5))}월`;
 }
 
-/** 현재 진행 중인 월 (YYYY-MM) — 월말 종가 미확정 상태 표시용 */
-const CURRENT_PERIOD = new Date().toISOString().slice(0, 7);
 
 // ─────────────────────────────────────────
 // 정렬 상태 타입
@@ -110,6 +109,8 @@ function getPeriodMatchedBenchmarkCum(
 }
 
 export function StockPerformanceTable({ stocks, currency, portfolioMonths, benchmarkData }: Props) {
+  // KST 기준 현재 진행 중인 월 — 월말 종가 미확정 표시용
+  const CURRENT_PERIOD = currentMonth();
   // 기본 정렬: 누적 수익률 내림차순 (성과 좋은 종목이 위)
   const [sortKey, setSortKey] = useState<SortKey>("cumPct");
   const [sortDir, setSortDir] = useState<SortDir>("desc");

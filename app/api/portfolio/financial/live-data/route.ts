@@ -29,6 +29,7 @@ import { fetchExchangeRates } from "@/lib/fetchers/exchange-rate";
 import { readCache, writeCache } from "@/lib/cache";
 import params from "@/config/params.json";
 import type { LivePortfolioData } from "@/types/financial";
+import { currentMonth } from "@/lib/portfolio/financial-calc";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -253,7 +254,7 @@ export async function GET(req: NextRequest) {
     // ── 8. 당월 거래 집계 (Bid / Ask BV / Fixed P/L) ─────
     // 엑셀 Asset Management 시트: Bid=매수금액, Ask(BV)=매도장부가, Fixed P/L=실현손익
     // Value Investment Account 거래 내역에서 현재 월 데이터만 필터
-    const currentMonthStr = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const currentMonthStr = currentMonth(); // KST 기준 "YYYY-MM"
 
     // FUND 당월 거래 (assetType=FUND, KRW)
     const fundMonthTxs = longtermTxs.filter(
