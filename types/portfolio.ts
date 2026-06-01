@@ -92,6 +92,13 @@ export interface PerformanceSummary {
    */
   profitFactor: number;
 
+  /**
+   * % 기준 손익비 (Payoff Ratio).
+   * = 평균 수익률 / 평균 손실률(절댓값)
+   * 손실 없으면 Infinity
+   */
+  payoffRatio: number;
+
   /** 평균 수익률 (WIN 거래만, %). 승리 없으면 0 */
   avgWinPct: number;
 
