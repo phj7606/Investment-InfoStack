@@ -272,10 +272,7 @@ export function FinancialStatementView({ data, snapshot, onRefresh }: FinancialS
             {/* INVESTMENT ASSET */}
             <div>
               <p className="text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wide">Investment Asset</p>
-              {/* FUND/Derivatives: 잔액 있을 때만 표시 (계좌 해지 후 0원이면 숨김) */}
-              {ia.fund > 0 && (
-                <BSRow label="Fund/Derivatives (KRW)" amount={ia.fund} indent />
-              )}
+              <BSRow label="Fund/Derivatives (KRW)" amount={ia.fund} indent />
               <BSRow label="Marketable securities (KR)" amount={ia.korStocks} indent />
               <BSRow label="Stock deposit (KRW)" amount={ia.stockDepositKrw} indent />
               {/* 엑셀은 US Stocks를 USD 원본으로 표시 */}
