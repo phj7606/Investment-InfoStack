@@ -445,7 +445,8 @@ async function calcStocksMayOnwards(
         source:  "api",
       });
 
-      prevBalance = balance > 0 ? balance : prevBalance;
+      // 전량 매도 시 0으로 리셋해야 다음 달 skip 조건(prevBalance===0) 정상 발동
+      prevBalance = balance;
     }
 
     if (monthPoints.length > 0) {
