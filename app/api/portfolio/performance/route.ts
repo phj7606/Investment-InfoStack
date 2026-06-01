@@ -35,7 +35,11 @@ import type {
 } from "@/types/portfolio";
 import type { ExcelPerformanceData } from "@/lib/portfolio/performance-excel";
 
-const CACHE_KEY = "portfolio-performance";
+// KST 기준 YYYY-MM (toISOString()은 UTC → 매월 1일 0~9시 KST에서 전달로 인식되는 버그 방지)
+function localYearMonth(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 // ─────────────────────────────────────────
 // Bootstrap 데이터 (Jan~Apr 2026 고정 스냅샷)
@@ -108,7 +112,7 @@ async function fetchMonthEndPrice(
 /** 처리할 월 목록 생성 (2026-05 ~ 현재 월) */
 function getMonthsFrom(startPeriod: string): string[] {
   const today = new Date();
-  const currentPeriod = today.toISOString().slice(0, 7);
+  const currentPeriod = localYearMonth();
   const months: string[] = [];
   let cursor = startPeriod;
 
@@ -174,7 +178,7 @@ async function calcMayOnwards(
     //   3. FS 확정 없는 완료 달 → Yahoo Finance 월말 종가 (fallback)
     // FS 확정값 사용 이유: FS 수치와 Performance 수치의 일관성 보장
     //   (Yahoo Historical은 수정주가 반영 등으로 재조회 시 값이 달라질 수 있음)
-    const currentPeriod = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const currentPeriod = localYearMonth(); // "YYYY-MM" (KST)
     let priceMap: Record<string, number> = {};
 
     if (period === currentPeriod) {
@@ -290,7 +294,7 @@ async function calcStocksMayOnwards(
   currentPrices: Record<string, number> = {}
 ): Promise<StockMonthPerformance[]> {
   const months = getMonthsFrom("2026-05");
-  const currentPeriod = new Date().toISOString().slice(0, 7);
+  const currentPeriod = localYearMonth();
 
   // 통화 필터 (모든 계좌 포함)
   const filteredTxs = allTxs.filter((t) => t.currency === currency);
@@ -544,6 +548,9 @@ function rechainCumPct(months: PerformanceMonthPoint[]): PerformanceMonthPoint[]
 // ─────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // 월별로 캐시 키를 분리 — 달이 바뀌면 자동으로 새 캐시 사용 (stale 방지)
+  const CACHE_KEY = `portfolio-performance-${localYearMonth()}`;
+
   try {
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get("refresh") === "1";
@@ -570,7 +577,7 @@ export async function GET(req: NextRequest) {
     // ── 2.5. 현재 월 현재가 사전 조회 (longterm/prices 탭과 동일 캐시 공유) ──
     // calcMayOnwards / calcStocksMayOnwards 안에서 각자 조회하면 병렬 실행 시
     // 캐시 미스가 여러 번 겹쳐 Naver/Yahoo API가 중복 호출됨 → 여기서 1회 선점
-    const currentPeriodForFetch = new Date().toISOString().slice(0, 7);
+    const currentPeriodForFetch = localYearMonth();
     const allCurrentPositions = calcPositions(
       allTxs.filter((t) => t.date <= `${currentPeriodForFetch}-31`)
     );
@@ -687,7 +694,7 @@ export async function GET(req: NextRequest) {
 
     // 현재 진행 중인 월이 응답에 포함된 경우 → 5분 캐시 (포지션 탭과 주가 괴리 방지)
     // 과거 완료 월만 있으면(현재 월이 없으면) → 24h 캐시
-    const currentPeriodStr = new Date().toISOString().slice(0, 7);
+    const currentPeriodStr = localYearMonth();
     const hasLiveMonth =
       response.kr.months.some((m) => m.period === currentPeriodStr && m.source === "api") ||
       response.us.months.some((m) => m.period === currentPeriodStr && m.source === "api");

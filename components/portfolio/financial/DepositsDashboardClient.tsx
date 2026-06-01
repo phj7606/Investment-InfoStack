@@ -20,7 +20,23 @@ export function DepositsDashboardClient() {
       const res = await fetch("/api/portfolio/financial/snapshot");
       if (!res.ok) throw new Error("데이터 로드 실패");
       const data = await res.json();
-      setSnapshots(data.snapshots ?? []);
+
+      // 현재 달 스냅샷이 없으면 DRAFT 자동 생성 (이전 달 CONFIRMED 이월 포함)
+      const fetchedSnaps: FinancialSnapshot[] = data.snapshots ?? [];
+      const curMon = currentMonth();
+      const hasCurSnap = fetchedSnaps.some((s) => s.month === curMon);
+      if (!hasCurSnap) {
+        await fetch("/api/portfolio/financial/snapshot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: curMon }),
+        });
+        const freshRes = await fetch("/api/portfolio/financial/snapshot");
+        const freshData = freshRes.ok ? await freshRes.json() : data;
+        setSnapshots(freshData.snapshots ?? fetchedSnaps);
+      } else {
+        setSnapshots(fetchedSnaps);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "알 수 없는 오류");
     } finally {

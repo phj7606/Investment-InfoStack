@@ -70,17 +70,14 @@ function buildDraftStatementFromSnapshot(
     .reduce((sum, v) => sum + (v.krw ?? 0), 0);
   const byAccountUsdTotal = Object.values(snapshot.stockDepositByAccount ?? {})
     .reduce((sum, v) => sum + (v.usd ?? 0), 0);
-  // 우선순위: byAccount 합산 → snapshot 직접입력(top-level) → liveData → cp → 0
-  // 이유: 프로덕션 Supabase에 byAccount가 없을 경우 Edit 다이얼로그에서 저장한
-  //       top-level stockDepositKrw/Usd 값을 fallback으로 사용
+  // 우선순위: byAccount 합산 → snapshot 직접입력(top-level) → cp → 0
+  // liveData.stockDepositKrw는 shortterm(2805) 주식평가액 — 예수금이 아님
   const stockDepositKrw = byAccountKrwTotal
     || snapshot.stockDepositKrw
-    || liveData?.stockDepositKrw
     || cp?.stockDepositKrw
     || 0;
   const stockDepositUsd = byAccountUsdTotal
     || snapshot.stockDepositUsd
-    || liveData?.stockDepositUsd
     || cp?.stockDepositUsd
     || 0;
 
@@ -337,7 +334,23 @@ export function FinancialStatementClient() {
       const txSummaryData = txSummaryRes.ok ? await txSummaryRes.json() : {};
       const cfBalanceData = cfBalanceRes.ok ? await cfBalanceRes.json() : {};
 
-      setSnapshots(snapshotData.snapshots ?? []);
+      // 현재 달 스냅샷이 없으면 DRAFT 자동 생성 (이전 달 CONFIRMED 이월 포함)
+      const fetchedSnaps: FinancialSnapshot[] = snapshotData.snapshots ?? [];
+      const curMon = currentMonth();
+      const hasCurSnap = fetchedSnaps.some((s) => s.month === curMon);
+      if (!hasCurSnap) {
+        await fetch("/api/portfolio/financial/snapshot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ month: curMon }),
+        });
+        // DRAFT 생성 후 스냅샷 재조회
+        const freshRes = await fetch("/api/portfolio/financial/snapshot");
+        const freshData = freshRes.ok ? await freshRes.json() : snapshotData;
+        setSnapshots(freshData.snapshots ?? fetchedSnaps);
+      } else {
+        setSnapshots(fetchedSnaps);
+      }
       setCfEntries(cfData.entries ?? []);
       setTxSummaries(txSummaryData ?? {});
       setCfBalances(cfBalanceData.balances ?? {});

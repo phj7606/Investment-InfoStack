@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PerformanceSummaryCards } from "./PerformanceSummaryCards";
 import { MonthlyReturnBarChart } from "./MonthlyReturnBarChart";
@@ -77,6 +77,30 @@ export function PerformanceDashboardClient() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Claude Desktop 분석용 스냅샷 다운로드
+  // /api/portfolio/analysis-snapshot → JSON 파일로 저장 후 Claude Desktop에 첨부하여 사용
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = useCallback(async () => {
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/portfolio/analysis-snapshot");
+      if (!res.ok) throw new Error("스냅샷 생성 실패");
+      const json = await res.json();
+      const blob = new Blob([JSON.stringify(json, null, 2)], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      a.href     = url;
+      a.download = `portfolio-analysis-${date}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("스냅샷 다운로드 실패");
+    } finally {
+      setDownloading(false);
+    }
+  }, []);
 
   // 시장 탭이 바뀌면 계좌 탭을 "전체"로 초기화
   const handleMarketTab = (tab: "KR" | "US") => {
@@ -152,6 +176,19 @@ export function PerformanceDashboardClient() {
               {formatFetchedAt(data.fetchedAt)} 기준
             </span>
           )}
+          {/* CLI: curl http://localhost:3000/api/portfolio/analysis-snapshot | jq . */}
+          {/* Desktop: 다운로드 후 Claude Desktop에 JSON 파일 첨부 */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownload}
+            disabled={downloading}
+            className="gap-1.5"
+            title="Claude Desktop 분석용 스냅샷 다운로드"
+          >
+            <Download className={`h-3.5 w-3.5 ${downloading ? "animate-pulse" : ""}`} />
+            <span className="hidden sm:inline">AI 분석 내보내기</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -160,7 +197,7 @@ export function PerformanceDashboardClient() {
             className="gap-1.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">새로고침</span>
+            <span className="hidden sm:inline">��로고침</span>
           </Button>
         </div>
       </div>

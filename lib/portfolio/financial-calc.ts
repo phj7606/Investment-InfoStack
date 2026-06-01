@@ -477,6 +477,7 @@ export function buildAssetManagementYearlyData(
   let usCumBid = 0;
   let usCumAskBv = 0;
 
+  const curMonth = currentMonth();
   const columns: AssetManagementColumnData[] = [];
 
   for (let i = 0; i < allMonths.length; i++) {
@@ -485,11 +486,12 @@ export function buildAssetManagementYearlyData(
     const snap = snapMap.get(month);
 
     if (!snap) {
-      // 스냅샷 없는 월 — 빈 컬럼
+      // 스냅샷 없는 월: 현재 진행 중 달이면 isDraft=true, 그 외 빈 컬럼
+      const isDraft = !isBaseline && month === curMonth;
       columns.push({
         month,
         isBaseline,
-        isDraft: false,
+        isDraft,
         hasData: false,
         isBalanceLocked: false,
         usdKrw: 1475.27,
@@ -836,10 +838,10 @@ export function buildAssetManagementYearlyData(
       .reduce((sum, v) => sum + (v.usd ?? 0), 0);
 
     if (isDraft) {
-      // byAccount 합산 우선 → Edit 다이얼로그 직접 입력 → liveData fallback
-      stockDepositKrw = byAccountKrwTotal || snap.stockDepositKrw || (liveData?.stockDepositKrw ?? 0);
-      // liveData USD는 항상 0이므로 byAccount 합산 사용
-      stockDepositUsd = byAccountUsdTotal || (liveData?.stockDepositUsd ?? 0);
+      // byAccount 합산 우선 → Edit 다이얼로그 직접 입력값
+      // liveData.stockDepositKrw는 shortterm(2805) 주식평가액이므로 사용 불가
+      stockDepositKrw = byAccountKrwTotal || snap.stockDepositKrw || 0;
+      stockDepositUsd = byAccountUsdTotal || snap.stockDepositUsd || 0;
     } else if (cp) {
       // CONFIRMED: KRW는 byAccount 합산 (수동 입력값이 cp와 동일하거나 더 최신)
       //            USD는 cp 저장값 사용 — byAccount는 정수(소수점 없음)라서
@@ -1078,9 +1080,11 @@ export function buildAssetManagementIIYearlyData(
 
   const snapMap = new Map(snapshots.map((s) => [s.month, s]));
 
+  const curMonthII = currentMonth();
+
   // 빈 컬럼 생성 헬퍼
-  const emptyCol = (month: string, isBaseline: boolean): AssetManagementIIColumnData => ({
-    month, isBaseline, isDraft: false, hasData: false,
+  const emptyCol = (month: string, isBaseline: boolean, isDraft = false): AssetManagementIIColumnData => ({
+    month, isBaseline, isDraft, hasData: false,
     usdKrw: 1475.27, cadKrw: 1086.59,
     digitalAsset: {
       upbitBalance: 0, upbitPrincipal: 0,
@@ -1106,7 +1110,8 @@ export function buildAssetManagementIIYearlyData(
     const snap = snapMap.get(month);
 
     if (!snap) {
-      columns.push(emptyCol(month, isBaseline));
+      // 스냅샷 없는 현재 달이면 isDraft=true (입력 버튼 활성화 목적)
+      columns.push(emptyCol(month, isBaseline, !isBaseline && month === curMonthII));
       continue;
     }
 
@@ -1276,34 +1281,31 @@ export function buildAssetManagementIIYearlyData(
  */
 export function createDraftSnapshot(
   month: string,
-  exchangeRates?: { usdKrw: number; cadKrw: number }
+  exchangeRates?: { usdKrw: number; cadKrw: number },
+  prevConfirmed?: FinancialSnapshot
 ): FinancialSnapshot {
+  // prevConfirmed가 있으면 해당 월 확정값을 이월(carry-forward)
+  // 없으면 최초 설정 시점의 엑셀 하드코딩값 사용
   return {
     id: crypto.randomUUID(),
     month,
     status: "DRAFT",
-    // 실시간 환율이 주입되면 사용, 없으면 마지막 확정 환율 기준 폴백
-    exchangeRates: exchangeRates ?? { usdKrw: 1475.27, cadKrw: 1086.59 },
-    // 정기예금
-    fixedDepositKrw: 550000000,
-    fixedDepositUsd: 0,
-    // 부채
-    leaseDeposit: 1300000000,
-    privateLoan: 146930000,
-    mortgageLoan: 0,
-    // 비유동자산
-    realEstate: 1668000000,
-    // 기타자산
-    otherAssets: [],
-    // 가상자산
+    exchangeRates: exchangeRates ?? prevConfirmed?.exchangeRates ?? { usdKrw: 1475.27, cadKrw: 1086.59 },
+    fixedDepositKrw: prevConfirmed?.fixedDepositKrw ?? 550000000,
+    fixedDepositUsd: prevConfirmed?.fixedDepositUsd ?? 0,
+    leaseDeposit: prevConfirmed?.leaseDeposit ?? 1300000000,
+    privateLoan: prevConfirmed?.privateLoan ?? 146930000,
+    mortgageLoan: prevConfirmed?.mortgageLoan ?? 0,
+    realEstate: prevConfirmed?.realEstate ?? 1668000000,
+    otherAssets: prevConfirmed?.otherAssets ? [...prevConfirmed.otherAssets] : [],
     crypto: {
       upbit: { balance: 0, principal: 0 },
       korbit: { balance: 0, principal: 0 },
       binance: { balance: 0, principal: 0 },
     },
-    // 캐나다 연금
-    canadianPension: { balanceCad: 0, monthlyFeeCad: 0 },
-    // 2805 중기 계좌
+    canadianPension: prevConfirmed?.canadianPension
+      ? { ...prevConfirmed.canadianPension }
+      : { balanceCad: 0, monthlyFeeCad: 0 },
     midterm2805: { cumInstallment: 0, cumSpent: 0, balance: 0 },
     updatedAt: new Date().toISOString(),
   };

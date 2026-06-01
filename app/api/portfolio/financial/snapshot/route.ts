@@ -45,8 +45,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ snapshot: existing, created: false });
   }
 
-  // 신규 DRAFT 생성
-  const snapshot = createDraftSnapshot(body.month);
+  // 신규 DRAFT 생성 — 이전 달 CONFIRMED 스냅샷을 찾아 이월
+  const [yearStr, monthStr] = body.month.split("-");
+  const year = parseInt(yearStr, 10);
+  const month = parseInt(monthStr, 10);
+  const prevMonthStr = month === 1
+    ? `${year - 1}-12`
+    : `${year}-${String(month - 1).padStart(2, "0")}`;
+  const prevConfirmed = snapshots.find(
+    (s) => s.month === prevMonthStr && s.status === "CONFIRMED"
+  );
+
+  const snapshot = createDraftSnapshot(body.month, undefined, prevConfirmed);
   snapshots.push(snapshot);
   await writeSnapshots(snapshots);
 
