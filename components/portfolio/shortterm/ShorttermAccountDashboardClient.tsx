@@ -238,58 +238,98 @@ export function ShorttermAccountDashboardClient() {
   // Education Account와 동일한 방식
   // ─────────────────────────────────────────
   const derivedTrades = useMemo((): EducationTrade[] => {
-    // 종목별 BUY 이력 (시간순) — buyDate 추정에 사용
-    const buysByStock = new Map<string, LongtermTransaction[]>();
+    // 잔량=0인 종목 단위로 집계 — Longterm/Education과 동일한 balance=0 방식으로 통일
+    const groupMap = new Map<string, {
+      stockCode: string; stockName: string; sector: string;
+      accountNo: string; txs: LongtermTransaction[];
+    }>();
     for (const tx of transactions) {
-      if (tx.tradeType !== "BUY") continue;
-      const key = `${tx.stockCode}::${tx.accountNo}`;
-      if (!buysByStock.has(key)) buysByStock.set(key, []);
-      buysByStock.get(key)!.push(tx);
+      if (tx.tradeType === "DIVIDEND") continue;
+      // stockName 포함 필수 — 동일 코드라도 이름이 다르면 별도 종목 (삼성증권 vs 삼성증권2)
+      const key = `${tx.stockCode}::${tx.stockName}::${tx.accountNo}`;
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          stockCode: tx.stockCode, stockName: tx.stockName,
+          sector: tx.sector ?? "", accountNo: tx.accountNo, txs: [],
+        });
+      }
+      groupMap.get(key)!.txs.push(tx);
     }
-    for (const [, buys] of buysByStock) {
-      buys.sort((a, b) => a.date.localeCompare(b.date));
+
+    const result: EducationTrade[] = [];
+
+    for (const [, g] of groupMap) {
+      g.txs.sort((a, b) => a.date.localeCompare(b.date));
+      const buys  = g.txs.filter((t) => t.tradeType === "BUY");
+      const sells = g.txs.filter((t) => t.tradeType === "SELL");
+      if (sells.length === 0) continue;
+
+      const totalBuyQty  = buys.reduce((s, t) => s + t.quantity, 0);
+      const totalSellQty = sells.reduce((s, t) => s + t.quantity, 0);
+
+      // positions 기준 잔량 확인 (미로드 시 거래 합산으로 대체)
+      const pos = positions.find(
+        (p) => p.stockCode === g.stockCode && p.accountNo === g.accountNo
+      );
+      const balance = pos?.quantity ?? Math.max(0, totalBuyQty - totalSellQty);
+      if (balance !== 0) continue;  // 잔량 남아있으면 미완료 → 제외
+
+      const totalBuyAmt  = buys.reduce((s, t) => s + t.amount, 0);
+      const totalSellAmt = sells.reduce((s, t) => s + t.amount, 0);
+
+      // FIFO 실현손익 (realizedPL 저장값 우선, 없으면 직접 계산)
+      let profitLoss = 0, sellCostBase = 0;
+      let runQty = 0, runCost = 0;
+      for (const t of g.txs) {
+        if (t.tradeType === "BUY") {
+          runQty  += t.quantity;
+          runCost += t.amount;
+        } else if (t.tradeType === "SELL") {
+          const avg = runQty > 0 ? runCost / runQty : 0;
+          sellCostBase += avg * t.quantity;
+          profitLoss   += t.realizedPL !== undefined
+            ? t.realizedPL
+            : t.amount - avg * t.quantity;
+          runCost = Math.max(0, runCost - avg * t.quantity);
+          runQty  = Math.max(0, runQty  - t.quantity);
+        }
+      }
+      // BUY+SELL 수수료 전액 차감 → 총 실현손익 = 순이익
+      const totalFees = g.txs.reduce((sum, t) => sum + (t.fee ?? 0), 0);
+      profitLoss -= totalFees;
+
+      const profitLossPct = sellCostBase > 0 ? (profitLoss / sellCostBase) * 100 : 0;
+      const buyDate  = buys[0]?.date ?? sells[0]?.date ?? "";
+      const sellDate = sells[sells.length - 1]?.date   ?? "";
+      const holdingDays = buyDate && sellDate
+        ? Math.max(0, Math.round(
+            (new Date(sellDate).getTime() - new Date(buyDate).getTime()) / 86400000
+          ))
+        : 0;
+
+      result.push({
+        id:            `${g.stockCode}::${g.accountNo}`,
+        stockCode:     g.stockCode,
+        stockName:     g.stockName,
+        sector:        g.sector,
+        buyDate,
+        sellDate,
+        buyPrice:      totalBuyQty  > 0 ? Math.round(totalBuyAmt  / totalBuyQty)  : 0,
+        buyAmount:     Math.round(totalBuyAmt),
+        sellPrice:     totalSellQty > 0 ? Math.round(totalSellAmt / totalSellQty) : 0,
+        sellAmount:    Math.round(totalSellAmt),
+        quantity:      totalSellQty,
+        commission:    Math.round(totalFees),
+        profitLoss:    Math.round(profitLoss * 100) / 100,
+        profitLossPct: Math.round(profitLossPct * 100) / 100,
+        holdingDays,
+        unit:          "",
+        result:        profitLoss >= 0 ? "Win" : "Lose",
+      });
     }
 
-    return transactions
-      .filter((tx) => tx.tradeType === "SELL")
-      .map((tx): EducationTrade => {
-        const key = `${tx.stockCode}::${tx.accountNo}`;
-        const buys = buysByStock.get(key) ?? [];
-        const buysBefore = buys.filter((b) => b.date <= tx.date);
-        const buyDate = buysBefore.length > 0 ? buysBefore[0].date : tx.date;
-
-        const holdingDays = Math.max(0, Math.round(
-          (new Date(tx.date).getTime() - new Date(buyDate).getTime()) / 86400000
-        ));
-
-        const buyPrice  = tx.avgCostAtSell ?? 0;
-        const buyAmount = Math.round(buyPrice * tx.quantity);
-        const pl    = tx.realizedPL ?? 0;
-        const plPct = tx.realizedPLPct ?? 0;
-        const unitMatch = tx.memo?.match(/^unit:(.+)$/);
-
-        return {
-          id: tx.id,
-          stockCode: tx.stockCode,
-          stockName: tx.stockName,
-          sector: tx.sector ?? "",
-          buyDate,
-          sellDate: tx.date,
-          buyPrice,
-          buyAmount,
-          sellPrice: tx.price,
-          sellAmount: tx.amount,
-          commission: tx.fee,
-          quantity: tx.quantity,
-          profitLoss: pl,
-          profitLossPct: plPct,
-          holdingDays,
-          unit: unitMatch ? unitMatch[1] : "",
-          result: pl >= 0 ? "Win" : "Lose",
-        };
-      })
-      .sort((a, b) => b.sellDate.localeCompare(a.sellDate));
-  }, [transactions]);
+    return result.sort((a, b) => b.sellDate.localeCompare(a.sellDate));
+  }, [transactions, positions]);
 
   const derivedSummary = useMemo((): PerformanceSummary | null => {
     if (derivedTrades.length === 0) return null;

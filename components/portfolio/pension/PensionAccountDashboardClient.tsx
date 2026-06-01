@@ -643,7 +643,8 @@ export function PensionAccountDashboardClient() {
     }>();
 
     for (const tx of transactions) {
-      const key = `${tx.stockCode}::${tx.accountType}::${tx.category ?? ""}`;
+      // stockName 포함 필수 — 동일 코드라도 이름이 다르면 별도 종목 (삼성증권 vs 삼성증권2)
+      const key = `${tx.stockCode}::${tx.stockName}::${tx.accountType}::${tx.category ?? ""}`;
       if (!groupMap.has(key)) {
         groupMap.set(key, {
           stockCode: tx.stockCode, stockName: tx.stockName,
@@ -708,6 +709,10 @@ export function PensionAccountDashboardClient() {
           runQty  = Math.max(0, runQty  - t.quantity);
         }
       }
+
+      // 총 실현손익에 BUY+SELL 수수료 전액 차감 (개별 realizedPL은 수수료 미포함 유지)
+      const totalFees = g.txs.reduce((sum, t) => sum + (t.fee ?? 0), 0);
+      profitLoss -= totalFees;
 
       const profitLossPct = sellCostBase > 0 ? (profitLoss / sellCostBase) * 100 : 0;
       const holdingDays   = buyDate && sellDate

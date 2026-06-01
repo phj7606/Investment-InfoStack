@@ -351,6 +351,11 @@ export function LongtermDashboardClient() {
         }
       }
 
+      // 총 실현손익에 BUY+SELL 수수료 전액 차감 (개별 realizedPL은 수수료 미포함 유지)
+      // realizedPL이 항상 존재하므로 기존 else 분기가 실행되지 않아 수수료 누락됨 — 여기서 일괄 보정
+      const totalFees = g.txs.reduce((sum, t) => sum + (t.fee ?? 0), 0);
+      profitLoss -= totalFees;
+
       const profitLossPct = sellCostBase > 0 ? (profitLoss / sellCostBase) * 100 : 0;
       const holdingDays   = buyDate && sellDate
         ? Math.max(0, Math.round(
