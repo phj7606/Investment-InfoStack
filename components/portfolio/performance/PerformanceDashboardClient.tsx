@@ -197,7 +197,7 @@ export function PerformanceDashboardClient() {
             className="gap-1.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">��로고침</span>
+            <span className="hidden sm:inline">새로고침</span>
           </Button>
         </div>
       </div>
