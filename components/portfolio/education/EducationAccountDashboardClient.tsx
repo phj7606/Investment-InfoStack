@@ -495,11 +495,13 @@ export function EducationAccountDashboardClient() {
     };
   }, [derivedTrades]);
 
-  // TPI = 승률 × (손익비 + 1), 손익비는 % 기준 (avgWinPct ÷ avgLossPct)
+  // TPI = 승률 × (손익비 + 1), 손익비는 실현손익 기준 (totalWinPL ÷ |totalLossPL|)
+  // 손실이 ~8%로 고정되어 있어 % 기준 payoffRatio는 avgWinPct에만 좌우되므로
+  // 포지션 크기·실제 금액 차이를 반영하는 profitFactor(원 기준)로 계산
   const tpi = useMemo(() => {
     if (!derivedSummary || derivedSummary.totalTrades === 0) return null;
-    const pr = isFinite(derivedSummary.payoffRatio) ? derivedSummary.payoffRatio : 0;
-    return Math.round(derivedSummary.winRate * (pr + 1) * 10000) / 10000;
+    const pf = isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor : 0;
+    return Math.round(derivedSummary.winRate * (pf + 1) * 10000) / 10000;
   }, [derivedSummary]);
 
   // tradeTotalBuy/PL은 filteredTrades 정의 후로 이동 (필터 연동)
@@ -751,8 +753,8 @@ export function EducationAccountDashboardClient() {
                 valueClass={plColor(tradeTotalPL)}
               />
               <SummaryCard label="손익비"
-                value={isFinite(derivedSummary.payoffRatio) ? derivedSummary.payoffRatio.toFixed(2) : "∞"}
-                sub="avg win% ÷ avg loss%"
+                value={isFinite(derivedSummary.profitFactor) ? derivedSummary.profitFactor.toFixed(2) : "∞"}
+                sub="총수익(원) ÷ 총손실(원)"
               />
               <SummaryCard label="평균 수익"
                 value={`+${derivedSummary.avgWinPct.toFixed(1)}%`}
@@ -764,7 +766,7 @@ export function EducationAccountDashboardClient() {
               />
               <SummaryCard label="TPI"
                 value={tpi !== null ? tpi.toFixed(2) : "-"}
-                sub="승률 × (손익비+1)"
+                sub="승률 × (실현손익비+1)"
                 valueClass={tpi !== null ? (tpi >= 1 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400") : undefined}
               />
             </div>
