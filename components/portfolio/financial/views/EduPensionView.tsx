@@ -382,24 +382,24 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── Digital Asset 섹션 ── */}
             <SectionHeaderRow label="Digital Asset" colCount={columns.length} />
 
-            {/* Principal — 직접입력 */}
+            {/* Principal — Deposit & FX 페이지에서 관리 (read-only) */}
             <LabelRow label="Principal (KRW)" indent={0} />
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Upbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitPrincipal)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.upbitPrincipal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Korbit" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitPrincipal)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtKrw(col.digitalAsset.korbitPrincipal)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <SubLabelCell label="· Binance (USD)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binancePrincipalUsd)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtUsd(col.digitalAsset.binancePrincipalUsd)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             <TotalRow
@@ -609,11 +609,11 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
             {/* ── RESP/RRSP 섹션 ── */}
             <SectionHeaderRow label="RESP/RRSP" colCount={columns.length} />
 
-            {/* Balance (CAD) — 직접입력 */}
+            {/* Balance (CAD) — Deposit & FX 페이지에서 관리 (read-only) */}
             <tr className="hover:bg-muted/20 border-b border-border/30">
               <LabelCell label="Balance (CAD)" />
               {columns.map((col) => (
-                <Cell key={col.month} value={fmtCad(col.respRrsp.balanceCad)} isBaseline={col.isBaseline} isManualInput />
+                <Cell key={col.month} value={fmtCad(col.respRrsp.balanceCad)} isBaseline={col.isBaseline} />
               ))}
             </tr>
             {/* Balance (KRW) — CAD × 환율 자동계산, 하이라이트 없음 */}
