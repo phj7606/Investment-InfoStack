@@ -216,6 +216,14 @@ function DepositsInputDialog({
   // Lease Deposit
   const [leaseDeposit, setLeaseDeposit] = useState(String(snapshot?.leaseDeposit ?? 0));
 
+  // Digital Asset Principal — Deposit & FX 페이지에서 관리 (자산관리 II에서 이관)
+  const [upbitPrincipal, setUpbitPrincipal] = useState(String(snapshot?.crypto?.upbit?.principal ?? 0));
+  const [korbitPrincipal, setKorbitPrincipal] = useState(String(snapshot?.crypto?.korbit?.principal ?? 0));
+  const [binancePrincipalUsd, setBinancePrincipalUsd] = useState(String(snapshot?.crypto?.binance?.principal ?? 0));
+
+  // RESP/RRSP — Deposit & FX 페이지에서 관리 (자산관리 II에서 이관)
+  const [respRrspBalanceCad, setRespRrspBalanceCad] = useState(String(snapshot?.canadianPension?.balanceCad ?? 0));
+
   const [saving, setSaving] = useState(false);
 
   const handleCopyPrev = () => {
@@ -238,6 +246,12 @@ function DepositsInputDialog({
     setFixedDepositKrw(String(prevSnapshot.fixedDepositKrw ?? 0));
     setFixedDepositUsd(String(prevSnapshot.fixedDepositUsd ?? 0));
     setLeaseDeposit(String(prevSnapshot.leaseDeposit ?? 0));
+    // Digital Asset Principal — 전월 원가도 복사
+    setUpbitPrincipal(String(prevSnapshot.crypto?.upbit?.principal ?? 0));
+    setKorbitPrincipal(String(prevSnapshot.crypto?.korbit?.principal ?? 0));
+    setBinancePrincipalUsd(String(prevSnapshot.crypto?.binance?.principal ?? 0));
+    // RESP/RRSP — 전월 잔액도 복사
+    setRespRrspBalanceCad(String(prevSnapshot.canadianPension?.balanceCad ?? 0));
   };
 
   const handleSave = async () => {
@@ -247,6 +261,8 @@ function DepositsInputDialog({
         (Number(dep4802Krw) || 0) + (Number(dep1635Krw) || 0) + (Number(dep1402Krw) || 0);
       const totalUsd =
         (Number(dep4802Usd) || 0) + (Number(dep1635Usd) || 0) + (Number(dep1402Usd) || 0);
+
+      const isConfirmed = snapshot?.status === "CONFIRMED";
 
       const body: UpdateSnapshotRequest = {
         stockDepositKrw: totalKrw,
@@ -274,6 +290,18 @@ function DepositsInputDialog({
         fixedDepositKrw: Number(fixedDepositKrw) || 0,
         fixedDepositUsd: Number(fixedDepositUsd) || 0,
         leaseDeposit: Number(leaseDeposit) || 0,
+        // CONFIRMED 월은 투자 포지션 데이터(crypto, canadianPension) 수정 불가
+        ...(!isConfirmed && {
+          crypto: {
+            upbit: { balance: snapshot?.crypto?.upbit?.balance ?? 0, principal: Number(upbitPrincipal) || 0 },
+            korbit: { balance: snapshot?.crypto?.korbit?.balance ?? 0, principal: Number(korbitPrincipal) || 0 },
+            binance: { balance: snapshot?.crypto?.binance?.balance ?? 0, principal: Number(binancePrincipalUsd) || 0 },
+          },
+          canadianPension: {
+            balanceCad: Number(respRrspBalanceCad) || 0,
+            monthlyFeeCad: snapshot?.canadianPension?.monthlyFeeCad ?? 0,
+          },
+        }),
       };
 
       const res = await fetch(`/api/portfolio/financial/snapshot/${month}`, {
@@ -363,6 +391,34 @@ function DepositsInputDialog({
           <NumRow label="Foreign deposit (CAD)" value={cashForeignCad} set={setCashForeignCad} isUsd />
           <NumRow label="Fixed deposit (KRW)" value={fixedDepositKrw} set={setFixedDepositKrw} />
           <NumRow label="Fixed deposit (USD)" value={fixedDepositUsd} set={setFixedDepositUsd} isUsd />
+        </div>
+
+        {/* Digital Asset — Principal (자산관리 II에서 이관) */}
+        <div className="space-y-3 py-2">
+          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">
+            Digital Asset — Principal (취득원가)
+          </p>
+          {snapshot?.status === "CONFIRMED" ? (
+            <p className="text-xs text-muted-foreground">CONFIRMED 월 — 수정 불가</p>
+          ) : (
+            <>
+              <NumRow label="Upbit 원가 (KRW)" value={upbitPrincipal} set={setUpbitPrincipal} />
+              <NumRow label="Korbit 원가 (KRW)" value={korbitPrincipal} set={setKorbitPrincipal} />
+              <NumRow label="Binance 원가 (USD)" value={binancePrincipalUsd} set={setBinancePrincipalUsd} isUsd />
+            </>
+          )}
+        </div>
+
+        {/* RESP/RRSP (자산관리 II에서 이관) */}
+        <div className="space-y-3 py-2">
+          <p className="text-xs font-semibold text-foreground border-b border-border pb-1">
+            RESP/RRSP — 잔액
+          </p>
+          {snapshot?.status === "CONFIRMED" ? (
+            <p className="text-xs text-muted-foreground">CONFIRMED 월 — 수정 불가</p>
+          ) : (
+            <NumRow label="잔액 (CAD)" value={respRrspBalanceCad} set={setRespRrspBalanceCad} isUsd />
+          )}
         </div>
 
         {/* Lease Deposit */}
@@ -650,6 +706,49 @@ export function DepositsView({
               getValue={(c) => c.fixedDepositUsd}
               isUsd
               isManualInput
+            />
+
+            {/* ── Digital Asset Principal ───────────────────── */}
+            <SectionHeader label="Digital Asset — Principal (취득원가)" colCount={allCols.length} />
+            <SimpleRow
+              label="Upbit 원가 (KRW)"
+              cols={allCols}
+              getValue={(c) => c.digitalAssetPrincipal.upbitPrincipal}
+              isManualInput
+            />
+            <SimpleRow
+              label="Korbit 원가 (KRW)"
+              cols={allCols}
+              getValue={(c) => c.digitalAssetPrincipal.korbitPrincipal}
+              isManualInput
+            />
+            <SimpleRow
+              label="Binance 원가 (USD)"
+              cols={allCols}
+              getValue={(c) => c.digitalAssetPrincipal.binancePrincipalUsd}
+              isUsd
+              isManualInput
+            />
+            <SimpleRow
+              label="합계 (KRW 환산)"
+              cols={allCols}
+              getValue={(c) => c.digitalAssetPrincipal.totalPrincipalKrw}
+              isBold
+            />
+
+            {/* ── RESP/RRSP ─────────────────────────────────── */}
+            <SectionHeader label="RESP/RRSP" colCount={allCols.length} />
+            <SimpleRow
+              label="잔액 (CAD)"
+              cols={allCols}
+              getValue={(c) => c.respRrsp.balanceCad}
+              isUsd
+              isManualInput
+            />
+            <SimpleRow
+              label="잔액 (KRW 환산)"
+              cols={allCols}
+              getValue={(c) => c.respRrsp.balanceKrw}
             />
 
             {/* ── Lease Deposit ─────────────────────────────── */}

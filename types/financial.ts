@@ -588,6 +588,22 @@ export interface DepositsColumnData {
 
   // ── Lease Deposit ─────────────────────────
   leaseDeposit: number;
+
+  // ── Digital Asset Principal (Deposit & FX 관리) ──
+  /** 가상자산 원가 — 거래소별 취득원가 */
+  digitalAssetPrincipal: {
+    upbitPrincipal: number;
+    korbitPrincipal: number;
+    binancePrincipalUsd: number;
+    totalPrincipalKrw: number;
+  };
+
+  // ── RESP/RRSP (Deposit & FX 관리) ────────────────
+  /** 캐나다 연금 RESP/RRSP 잔액 */
+  respRrsp: {
+    balanceCad: number;
+    balanceKrw: number;
+  };
 }
 
 // ─────────────────────────────────────────

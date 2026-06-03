@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardPen, RefreshCw, Copy, CheckSquare } from "lucide-react";
+import { ClipboardPen, RefreshCw, CheckSquare } from "lucide-react";
 import { LockPricesDialog } from "./LockPricesDialog";
 import {
   Dialog,
@@ -113,15 +113,10 @@ function Cell({ value, className = "", isBaseline = false, isManualInput = false
 
 interface DialogState {
   month: string;
-  // Digital Asset
+  // Digital Asset — 잔액만 (원가는 Deposit & FX 페이지에서 관리)
   upbitBalance: string;
-  upbitPrincipal: string;
   korbitBalance: string;
-  korbitPrincipal: string;
   binanceBalance: string;
-  binancePrincipal: string;
-  // RESP/RRSP
-  respRrspBalanceCad: string;
   // Short-term Account (2805) — 주식 잔액 수동 오버라이드만 (예수금·계좌이체는 Deposit & FX 페이지 관리)
   shorttermStockBalance: string;
 }
@@ -132,13 +127,11 @@ interface InputDialogProps {
   state: DialogState;
   onChange: (state: DialogState) => void;
   onSave: () => Promise<void>;
-  onCopyPrev: () => void;
-  hasPrev: boolean;
   saving: boolean;
 }
 
 function AssetManagementIIInputDialog({
-  open, onClose, state, onChange, onSave, onCopyPrev, hasPrev, saving,
+  open, onClose, state, onChange, onSave, saving,
 }: InputDialogProps) {
   // FormattedInput은 raw 문자열을 직접 반환하므로 이벤트 없이 값을 받음
   const set = (key: keyof DialogState) => (raw: string) =>
@@ -154,60 +147,27 @@ function AssetManagementIIInputDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Digital Asset */}
+          {/* Digital Asset — 잔액만 입력 (원가·RESP/RRSP는 Deposit & FX 페이지에서 입력) */}
           <section>
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Digital Asset
               </p>
-              {hasPrev && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-xs gap-1"
-                  onClick={onCopyPrev}
-                >
-                  <Copy className="h-3 w-3" />
-                  전월 원가 복사
-                </Button>
-              )}
+              <span className="text-xs text-muted-foreground/60">원가 → Deposit &amp; FX</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <div>
                 <Label className="text-xs">Upbit 잔액 (KRW)</Label>
                 <FormattedInput value={state.upbitBalance} onChange={set("upbitBalance")} />
-              </div>
-              <div>
-                <Label className="text-xs">Upbit 원가 (KRW)</Label>
-                <FormattedInput value={state.upbitPrincipal} onChange={set("upbitPrincipal")} />
               </div>
               <div>
                 <Label className="text-xs">Korbit 잔액 (KRW)</Label>
                 <FormattedInput value={state.korbitBalance} onChange={set("korbitBalance")} />
               </div>
               <div>
-                <Label className="text-xs">Korbit 원가 (KRW)</Label>
-                <FormattedInput value={state.korbitPrincipal} onChange={set("korbitPrincipal")} />
-              </div>
-              <div>
                 <Label className="text-xs">Binance 잔액 (USD)</Label>
                 <FormattedInput value={state.binanceBalance} onChange={set("binanceBalance")} isUsd />
               </div>
-              <div>
-                <Label className="text-xs">Binance 원가 (USD)</Label>
-                <FormattedInput value={state.binancePrincipal} onChange={set("binancePrincipal")} isUsd />
-              </div>
-            </div>
-          </section>
-
-          {/* RESP/RRSP */}
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              RESP/RRSP
-            </p>
-            <div>
-              <Label className="text-xs">잔액 (CAD)</Label>
-              <FormattedInput value={state.respRrspBalanceCad} onChange={set("respRrspBalanceCad")} isUsd />
             </div>
           </section>
 
@@ -248,15 +208,14 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
   const curMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
 
-  // 편집 다이얼로그 상태
+  // 편집 다이얼로그 상태 — 원가·RESP/RRSP는 Deposit & FX 페이지로 이관
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState>({
     month: "",
-    upbitBalance: "0", upbitPrincipal: "0",
-    korbitBalance: "0", korbitPrincipal: "0",
-    binanceBalance: "0", binancePrincipal: "0",
-    respRrspBalanceCad: "0",
+    upbitBalance: "0",
+    korbitBalance: "0",
+    binanceBalance: "0",
     shorttermStockBalance: "",
   });
 
@@ -276,67 +235,36 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
 
     setDialogState({
       month: col.month,
+      // 잔액만 편집 (원가는 Deposit & FX 페이지에서 관리)
       upbitBalance: String(crypto?.upbit?.balance ?? col.digitalAsset.upbitBalance),
-      upbitPrincipal: String(crypto?.upbit?.principal ?? col.digitalAsset.upbitPrincipal),
       korbitBalance: String(crypto?.korbit?.balance ?? col.digitalAsset.korbitBalance),
-      korbitPrincipal: String(crypto?.korbit?.principal ?? col.digitalAsset.korbitPrincipal),
       binanceBalance: String(crypto?.binance?.balance ?? col.digitalAsset.binanceBalanceUsd),
-      binancePrincipal: String(crypto?.binance?.principal ?? col.digitalAsset.binancePrincipalUsd),
-      respRrspBalanceCad: String(snap?.canadianPension?.balanceCad ?? col.respRrsp.balanceCad),
       // Short-term: 주식 잔액 수동 오버라이드만 (비워두면 live-data 자동 계산)
       shorttermStockBalance: snap?.shorttermMonthly?.stockBalance != null ? String(snap.shorttermMonthly.stockBalance) : "",
     });
     setDialogOpen(true);
   }, [snapMap]);
 
-  // ── 전월 원가 복사 ────────────────────────────────
-  const handleCopyPrev = useCallback(() => {
-    const [yearStr, monthStr] = dialogState.month.split("-");
-    const prevMonth = parseInt(monthStr) === 1
-      ? `${parseInt(yearStr) - 1}-12`
-      : `${yearStr}-${String(parseInt(monthStr) - 1).padStart(2, "0")}`;
-    const prevSnap = snapMap.get(prevMonth);
-    if (!prevSnap?.crypto) return;
-
-    setDialogState((prev) => ({
-      ...prev,
-      upbitPrincipal: String(prevSnap.crypto?.upbit?.principal ?? prev.upbitPrincipal),
-      korbitPrincipal: String(prevSnap.crypto?.korbit?.principal ?? prev.korbitPrincipal),
-      binancePrincipal: String(prevSnap.crypto?.binance?.principal ?? prev.binancePrincipal),
-    }));
-  }, [dialogState.month, snapMap]);
-
-  // ── 전월 데이터 존재 여부 확인 ──────────────────
-  const hasPrevData = useCallback(() => {
-    const [yearStr, monthStr] = dialogState.month.split("-");
-    const prevMonth = parseInt(monthStr) === 1
-      ? `${parseInt(yearStr) - 1}-12`
-      : `${yearStr}-${String(parseInt(monthStr) - 1).padStart(2, "0")}`;
-    return snapMap.has(prevMonth);
-  }, [dialogState.month, snapMap]);
-
-  // ── 저장 처리 ─────────────────────────────────────
+  // ── 저장 처리 — 잔액 저장 시 기존 원가 값을 스냅샷에서 읽어 merge ──
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
+      const snap = snapMap.get(dialogState.month);
       const body: UpdateSnapshotRequest = {
+        // 원가(principal)는 스냅샷의 기존 값을 그대로 유지 (Deposit & FX에서 관리)
         crypto: {
           upbit: {
             balance: Number(dialogState.upbitBalance) || 0,
-            principal: Number(dialogState.upbitPrincipal) || 0,
+            principal: snap?.crypto?.upbit?.principal ?? 0,
           },
           korbit: {
             balance: Number(dialogState.korbitBalance) || 0,
-            principal: Number(dialogState.korbitPrincipal) || 0,
+            principal: snap?.crypto?.korbit?.principal ?? 0,
           },
           binance: {
             balance: Number(dialogState.binanceBalance) || 0,
-            principal: Number(dialogState.binancePrincipal) || 0,
+            principal: snap?.crypto?.binance?.principal ?? 0,
           },
-        },
-        canadianPension: {
-          balanceCad: Number(dialogState.respRrspBalanceCad) || 0,
-          monthlyFeeCad: 0,
         },
         // Short-term 주식 잔액 수동 오버라이드 (비워두면 live-data fallback 사용)
         ...(dialogState.shorttermStockBalance.trim() !== "" && {
@@ -755,8 +683,6 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
         state={dialogState}
         onChange={setDialogState}
         onSave={handleSave}
-        onCopyPrev={handleCopyPrev}
-        hasPrev={hasPrevData()}
         saving={saving}
       />
 

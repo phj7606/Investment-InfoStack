@@ -1013,6 +1013,13 @@ export function buildDepositsYearlyData(
         fixedDepositKrw: 0,
         fixedDepositUsd: 0,
         leaseDeposit: 0,
+        digitalAssetPrincipal: {
+          upbitPrincipal: 0,
+          korbitPrincipal: 0,
+          binancePrincipalUsd: 0,
+          totalPrincipalKrw: 0,
+        },
+        respRrsp: { balanceCad: 0, balanceKrw: 0 },
       });
       continue;
     }
@@ -1027,6 +1034,17 @@ export function buildDepositsYearlyData(
       "1635": { krw: byAcc["1635"]?.krw ?? 0, usd: byAcc["1635"]?.usd ?? 0 },
       "1402": { krw: byAcc["1402"]?.krw ?? 0, usd: byAcc["1402"]?.usd ?? 0 },
     };
+
+    // Digital Asset Principal — snap.crypto에서 취득원가 읽기
+    const crypto = snap.crypto ?? { upbit: { balance: 0, principal: 0 }, korbit: { balance: 0, principal: 0 }, binance: { balance: 0, principal: 0 } };
+    const upbitPrincipal = crypto.upbit?.principal ?? 0;
+    const korbitPrincipal = crypto.korbit?.principal ?? 0;
+    const binancePrincipalUsd = crypto.binance?.principal ?? 0;
+    const totalPrincipalKrw = upbitPrincipal + korbitPrincipal + Math.round(binancePrincipalUsd * usdKrw);
+
+    // RESP/RRSP — snap.canadianPension에서 읽기
+    const balanceCad = snap.canadianPension?.balanceCad ?? 0;
+    const balanceKrw = Math.round(balanceCad * cadKrw);
 
     columns.push({
       month,
@@ -1047,6 +1065,8 @@ export function buildDepositsYearlyData(
       fixedDepositKrw: snap.fixedDepositKrw,
       fixedDepositUsd: snap.fixedDepositUsd,
       leaseDeposit: snap.leaseDeposit,
+      digitalAssetPrincipal: { upbitPrincipal, korbitPrincipal, binancePrincipalUsd, totalPrincipalKrw },
+      respRrsp: { balanceCad, balanceKrw },
     });
   }
 
