@@ -847,8 +847,10 @@ export function buildAssetManagementYearlyData(
       //            USD는 cp 저장값 사용 — byAccount는 정수(소수점 없음)라서
       //            엑셀의 소수점 포함 확정값(ex: 37.61)과 차이 발생
       // || 대신 키 존재 여부로 분기 — 실제 잔액이 0원인 경우와 미입력을 구분
+      // byAccountKrwTotal > 0 조건 추가: 키가 있어도 합산이 0이면 cp 확정값 사용
+      // (Jan처럼 stockDepositByAccount={4802:{krw:0},...} 형태로 저장된 경우 방어)
       const hasByAccountInput = Object.keys(snap.stockDepositByAccount ?? {}).length > 0;
-      stockDepositKrw = hasByAccountInput ? byAccountKrwTotal : cp.stockDepositKrw;
+      stockDepositKrw = (hasByAccountInput && byAccountKrwTotal > 0) ? byAccountKrwTotal : cp.stockDepositKrw;
       stockDepositUsd = cp.stockDepositUsd;
     }
 
