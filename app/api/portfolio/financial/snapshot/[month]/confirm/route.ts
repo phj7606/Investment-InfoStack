@@ -52,6 +52,7 @@ export async function DELETE(
   return NextResponse.json({ ok: true, month, status: "DRAFT" });
 }
 
+import { readTransactions as readLongtermTxs } from "@/lib/portfolio/longterm-store";
 import { readTransactions as readPensionTxs } from "@/lib/portfolio/pension-store";
 import { readTransactions as readEducationTxs } from "@/lib/portfolio/educationTransactionsData";
 import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermData";
@@ -233,7 +234,24 @@ export async function POST(
     shorttermPrincipal = Math.round(rawPos.reduce((s, p) => s + p.avgCost * p.quantity, 0));
   }
 
-  // ── 7. 스냅샷 구성 및 저장 ───────────────────────────────
+  // ── 7. KOR/US 당월 Bid/AskBV/FixedPnL 확정 ─────────────
+  // confirm 시점에 거래내역을 고정 저장해 이후 데이터 변경 영향 차단
+  const longtermTxs = await readLongtermTxs();
+  const monthTxs = longtermTxs.filter((t) => t.date.startsWith(month));
+
+  const korTxs = monthTxs.filter(
+    (t) => t.market === "KR" && t.currency === "KRW" && t.assetType !== "FUND"
+  );
+  const korStocksBid      = Math.round(korTxs.filter((t) => t.tradeType === "BUY").reduce((s, t) => s + t.amount, 0));
+  const korStocksAskBv    = Math.round(korTxs.filter((t) => t.tradeType === "SELL").reduce((s, t) => s + (t.avgCostAtSell ?? 0) * t.quantity, 0));
+  const korStocksFixedPnl = Math.round(korTxs.filter((t) => t.tradeType === "SELL").reduce((s, t) => s + (t.realizedPL ?? 0), 0));
+
+  const usTxs = monthTxs.filter((t) => t.market === "US" && t.currency === "USD");
+  const usStocksBidUsd      = usTxs.filter((t) => t.tradeType === "BUY").reduce((s, t) => s + t.amount, 0);
+  const usStocksAskBvUsd    = usTxs.filter((t) => t.tradeType === "SELL").reduce((s, t) => s + (t.avgCostAtSell ?? 0) * t.quantity, 0);
+  const usStocksFixedPnlUsd = usTxs.filter((t) => t.tradeType === "SELL").reduce((s, t) => s + (t.realizedPL ?? 0), 0);
+
+  // ── 8. 스냅샷 구성 및 저장 ───────────────────────────────
   const base: FinancialSnapshot =
     idx !== -1
       ? snapshots[idx]
@@ -273,9 +291,15 @@ export async function POST(
       korStocksBalance,
       korStocksPrincipal,
       korStocksCumPnl,
+      korStocksBid,
+      korStocksAskBv,
+      korStocksFixedPnl,
       usStocksBalanceUsd,
       usStocksPrincipalUsd,
       usStocksCumPnlUsd,
+      usStocksBidUsd,
+      usStocksAskBvUsd,
+      usStocksFixedPnlUsd,
       usStocksBalanceKrw,
       stockDepositKrw,
       stockDepositUsd,

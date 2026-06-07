@@ -688,8 +688,11 @@ export function buildAssetManagementYearlyData(
         korCumBid += bid;
         korCumAskBv += askBv;
       }
+      // Principal = 전월잔고 + 당월Bid - 당월AskBV (DRAFT와 동일 공식)
+      // Dec baseline이면 저장값 그대로 사용
+      const korPrincipal = prevKorBalance > 0 ? prevKorBalance + bid - askBv : cp.korStocksPrincipal;
       korData = {
-        principal: cp.korStocksPrincipal,
+        principal: korPrincipal,
         bid,
         askBv,
         fixedPnl,
@@ -804,8 +807,10 @@ export function buildAssetManagementYearlyData(
         usCumBid += bid;
         usCumAskBv += askBv;
       }
+      // Principal = 전월잔고 + 당월Bid - 당월AskBV (USD, DRAFT와 동일 공식)
+      const usPrincipal = prevUsBalance > 0 ? prevUsBalance + bid - askBv : cp.usStocksPrincipalUsd;
       usData = {
-        principal: cp.usStocksPrincipalUsd,
+        principal: usPrincipal,
         bid,
         askBv,
         fixedPnl,
