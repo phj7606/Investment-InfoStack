@@ -163,19 +163,34 @@ function parseTableHtml(
   return { items, years };
 }
 
+/** FnGuide fetch 헬퍼 — 타임아웃 시 1회 재시도 (FnGuide 822KB 페이지는 간헐적으로 지연 발생) */
+async function fnguideGet(url: string, timeoutMs = 30000): Promise<Response> {
+  const doFetch = () => fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      "Referer":    "https://comp.fnguide.com/",
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  try {
+    return await doFetch();
+  } catch (e) {
+    // 타임아웃·네트워크 에러 시 2초 대기 후 1회 재시도
+    if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      await new Promise((r) => setTimeout(r, 2000));
+      return doFetch();
+    }
+    throw e;
+  }
+}
+
 /**
  * FnGuide 재무제표 페이지 fetch + 파싱
  * 6개 테이블: IS연간, IS분기, BS연간, BS분기, CF연간, CF분기
  */
 async function fetchFnguideFinancials(stockCode: string): Promise<FinancialStatements> {
   const url = `${FNGUIDE_URL}?pGB=1&gicode=A${stockCode}&cID=&MenuYn=Y&ReportGB=&NewMenuID=103&stkGb=701`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-      "Referer":    "https://comp.fnguide.com/",
-    },
-    signal: AbortSignal.timeout(20000),
-  });
+  const res = await fnguideGet(url);
   if (!res.ok) throw new Error(`[FnGuide] HTTP ${res.status}`);
 
   const buf = await res.arrayBuffer();
@@ -243,13 +258,7 @@ async function fetchFnguideRatios(stockCode: string): Promise<{
   quarterlyRatioItems: RawDartItem[];
 }> {
   const url = `${FNGUIDE_RATIO_URL}?pGB=1&gicode=A${stockCode}&cID=&MenuYn=Y&ReportGB=&NewMenuID=104&stkGb=701`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-      "Referer":    "https://comp.fnguide.com/",
-    },
-    signal: AbortSignal.timeout(20000),
-  });
+  const res = await fnguideGet(url);
   if (!res.ok) throw new Error(`[FnGuide Ratio] HTTP ${res.status}`);
 
   const buf = await res.arrayBuffer();
