@@ -39,8 +39,7 @@ type SortKey =
   | "stockName"
   | "mdr"
   | "alpha"
-  | "annualizedAlpha"
-  | "twr"
+  | "cumulativeReturn"
   | "benchmarkTwr"
   | "evalPLPct"
   | "hitRate"
@@ -90,18 +89,18 @@ function PctCell({
   );
 }
 
-/** Alpha 셀 — 벤치마크 TWR을 서브 텍스트로 표시 */
+/** Alpha 셀 — 벤치마크 CAGR을 서브 텍스트로 표시 */
 function AlphaCell({
   alpha,
-  benchmarkTwr,
-  twr,
+  benchmarkCagr,
+  cumulativeReturn,
 }: {
   alpha: number | undefined | null;
-  benchmarkTwr: number | undefined | null;
-  twr: number | undefined | null;
+  benchmarkCagr: number | undefined | null;
+  cumulativeReturn: number | undefined | null;
 }) {
-  // 현재가 없어서 twr 자체를 계산 못 한 경우 (null/undefined 모두 포함)
-  if (twr == null) {
+  // 현재가 없어서 누적수익률 자체를 계산 못 한 경우
+  if (cumulativeReturn == null) {
     return (
       <span className="text-[10px] text-muted-foreground/50 italic">
         현재가 필요
@@ -112,10 +111,10 @@ function AlphaCell({
   return (
     <div className="flex flex-col items-end leading-tight">
       <PctCell pct={alpha} />
-      {benchmarkTwr != null && (
+      {benchmarkCagr != null && (
         <span className="text-[9px] text-muted-foreground/60 tabular-nums leading-none mt-0.5">
-          벤치 {benchmarkTwr >= 0 ? "+" : ""}
-          {benchmarkTwr.toFixed(1)}%
+          벤치CAGR {benchmarkCagr >= 0 ? "+" : ""}
+          {benchmarkCagr.toFixed(1)}%
         </span>
       )}
     </div>
@@ -175,8 +174,7 @@ function getSortValue(h: HoldingPerformance, key: SortKey): number {
     case "stockName":                return 0; // 문자열 정렬은 별도 처리
     case "mdr":                      return h.mdr ?? -Infinity;
     case "alpha":                    return h.alpha ?? -Infinity;
-    case "annualizedAlpha":          return h.annualizedAlpha ?? -Infinity;
-    case "twr":                      return h.twr ?? -Infinity;
+    case "cumulativeReturn":         return h.cumulativeReturn ?? -Infinity;
     case "benchmarkTwr":             return h.benchmarkTwr ?? -Infinity;
     case "evalPLPct":                return h.evalPLPct ?? 0;
     case "hitRate":                  return h.hitRate ?? -Infinity;
@@ -312,18 +310,18 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
                 <SortIcon col="holdingDays" />
               </span>
             </TableHead>
-            {/* TWR — 종목 가격 수익률 */}
+            {/* 누적수익률 — 전체 매수 투입 대비 현재 평가+회수 */}
             <TableHead
-              className="py-2 text-xs font-semibold text-right text-foreground w-[72px] min-w-[72px] cursor-pointer select-none hover:bg-muted/50"
-              onClick={() => handleSort("twr")}
-              title="TWR: 추가 매수 시점마다 구간을 나눠 각 구간 수익률을 기하 연결. 단일 종목에서는 중간 가격이 상쇄되어 P_현재/P_첫매입 − 1과 동일해짐."
+              className="py-2 text-xs font-semibold text-right text-foreground w-[80px] min-w-[80px] cursor-pointer select-none hover:bg-muted/50"
+              onClick={() => handleSort("cumulativeReturn")}
+              title="누적수익률 = (현재평가금액 + Σ SELL수익금) / Σ BUY금액 − 1. 모든 매수 투입금 대비 현재 평가 및 회수 금액의 수익률."
             >
               <span className="flex items-center justify-end">
-                HPR%
-                <SortIcon col="twr" />
+                누적수익률
+                <SortIcon col="cumulativeReturn" />
               </span>
               <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5">
-                (TWR)
+                (%)
               </span>
             </TableHead>
             {/* MDR — Modified Dietz 연환산 수익률 */}
@@ -341,11 +339,11 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
               </span>
             </TableHead>
 
-            {/* Alpha — 기본 정렬 컬럼, 벤치마크 TWR 서브 텍스트 */}
+            {/* Alpha — MDR(연환산) − 벤치마크 CAGR, 기본 정렬 컬럼 */}
             <TableHead
               className="py-2 text-xs font-semibold text-right text-foreground w-[88px] min-w-[88px] cursor-pointer select-none hover:bg-muted/50"
               onClick={() => handleSort("alpha")}
-              title="Alpha = 종목 HPR − 벤치마크 HPR (동일 보유기간 기준). 양수면 벤치마크 초과, 음수면 벤치마크 부진. 벤치마크: KRW → KOSPI(^KS11), USD → S&P500(^GSPC)."
+              title="Alpha = MDR(연환산) − 벤치마크 CAGR. MDR은 현금흐름 가중 연환산 수익률, 벤치마크 CAGR은 동일 보유기간 HPR의 연환산. 양수면 벤치마크 초과. 벤치마크: KRW → KOSPI(^KS11), USD → S&P500(^GSPC)."
             >
               <span className="flex items-center justify-end">
                 Alpha%
@@ -353,20 +351,6 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
               </span>
               <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5">
                 vs 벤치마크
-              </span>
-            </TableHead>
-            {/* 연환산 Alpha */}
-            <TableHead
-              className="py-2 text-xs font-semibold text-right text-foreground w-[80px] min-w-[80px] cursor-pointer select-none hover:bg-muted/50"
-              onClick={() => handleSort("annualizedAlpha")}
-              title="연환산 Alpha = (1 + Alpha/100)^(365/보유일수) − 1. 보유기간이 다른 종목 간 Alpha를 연 단위로 표준화. Alpha가 −100% 미만이면 수학적으로 계산 불가(음수의 분수 거듭제곱)."
-            >
-              <span className="flex items-center justify-end">
-                연환산 α
-                <SortIcon col="annualizedAlpha" />
-              </span>
-              <span className="block text-[9px] font-normal text-muted-foreground leading-none mt-0.5">
-                (CAGR)
               </span>
             </TableHead>
             {/* 고급 지표 — 데이터 있을 때만 컬럼 표시 */}
@@ -501,10 +485,10 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
                 <HoldingDaysCell days={h.holdingDays} />
               </TableCell>
 
-              {/* HPR% (TWR) */}
+              {/* 누적수익률 */}
               <TableCell className="py-2 text-xs text-right tabular-nums">
-                {h.twr != null ? (
-                  <PctCell pct={h.twr} />
+                {h.cumulativeReturn != null ? (
+                  <PctCell pct={h.cumulativeReturn} />
                 ) : (
                   <span className="text-[10px] text-muted-foreground/40">현재가 필요</span>
                 )}
@@ -514,37 +498,20 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
               <TableCell className="py-2 text-xs text-right tabular-nums">
                 {h.mdr != null ? (
                   <PctCell pct={h.mdr} />
-                ) : h.twr != null ? (
+                ) : h.cumulativeReturn != null ? (
                   <span className="text-[9px] text-muted-foreground/40">—</span>
                 ) : (
                   <span className="text-[10px] text-muted-foreground/40">현재가 필요</span>
                 )}
               </TableCell>
 
-              {/* Alpha% + 벤치마크 TWR 서브 텍스트 */}
+              {/* Alpha% + 벤치마크 CAGR 서브 텍스트 */}
               <TableCell className="py-2 text-xs text-right tabular-nums">
                 <AlphaCell
                   alpha={h.alpha}
-                  benchmarkTwr={h.benchmarkTwr}
-                  twr={h.twr}
+                  benchmarkCagr={h.benchmarkCagr}
+                  cumulativeReturn={h.cumulativeReturn}
                 />
-              </TableCell>
-
-              {/* 연환산 Alpha — alpha가 -100% 미만이면 수학적으로 계산 불가 */}
-              <TableCell className="py-2 text-xs text-right tabular-nums">
-                {h.annualizedAlpha != null ? (
-                  <PctCell pct={h.annualizedAlpha} />
-                ) : h.alpha != null && h.twr != null ? (
-                  // alpha가 존재하지만 연환산 불가 = alpha < -100% (음수 거듭제곱 불가)
-                  <span
-                    className="text-[9px] text-muted-foreground/50 italic"
-                    title="Alpha가 −100% 미만이면 (1+α)의 분수 거듭제곱이 허수가 되어 연환산 계산이 수학적으로 불가합니다."
-                  >
-                    계산불가
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground/40">—</span>
-                )}
               </TableCell>
 
               {/* Hit Rate */}
@@ -657,35 +624,22 @@ export function HoldingsPerformanceTable({ holdings, isLoading, currency }: Prop
               {" "}반복 계산 없는 직접 공식이라 XIRR보다 단순하며, 단기 보유 종목에서 거의 동일한 결과를 냅니다.
             </li>
             <li>
-              <span className="font-medium text-foreground">HPR% (TWR)</span>
+              <span className="font-medium text-foreground">누적수익률%</span>
               {" — "}
-              보유기간 가격 수익률. 추가 매수 시점마다 구간을 나눠 각 구간 수익률을 기하 연결하는
-              시간 가중 수익률(TWR) 방식을 따르지만, 단일 종목에서는 중간 가격이
-              분모·분자로 상쇄되어 <span className="italic">P_현재 / P_첫매입 − 1</span>과
-              수학적으로 동일해집니다.
+              (현재평가금액 + Σ SELL수익금) ÷ Σ BUY금액 − 1.
+              모든 매수 투입금 대비 현재 평가 및 실현 회수 금액의 누적 수익률.
               {" "}
-              <span className="text-amber-600 dark:text-amber-400">
-                보유기간 효과(100일 +20% vs 1,000일 +20%)는 이 숫자에 반영되지 않으며,
-                연환산 α를 통해서만 비교 가능합니다.
+              <span className="text-emerald-600 dark:text-emerald-400">
+                추가 매수 횟수와 금액을 모두 반영하므로, 고점에 추가 매수한 종목의 실질 손익을 올바르게 표시합니다.
               </span>
-              {" "}추가 매수 금액·시기까지 반영한 실질 투자 수익률은 XIRR(내부수익률)로 측정해야 합니다.
             </li>
             <li>
               <span className="font-medium text-foreground">Alpha%</span>
               {" — "}
-              초과 수익률 = 종목 HPR − 벤치마크 HPR (동일 보유기간 기준).
-              양수면 벤치마크를 이긴 것(시장 초과 수익), 음수면 그냥 인덱스 펀드를 샀을 때보다 못한 것.
+              MDR(연환산) − 벤치마크 CAGR. MDR은 현금흐름 가중 연환산 수익률이며,
+              벤치마크 CAGR은 동일 보유기간의 벤치마크 HPR을 연환산한 값.
+              양수면 벤치마크를 이긴 것(시장 초과 수익), 음수면 인덱스 펀드보다 못한 것.
               벤치마크: KRW 종목 → KOSPI(^KS11), USD 종목 → S&P500(^GSPC).
-            </li>
-            <li>
-              <span className="font-medium text-foreground">연환산 α (CAGR)</span>
-              {" — "}
-              Alpha를 연 단위로 표준화. 계산식: (1 + Alpha/100)^(365/보유일수) − 1.
-              1년 보유했을 때의 Alpha로 환산하므로 보유기간이 다른 종목 간 비교가 가능합니다.
-              {" "}
-              <span className="text-amber-600 dark:text-amber-400">
-                단, Alpha가 −100% 미만이면 (1+α)가 음수가 되어 분수 거듭제곱이 허수가 되므로 수학적으로 계산 불가.
-              </span>
             </li>
           </ul>
         </div>

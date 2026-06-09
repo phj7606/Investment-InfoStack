@@ -43,11 +43,11 @@ export interface HoldingPerformance {
   firstBuyPrice: number;         // 최초 BUY 거래 단가
   currentPrice?: number;         // 현재가 (포지션에서)
 
-  // ── TWR 기반 수익률 (단위: %) ──────────
-  twr?: number;                  // (현재가/최초매입가 - 1) × 100
+  // ── 수익률 (단위: %) ──────────────────
+  cumulativeReturn?: number;     // (현재평가 + SELL수익금) / BUY총액 − 1 × 100
   benchmarkTwr?: number;         // 동기간 벤치마크 HPR (%)
-  alpha?: number;                // twr - benchmarkTwr (% 포인트)
-  annualizedAlpha?: number;      // (1+alpha/100)^(365/보유일수) - 1 × 100
+  benchmarkCagr?: number;        // 벤치마크 연환산 CAGR (%)
+  alpha?: number;                // MDR(연환산) − benchmarkCagr (% 포인트)
 
   // ── 평가손익 (positions에서) ───────────
   evalPL: number;                // 현재 평가손익 (절대금액)
@@ -201,8 +201,11 @@ export function calcModifiedDietz(
   const periodReturn = gain / weightedCapital;
 
   // 연환산 기하수익률: (1 + R)^(365/D) − 1
-  // 단기 보유(< 7일)는 연환산 시 극단값 발생 → 최소 7일로 클램핑
-  const annualized = Math.pow(1 + periodReturn, 365 / Math.max(D, 7)) - 1;
+  // 단기 보유는 연환산 시 극단값 발생 → 최소 365일(1년)로 클램핑
+  // 이전 7일 클램핑: 지수 = 365/7 = 52 → 10% 기간수익 → 1,246% 연환산 극단값 발생
+  // 1년 클램핑: 단기 보유 종목은 "1년 보유했다면 얼마" 기준으로 표준화
+  if (D < 30) return undefined; // 30일 미만 보유는 연환산 의미 없음 → undefined 반환
+  const annualized = Math.pow(1 + periodReturn, 365 / D) - 1;
 
   if (!isFinite(annualized)) return undefined;
 
@@ -363,13 +366,23 @@ export function calcHoldingPerformance(
   const firstBuyPrice = firstBuyTx?.price ?? position.avgCost;
   const holdingDays = daysBetween(firstBuyDate, today);
 
-  // ── TWR 계산 ──────────────────────────────────────────
-  // 단일 종목 TWR = (현재가 / 최초 매입단가) - 1
-  // 수학적 근거: 복수 BUY 거래가 있어도 구간 수익률 기하 연쇄 시 telescope 발생
+  // ── 누적수익률 계산 ───────────────────────────────────
+  // (현재평가금액 + Σ SELL수익금) / Σ BUY금액 − 1
+  // 모든 매수 투입금 대비 현재 평가 + 회수 금액의 누적 수익률
   const currentPrice = position.currentPrice;
-  const twr =
-    currentPrice != null && firstBuyPrice > 0
-      ? Math.round(((currentPrice / firstBuyPrice - 1) * 10000)) / 100
+  const stockTxsAll = txs.filter(
+    (t) => t.stockCode === position.stockCode && t.accountNo === position.accountNo
+  );
+  const totalBuyAmount = stockTxsAll
+    .filter((t) => t.tradeType === "BUY")
+    .reduce((sum, t) => sum + t.price * t.quantity, 0);
+  const totalSellProceeds = stockTxsAll
+    .filter((t) => t.tradeType === "SELL")
+    .reduce((sum, t) => sum + t.price * t.quantity, 0);
+  const currentEvalAmount = currentPrice != null ? currentPrice * position.quantity : null;
+  const cumulativeReturn =
+    currentEvalAmount != null && totalBuyAmount > 0
+      ? Math.round(((currentEvalAmount + totalSellProceeds) / totalBuyAmount - 1) * 10000) / 100
       : undefined;
 
   // ── 벤치마크 TWR 계산 ─────────────────────────────────
@@ -381,36 +394,15 @@ export function calcHoldingPerformance(
       ? Math.round(((benchAtNow / benchAtBuy - 1) * 10000)) / 100
       : undefined;
 
-  // ── Alpha 계산 ────────────────────────────────────────
-  const alpha =
-    twr != null && benchmarkTwr != null
-      ? Math.round((twr - benchmarkTwr) * 100) / 100
-      : undefined;
-
-  // ── 연환산 Alpha ──────────────────────────────────────
-  // (1 + alpha/100)^(365 / holdingDays) - 1
-  // 주의: alpha < -100%이면 밑수(1+alpha/100)가 음수 → 실수 범위에서 정의 불가 → undefined
-  // 보유기간 1일 미만이면 극단적으로 커지므로 최소 30일로 클램핑
-  const alphaBase = alpha != null ? 1 + alpha / 100 : null;
-  const annualizedAlpha =
-    alphaBase != null && alphaBase > 0 && holdingDays >= 1
-      ? Math.round(
-          (Math.pow(alphaBase, 365 / Math.max(holdingDays, 30)) - 1) * 10000
-        ) / 100
-      : undefined;
-
   // ── Modified Dietz Return 계산 ───────────────────────
   // 해당 종목(stockCode + accountNo) 거래내역 전체를 현금흐름으로 변환.
   // BUY: -(단가 × 수량), SELL: +(단가 × 수량)
   // 마지막 항목: 오늘 날짜의 현재 평가금액 (잔여 수량 × 현재가)
   let mdr: number | undefined;
   if (currentPrice != null && position.quantity > 0) {
-    const stockTxs = txs.filter(
-      (t) => t.stockCode === position.stockCode && t.accountNo === position.accountNo
-    );
     const cashflows: { date: string; amount: number }[] = [];
 
-    for (const tx of stockTxs) {
+    for (const tx of stockTxsAll) {
       if (tx.tradeType === "BUY") {
         cashflows.push({ date: tx.date, amount: -(tx.price * tx.quantity) });
       } else if (tx.tradeType === "SELL") {
@@ -423,6 +415,18 @@ export function calcHoldingPerformance(
 
     mdr = calcModifiedDietz(cashflows);
   }
+
+  // ── 벤치마크 CAGR + Alpha 계산 ───────────────────────
+  // benchmarkCagr: benchmarkTwr(기간 HPR)를 보유기간 기준 연환산
+  const benchmarkCagr =
+    benchmarkTwr != null && holdingDays >= 1
+      ? Math.round((Math.pow(1 + benchmarkTwr / 100, 365 / holdingDays) - 1) * 10000) / 100
+      : undefined;
+  // Alpha = MDR(연환산) − 벤치마크 CAGR (MDR이 이미 연환산이므로 직접 차이)
+  const alpha =
+    mdr != null && benchmarkCagr != null
+      ? Math.round((mdr - benchmarkCagr) * 100) / 100
+      : undefined;
 
   // ── 고급 지표 (종목 월별 가격 시계열 필요) ────────────
   let hitRate: number | undefined;
@@ -460,10 +464,10 @@ export function calcHoldingPerformance(
     holdingDays,
     firstBuyPrice,
     currentPrice,
-    twr,
+    cumulativeReturn,
     benchmarkTwr,
+    benchmarkCagr,
     alpha,
-    annualizedAlpha,
     evalPL: position.evalPL,
     evalPLPct: position.evalPLPct,
     currentWeight: position.currentWeight,

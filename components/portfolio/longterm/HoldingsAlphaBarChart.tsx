@@ -1,7 +1,7 @@
 "use client";
 
 // 보유 종목별 Alpha 수평 바 차트
-// Alpha = TWR(종목) - 벤치마크 HPR (동일 보유기간)
+// Alpha = MDR(연환산) − 벤치마크 CAGR (동일 보유기간 연환산)
 // 에메랄드(양수) / 레드(음수) — Alpha 내림차순 정렬
 // recharts BarChart (layout="vertical") — HoldingsBarChart 패턴 준수
 
@@ -80,12 +80,12 @@ function CustomTooltip({
           </span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">HPR (TWR)</span>
-          <span className="font-medium tabular-nums">{fmt(d.twr)}</span>
+          <span className="text-muted-foreground">누적수익률</span>
+          <span className="font-medium tabular-nums">{fmt(d.cumulativeReturn)}</span>
         </div>
         <div className="flex justify-between gap-4">
-          <span className="text-muted-foreground">벤치마크 HPR</span>
-          <span className="font-medium tabular-nums">{fmt(d.benchmarkTwr)}</span>
+          <span className="text-muted-foreground">벤치마크 CAGR</span>
+          <span className="font-medium tabular-nums">{fmt(d.benchmarkCagr)}</span>
         </div>
       </div>
     </div>
@@ -99,9 +99,9 @@ function CustomTooltip({
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function BarLabel(props: any) {
-  const { x, y, width, height, value, twr, benchmarkTwr } = props as {
+  const { x, y, width, height, value, cumulativeReturn, benchmarkCagr } = props as {
     x: number; y: number; width: number; height: number;
-    value: number; twr: number | null; benchmarkTwr: number | null;
+    value: number; cumulativeReturn: number | null; benchmarkCagr: number | null;
   };
   if (value == null) return null;
 
@@ -117,7 +117,7 @@ function BarLabel(props: any) {
       fontSize={8}
       fill="hsl(var(--muted-foreground))"
     >
-      {fmt(twr)} | B:{fmt(benchmarkTwr)}
+      {fmt(cumulativeReturn)} | B:{fmt(benchmarkCagr)}
     </text>
   );
 }
@@ -132,8 +132,8 @@ interface ChartRow {
   stockCode: string;
   holdingDays: number;
   alpha: number;
-  twr: number;
-  benchmarkTwr: number | null;
+  cumulativeReturn: number;
+  benchmarkCagr: number | null;
 }
 
 // ─────────────────────────────────────────
@@ -145,8 +145,8 @@ export function HoldingsAlphaBarChart({ holdings, currency }: Props) {
   const data: ChartRow[] = useMemo(() => {
     return holdings
       .filter(
-        (h): h is HoldingPerformance & { twr: number; alpha: number } =>
-          h.currency === currency && h.twr != null && h.alpha != null
+        (h): h is HoldingPerformance & { cumulativeReturn: number; alpha: number } =>
+          h.currency === currency && h.cumulativeReturn != null && h.alpha != null
       )
       .map((h) => ({
         name: truncateName(h.stockName),
@@ -154,8 +154,8 @@ export function HoldingsAlphaBarChart({ holdings, currency }: Props) {
         stockCode: h.stockCode,
         holdingDays: h.holdingDays ?? 0,
         alpha: h.alpha,
-        twr: h.twr,
-        benchmarkTwr: h.benchmarkTwr ?? null,
+        cumulativeReturn: h.cumulativeReturn,
+        benchmarkCagr: h.benchmarkCagr ?? null,
       }))
       .sort((a, b) => b.alpha - a.alpha);
   }, [holdings, currency]);
@@ -190,7 +190,7 @@ export function HoldingsAlphaBarChart({ holdings, currency }: Props) {
           Alpha vs 벤치마크
         </CardTitle>
         <CardDescription className="text-[10px]">
-          HPR(TWR) − {benchmarkLabel} HPR (동일 보유기간 기준) · Alpha 내림차순
+          MDR(연환산) − {benchmarkLabel} CAGR (동일 보유기간 연환산) · Alpha 내림차순
         </CardDescription>
       </CardHeader>
 
@@ -253,8 +253,8 @@ export function HoldingsAlphaBarChart({ holdings, currency }: Props) {
                   return (
                     <BarLabel
                       {...props}
-                      twr={d?.twr}
-                      benchmarkTwr={d?.benchmarkTwr}
+                      cumulativeReturn={d?.cumulativeReturn}
+                      benchmarkCagr={d?.benchmarkCagr}
                     />
                   );
                 }}
@@ -265,7 +265,7 @@ export function HoldingsAlphaBarChart({ holdings, currency }: Props) {
 
         {/* 범례 */}
         <p className="text-[10px] text-muted-foreground mt-1.5">
-          에메랄드 = 벤치마크 초과, 레드 = 벤치마크 부진 · 레이블: HPR% | B: 벤치마크 HPR%
+          에메랄드 = 벤치마크 초과, 레드 = 벤치마크 부진 · 레이블: 누적수익률% | B: 벤치마크 CAGR%
         </p>
       </CardContent>
     </Card>
