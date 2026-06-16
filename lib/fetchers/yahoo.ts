@@ -245,44 +245,13 @@ export async function fetchYahooHistory(
     return d;
   })();
 
-  // 1. yahoo-finance2 라이브러리 우선 시도
-  // period2 미지정 시 오늘 날짜를 기본값으로 설정
-  // yahoo-finance2 내부 스키마 검증이 period2를 필수로 요구하기 때문
-  try {
-    const rows = await yahooFinance.historical(symbol, {
-      period1: period1Date,
-      period2: period2Date,
-      interval: "1d",
-    });
-
-    const bars = rows
-      .filter((row) => row.close != null)
-      .map((row) => ({
-        date: row.date.toISOString().slice(0, 10),
-        open: row.open ?? row.close,
-        high: row.high ?? row.close,
-        low: row.low ?? row.close,
-        close: row.close,
-        volume: row.volume ?? 0,
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    // 빈 응답이면 curl fallback으로 진행
-    if (bars.length > 0) return bars;
-  } catch {
-    // 라이브러리 실패 시 curl fallback으로 진행
-  }
-
-  // 2. curl 서브프로세스 fallback
-  // Node.js HTTP 클라이언트가 Yahoo Finance TLS 핑거프린팅 차단에 걸릴 때 사용
+  // yahoo-finance2 라이브러리는 최신 데이터 누락 문제 있음 (6/12 이후 누락 확인)
+  // v8 chart API fetch 경로가 항상 최신 데이터를 정확히 반환하므로 이 경로만 사용
   try {
     const bars = await fetchYahooHistoryViaCurl(symbol, period1Date, period2Date);
-    if (bars.length > 0) {
-      console.log(`[yahoo] curl fallback 성공: ${symbol} (${bars.length}건)`);
-      return bars;
-    }
+    if (bars.length > 0) return bars;
   } catch (err) {
-    console.warn(`[yahoo] curl fallback 실패: ${symbol}`, err);
+    console.warn(`[yahoo] fetch 실패: ${symbol}`, err);
   }
 
   return [];
