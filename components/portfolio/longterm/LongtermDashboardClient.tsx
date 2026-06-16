@@ -1228,15 +1228,6 @@ export function LongtermDashboardClient() {
             onEdit={handleOpenEdit}
           />
 
-          {/* 거래 추가/편집 다이얼로그 */}
-          <TransactionForm
-            open={showForm}
-            onOpenChange={(v) => { setShowForm(v); if (!v) { setEditingTx(undefined); setPrefillStock(undefined); } }}
-            initialTx={editingTx}
-            prefillStock={prefillStock}
-            onSubmit={handleAddTransaction}
-            existingTransactions={transactions}
-          />
         </TabsContent>
 
         {/* ────────────────────────────────────────────
@@ -1586,6 +1577,16 @@ export function LongtermDashboardClient() {
           />
         </TabsContent>
       </Tabs>
+
+      {/* 거래 추가/편집 다이얼로그 — 어느 탭에서나 열 수 있도록 Tabs 외부에 배치 */}
+      <TransactionForm
+        open={showForm}
+        onOpenChange={(v) => { setShowForm(v); if (!v) { setEditingTx(undefined); setPrefillStock(undefined); } }}
+        initialTx={editingTx}
+        prefillStock={prefillStock}
+        onSubmit={handleAddTransaction}
+        existingTransactions={transactions}
+      />
     </div>
   );
 }

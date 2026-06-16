@@ -178,8 +178,9 @@ function StockAccordion({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="w-full">
       {/* ── 헤더: min-h로 고정 최소 높이 — 인접 박스 높이와 무관하게 독립 유지 ── */}
-      <CollapsibleTrigger className="w-full">
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 hover:bg-muted/40 transition-colors text-left h-[72px]">
+      {/* asChild로 div 렌더링 — 내부에 <button> 자식을 가질 수 있도록 (button-in-button 방지) */}
+      <CollapsibleTrigger asChild>
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 hover:bg-muted/40 transition-colors text-left h-[72px] cursor-pointer w-full">
           {open
             ? <ChevronDown  className="h-3 w-3 text-muted-foreground shrink-0" />
             : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
