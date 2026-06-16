@@ -158,11 +158,16 @@ export async function fetchYahooQuotes(symbols: string[]): Promise<YahooQuote[]>
 }
 
 /**
- * Yahoo Finance v8 chart API를 fetch로 호출 (curl 대체)
+ * Yahoo Finance v8 chart API를 실제 curl 바이너리로 호출
  *
- * Vercel 서버리스 환경 호환 — curl 서브프로세스 의존성 제거
- * Node.js 내장 fetch 사용 (Node.js 18+ 기본 제공)
+ * Node.js 내장 fetch는 Yahoo Finance의 TLS 핑거프린팅 차단에 걸려
+ * 최신 데이터 대신 오래된 캐시 응답을 반환하는 문제가 있음.
+ * curl은 OpenSSL TLS 구현체를 사용하므로 차단 우회 가능.
+ * Vercel Lambda 환경(Amazon Linux)에도 curl이 포함되어 있어 사용 가능.
  */
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { execSync } = require("child_process") as typeof import("child_process");
+
 async function fetchYahooHistoryViaCurl(
   symbol: string,
   period1Date: Date,
@@ -172,20 +177,15 @@ async function fetchYahooHistoryViaCurl(
   const p2 = Math.floor(period2Date.getTime() / 1000);
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&period1=${p1}&period2=${p2}&includePrePost=false`;
 
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-      "Accept": "application/json",
-    },
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (!res.ok) throw new Error(`Yahoo history HTTP ${res.status}`);
-  const text = await res.text();
+  // curl 바이너리 실행 — Node.js fetch 대신 사용 (TLS 핑거프린팅 우회)
+  const text = execSync(
+    `curl -s --max-time 15 -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" -H "Accept: application/json" "${url}"`,
+    { timeout: 20000 }
+  ).toString();
 
   // 응답이 JSON인지 확인 (HTML 오류 페이지 걸러내기)
   if (!text.trim().startsWith("{")) {
-    throw new Error(`fetch 응답이 JSON이 아님: ${text.slice(0, 80)}`);
+    throw new Error(`curl 응답이 JSON이 아님: ${text.slice(0, 80)}`);
   }
 
   const data = JSON.parse(text);
