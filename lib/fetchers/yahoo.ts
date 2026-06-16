@@ -235,9 +235,15 @@ export async function fetchYahooHistory(
   period2?: Date | string
 ): Promise<YahooHistoricalBar[]> {
   const period1Date = period1 instanceof Date ? period1 : new Date(period1);
-  const period2Date = period2
-    ? period2 instanceof Date ? period2 : new Date(period2)
-    : new Date();
+  // period2를 하루 뒤 자정 UTC로 설정: "2026-06-16" → 2026-06-17T00:00:00Z
+  // Yahoo Finance chart API는 period2를 exclusive upper bound로 처리하므로
+  // endDate 당일 데이터(마켓 클로즈 타임스탬프)가 누락되지 않도록 +1일 버퍼 적용
+  const period2Date = (() => {
+    if (!period2) return new Date();
+    const d = period2 instanceof Date ? new Date(period2) : new Date(period2);
+    d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+  })();
 
   // 1. yahoo-finance2 라이브러리 우선 시도
   // period2 미지정 시 오늘 날짜를 기본값으로 설정
