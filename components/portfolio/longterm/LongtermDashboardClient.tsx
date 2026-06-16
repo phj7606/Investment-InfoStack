@@ -27,7 +27,7 @@ import { HoldingsBarChart } from "./HoldingsBarChart";
 import { LongtermPositionsTable } from "./LongtermPositionsTable";
 import { TransactionTable } from "./TransactionTable";
 import { TransactionForm } from "./TransactionForm";
-import { StockHistoryTable } from "./StockHistoryTable";
+import { StockHistoryTable, type StockPrefill } from "./StockHistoryTable";
 import { RebalancingPanel } from "./RebalancingPanel";
 import { HoldingsPerformanceTable } from "./HoldingsPerformanceTable";
 import { HoldingsAlphaBarChart } from "./HoldingsAlphaBarChart";
@@ -211,6 +211,8 @@ export function LongtermDashboardClient() {
   const [showForm, setShowForm] = useState(false);
   // 편집 중인 거래 (null이면 추가 모드)
   const [editingTx, setEditingTx] = useState<LongtermTransaction | undefined>(undefined);
+  // 종목별 탭 "+" 버튼 클릭 시 미리 채울 종목 정보
+  const [prefillStock, setPrefillStock] = useState<StockPrefill | undefined>(undefined);
 
   // ── Excel import 파일 ref ────────────────────────
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -244,9 +246,10 @@ export function LongtermDashboardClient() {
   const [exTradeAsset,  setExTradeAsset]  = useState<"all" | "STOCK" | "ETF">("all");
 
   // ── 종목별 탭 필터 ─────────────────────────────────
-  const [stocksMarket, setStocksMarket] = useState<"all" | "KR" | "US">("all");
-  const [stocksAcct,   setStocksAcct]   = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
-  const [stocksType,   setStocksType]   = useState<"all" | "STOCK" | "ETF">("all");
+  const [stocksMarket,   setStocksMarket]   = useState<"all" | "KR" | "US">("all");
+  const [stocksAcct,     setStocksAcct]     = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
+  const [stocksType,     setStocksType]     = useState<"all" | "STOCK" | "ETF">("all");
+  const [stocksHolding,  setStocksHolding]  = useState<"all" | "holding" | "executed">("all");
 
   // ── Performance 탭 계좌 필터 ────────────────────────
   const [perfAcct, setPerfAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
@@ -699,6 +702,14 @@ export function LongtermDashboardClient() {
   // ────────────────────────────────────────────────
   const handleOpenEdit = useCallback((tx: LongtermTransaction) => {
     setEditingTx(tx);
+    setPrefillStock(undefined);
+    setShowForm(true);
+  }, []);
+
+  // 종목별 탭 "+" 버튼 클릭 → 해당 종목으로 사전 채워진 추가 폼 열기
+  const handleAddFromStock = useCallback((prefill: StockPrefill) => {
+    setEditingTx(undefined);
+    setPrefillStock(prefill);
     setShowForm(true);
   }, []);
 
@@ -1220,8 +1231,9 @@ export function LongtermDashboardClient() {
           {/* 거래 추가/편집 다이얼로그 */}
           <TransactionForm
             open={showForm}
-            onOpenChange={(v) => { setShowForm(v); if (!v) setEditingTx(undefined); }}
+            onOpenChange={(v) => { setShowForm(v); if (!v) { setEditingTx(undefined); setPrefillStock(undefined); } }}
             initialTx={editingTx}
+            prefillStock={prefillStock}
             onSubmit={handleAddTransaction}
             existingTransactions={transactions}
           />
@@ -1478,6 +1490,9 @@ export function LongtermDashboardClient() {
             onAccountFilterChange={setStocksAcct}
             assetTypeFilter={stocksType}
             onAssetTypeFilterChange={setStocksType}
+            holdingFilter={stocksHolding}
+            onHoldingFilterChange={setStocksHolding}
+            onAddTransaction={handleAddFromStock}
           />
         </TabsContent>
 

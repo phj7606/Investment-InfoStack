@@ -56,6 +56,17 @@ interface TransactionFormProps {
    * (오타 방지 + 트랜치 분리 의도 구분)
    */
   existingTransactions?: LongtermTransaction[];
+  /**
+   * 종목별 탭에서 "+" 버튼 클릭 시 해당 종목 정보를 미리 채움.
+   * initialTx 없는 추가 모드에서만 적용됨.
+   */
+  prefillStock?: {
+    stockCode: string;
+    stockName: string;
+    market: "KR" | "US";
+    assetType: "STOCK" | "ETF";
+    accountNo: string;
+  };
 }
 
 // 공통 인풋 스타일
@@ -107,6 +118,7 @@ export function TransactionForm({
   onSubmit,
   showSectorField = false,
   existingTransactions = [],
+  prefillStock,
 }: TransactionFormProps) {
   const isEditMode = !!initialTx;
 
@@ -121,14 +133,30 @@ export function TransactionForm({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 다이얼로그 열릴 때 폼 초기화 (편집이면 기존 값, 추가면 기본값)
+  // 다이얼로그 열릴 때 폼 초기화
+  // - 편집 모드(initialTx): 기존 거래 값으로 채움
+  // - 종목별 탭 "+" 클릭(prefillStock): 해당 종목 정보만 미리 채우고 나머지는 기본값
+  // - 일반 추가 모드: 기본값
   useEffect(() => {
     if (open) {
-      setForm(initialTx ? txToFormState(initialTx) : defaultForm);
+      if (initialTx) {
+        setForm(txToFormState(initialTx));
+      } else if (prefillStock) {
+        setForm({
+          ...defaultForm,
+          stockCode: prefillStock.stockCode,
+          stockName: prefillStock.stockName,
+          market: prefillStock.market,
+          assetType: prefillStock.assetType,
+          accountNo: prefillStock.accountNo as FormState["accountNo"],
+        });
+      } else {
+        setForm(defaultForm);
+      }
       setSuggestions([]);
       setNameLookupStatus("idle");
     }
-  }, [open, initialTx]);
+  }, [open, initialTx, prefillStock]);
 
   // ── 종목코드 변경 시 이름 제안 로직 ─────────
   const lookupStockName = useCallback(

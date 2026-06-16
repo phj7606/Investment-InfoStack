@@ -23,7 +23,7 @@ import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
 import { LongtermPositionsTable } from "@/components/portfolio/longterm/LongtermPositionsTable";
 import { TransactionTable } from "@/components/portfolio/longterm/TransactionTable";
 import { TransactionForm } from "@/components/portfolio/longterm/TransactionForm";
-import { StockHistoryTable } from "@/components/portfolio/longterm/StockHistoryTable";
+import { StockHistoryTable, type StockPrefill } from "@/components/portfolio/longterm/StockHistoryTable";
 import type {
   LongtermTransaction,
   LongtermPosition,
@@ -110,16 +110,19 @@ export function ShorttermAccountDashboardClient() {
   });
 
   // ── TransactionForm 다이얼로그 ───────────────
-  const [showForm, setShowForm]   = useState(false);
-  const [editingTx, setEditingTx] = useState<LongtermTransaction | undefined>(undefined);
+  const [showForm, setShowForm]     = useState(false);
+  const [editingTx, setEditingTx]   = useState<LongtermTransaction | undefined>(undefined);
+  const [prefillStock, setPrefillStock] = useState<StockPrefill | undefined>(undefined);
 
   // ── Open Positions 탭 계좌 필터 — KPI 연동을 위해 부모에서 관리 ──
   const [posAcct, setPosAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
 
   // ── 종목별 탭 계좌 필터 ─────────────────────────────
-  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
+  const [stocksAcct,    setStocksAcct]    = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
   // ── 종목별 탭 종류 필터 ─────────────────────────────
-  const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
+  const [stocksType,    setStocksType]    = useState<"all" | "STOCK" | "ETF">("all");
+  // ── 종목별 탭 보유상태 필터 ──────────────────────────
+  const [stocksHolding, setStocksHolding] = useState<"all" | "holding" | "executed">("all");
   const filteredPositions = useMemo(
     () => posAcct === "all" ? positions : positions.filter((p) => p.accountNo === posAcct),
     [positions, posAcct]
@@ -432,6 +435,14 @@ export function ShorttermAccountDashboardClient() {
 
   function handleTxEdit(tx: LongtermTransaction) {
     setEditingTx(tx);
+    setPrefillStock(undefined);
+    setShowForm(true);
+  }
+
+  // 종목별 탭 "+" 버튼 클릭 → 해당 종목으로 사전 채워진 추가 폼 열기
+  function handleAddFromStock(prefill: StockPrefill) {
+    setEditingTx(undefined);
+    setPrefillStock(prefill);
     setShowForm(true);
   }
 
@@ -932,6 +943,9 @@ export function ShorttermAccountDashboardClient() {
             onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470")}
             assetTypeFilter={stocksType}
             onAssetTypeFilterChange={(v) => setStocksType(v as "all" | "STOCK" | "ETF")}
+            holdingFilter={stocksHolding}
+            onHoldingFilterChange={setStocksHolding}
+            onAddTransaction={handleAddFromStock}
           />
         </TabsContent>
 
@@ -952,8 +966,9 @@ export function ShorttermAccountDashboardClient() {
       {/* 거래 추가/편집 폼 — 섹터 입력 필드 활성화 */}
       <TransactionForm
         open={showForm}
-        onOpenChange={(open) => { setShowForm(open); if (!open) setEditingTx(undefined); }}
+        onOpenChange={(open) => { setShowForm(open); if (!open) { setEditingTx(undefined); setPrefillStock(undefined); } }}
         initialTx={editingTx}
+        prefillStock={prefillStock}
         onSubmit={(tx) => void handleTxSubmit(tx)}
         showSectorField
         existingTransactions={transactions}

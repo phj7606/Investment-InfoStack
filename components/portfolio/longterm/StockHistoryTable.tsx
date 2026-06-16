@@ -12,9 +12,20 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import type { LongtermTransaction } from "@/types/portfolio";
 import { naverStockUrl } from "@/lib/utils";
+
+// 종목별 탭에서 거래 추가 시 미리 채울 종목 정보
+export interface StockPrefill {
+  stockCode: string;
+  stockName: string;
+  market: "KR" | "US";
+  assetType: "STOCK" | "ETF";
+  accountNo: string;
+}
+
+type HoldingFilter = "all" | "holding" | "executed";
 
 // ─────────────────────────────────────────
 // 종목별 집계 타입
@@ -146,7 +157,15 @@ function fmtPct(n: number): string {
 // ─────────────────────────────────────────
 // 개별 종목 아코디언
 // ─────────────────────────────────────────
-function StockAccordion({ stock, showSector = false }: { stock: StockSummary; showSector?: boolean }) {
+function StockAccordion({
+  stock,
+  showSector = false,
+  onAddTransaction,
+}: {
+  stock: StockSummary;
+  showSector?: boolean;
+  onAddTransaction?: (prefill: StockPrefill) => void;
+}) {
   const [open, setOpen] = useState(false);
   const ccy  = stock.currency;
   const unit = ccy === "KRW" ? "" : "$";
@@ -202,6 +221,27 @@ function StockAccordion({ stock, showSector = false }: { stock: StockSummary; sh
               <span className="text-blue-600">배당 {fmt(stock.totalDividend, ccy)}{unit}</span>
             )}
           </div>
+
+          {/* 거래 추가 버튼 — accordion 토글과 독립적으로 동작 */}
+          {onAddTransaction && (
+            <button
+              type="button"
+              className="shrink-0 ml-1 p-1 rounded hover:bg-emerald-100 hover:text-emerald-700 text-muted-foreground transition-colors"
+              title="거래 추가"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddTransaction({
+                  stockCode: stock.stockCode,
+                  stockName: stock.stockName,
+                  market: stock.market,
+                  assetType: stock.assetType === "FUND" ? "STOCK" : stock.assetType as "STOCK" | "ETF",
+                  accountNo: stock.accountNo,
+                });
+              }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </CollapsibleTrigger>
 
@@ -359,6 +399,11 @@ interface StockHistoryTableProps {
   /** 외부에서 종류 필터 제어 */
   assetTypeFilter?: AssetTypeFilter;
   onAssetTypeFilterChange?: (v: AssetTypeFilter) => void;
+  /** 보유상태 필터: 전체/보유중(잔량>0)/매도완료(잔량=0) */
+  holdingFilter?: HoldingFilter;
+  onHoldingFilterChange?: (v: HoldingFilter) => void;
+  /** 종목별 탭에서 "+" 버튼 클릭 시 거래 추가 다이얼로그를 해당 종목으로 사전 채움 */
+  onAddTransaction?: (prefill: StockPrefill) => void;
 }
 
 export function StockHistoryTable({
@@ -366,14 +411,18 @@ export function StockHistoryTable({
   marketFilter: externalMarket, onMarketFilterChange,
   accountFilter: externalAccount, onAccountFilterChange,
   assetTypeFilter: externalAssetType, onAssetTypeFilterChange,
+  holdingFilter: externalHolding, onHoldingFilterChange,
+  onAddTransaction,
 }: StockHistoryTableProps) {
   const [internalMarket, setInternalMarket] = useState<"all" | "KR" | "US">("all");
   const [internalAccount, setInternalAccount] = useState<AccountFilter>("all");
   const [internalAssetType, setInternalAssetType] = useState<AssetTypeFilter>("all");
+  const [internalHolding, setInternalHolding] = useState<HoldingFilter>("all");
 
   const marketFilter = externalMarket ?? internalMarket;
   const accountFilter = externalAccount ?? internalAccount;
   const assetTypeFilter = externalAssetType ?? internalAssetType;
+  const holdingFilter = externalHolding ?? internalHolding;
 
   function handleMarketChange(v: "all" | "KR" | "US") {
     if (onMarketFilterChange) onMarketFilterChange(v);
@@ -386,6 +435,10 @@ export function StockHistoryTable({
   function handleAssetTypeChange(v: AssetTypeFilter) {
     if (onAssetTypeFilterChange) onAssetTypeFilterChange(v);
     else setInternalAssetType(v);
+  }
+  function handleHoldingChange(v: HoldingFilter) {
+    if (onHoldingFilterChange) onHoldingFilterChange(v);
+    else setInternalHolding(v);
   }
 
   if (isLoading) {
@@ -400,13 +453,20 @@ export function StockHistoryTable({
   }
 
   const allGroups = groupByStock(transactions);
-  // 시장 + 계좌 + 종류 복합 필터
+  // 시장 + 계좌 + 종류 + 보유상태 복합 필터
   const filtered = allGroups
     .filter((g) => marketFilter === "all" || g.market === marketFilter)
     .filter((g) => accountFilter === "all" || g.accountNo === accountFilter)
-    .filter((g) => assetTypeFilter === "all" || g.assetType === assetTypeFilter);
-  const krCount = allGroups.filter((g) => g.market === "KR").length;
-  const usCount = allGroups.filter((g) => g.market === "US").length;
+    .filter((g) => assetTypeFilter === "all" || g.assetType === assetTypeFilter)
+    .filter((g) => {
+      if (holdingFilter === "holding")  return g.balance > 0;
+      if (holdingFilter === "executed") return g.balance === 0 && g.totalSellQty > 0;
+      return true;
+    });
+  const krCount       = allGroups.filter((g) => g.market === "KR").length;
+  const usCount       = allGroups.filter((g) => g.market === "US").length;
+  const holdingCount  = allGroups.filter((g) => g.balance > 0).length;
+  const executedCount = allGroups.filter((g) => g.balance === 0 && g.totalSellQty > 0).length;
 
   // 외부에서 필터를 제어하는 경우 내부 버튼 숨김 (부모가 직접 렌더링)
   const showInternalFilters = !externalMarket && !externalAccount && !externalAssetType;
@@ -471,6 +531,27 @@ export function StockHistoryTable({
         </div>
       )}
 
+      {/* 보유상태 필터 — 항상 표시 (내부/외부 제어 무관) */}
+      <div className="flex gap-2 text-xs">
+        {([
+          { v: "all",      label: `전체 (${allGroups.length})` },
+          { v: "holding",  label: `보유중 (${holdingCount})` },
+          { v: "executed", label: `매도완료 (${executedCount})` },
+        ] as { v: HoldingFilter; label: string }[]).map(({ v, label }) => (
+          <button
+            key={v}
+            onClick={() => handleHoldingChange(v)}
+            className={`px-3 py-1 rounded-full border transition-colors ${
+              holdingFilter === v
+                ? "bg-amber-500 text-white border-amber-500"
+                : "border-input hover:bg-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {/* 종목 목록 — lg 이상에서 2컬럼 그리드, items-start로 각 박스가 독립 높이 유지 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
         {filtered.map((stock) => (
@@ -478,6 +559,7 @@ export function StockHistoryTable({
             key={`${stock.stockCode}::${stock.stockName}::${stock.accountNo}`}
             stock={stock}
             showSector={showSector}
+            onAddTransaction={onAddTransaction}
           />
         ))}
       </div>

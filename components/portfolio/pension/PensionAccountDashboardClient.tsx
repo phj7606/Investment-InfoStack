@@ -20,13 +20,14 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { cn, naverStockUrl } from "@/lib/utils";
-import { PensionTransactionForm } from "./PensionTransactionForm";
+import { PensionTransactionForm, type PensionStockPrefill } from "./PensionTransactionForm";
 import { FormattedInput } from "@/components/portfolio/financial/FormattedInput";
 import type {
   PensionPosition,
   PensionTransaction,
   PensionAccountSummary,
   PensionAccountType,
+  PensionCategory,
   PensionRebalancingTarget,
 } from "@/types/portfolio";
 import type { RebalancingResult } from "@/lib/portfolio/pension-calc";
@@ -176,6 +177,8 @@ export function PensionAccountDashboardClient() {
   const [txFormOpen,    setTxFormOpen]    = useState(false);
   const [txFormDefault, setTxFormDefault] = useState<PensionAccountType>("RETIREMENT");
   const [editTx,        setEditTx]        = useState<PensionTransaction | null>(null);
+  // 종목별 탭 "+" 버튼 클릭 시 사전 채울 종목 정보
+  const [prefillPension, setPrefillPension] = useState<PensionStockPrefill | undefined>(undefined);
 
   // ── 리밸런싱 탭: 선택된 계좌 + 카테고리 필터 ─────────────
   const [selectedAccount, setSelectedAccount] = useState<PensionAccountType>("RETIREMENT");
@@ -209,8 +212,9 @@ export function PensionAccountDashboardClient() {
   const [sortDir,      setSortDir]      = useState<"asc" | "desc">("desc");
 
   // ── 종목별 탭 필터 + accordion ─────────
-  const [stockAcctFilter, setStockAcctFilter] = useState<PensionAccountType>("RETIREMENT");
-  const [openAccordions,  setOpenAccordions]  = useState<Set<string>>(new Set());
+  const [stockAcctFilter,  setStockAcctFilter]  = useState<PensionAccountType>("RETIREMENT");
+  const [stockHoldingFilter, setStockHoldingFilter] = useState<"all" | "holding" | "executed">("all");
+  const [openAccordions,   setOpenAccordions]   = useState<Set<string>>(new Set());
 
   // ── 백업/복원 ───────────────────────────────
   // 복원 시 파일 선택 input ref (hidden input)
@@ -1643,12 +1647,39 @@ export function PensionAccountDashboardClient() {
             ))}
           </div>
 
+          {/* 보유상태 필터 */}
+          {stockGroups.length > 0 && (
+            <div className="flex gap-2 text-xs">
+              {([
+                { v: "all",      label: `전체 (${stockGroups.length})` },
+                { v: "holding",  label: `보유중 (${stockGroups.filter((g) => g.balance > 0).length})` },
+                { v: "executed", label: `매도완료 (${stockGroups.filter((g) => g.balance === 0 && g.totalSellQty > 0).length})` },
+              ] as { v: "all" | "holding" | "executed"; label: string }[]).map(({ v, label }) => (
+                <button
+                  key={v}
+                  onClick={() => setStockHoldingFilter(v)}
+                  className={cn("px-3 py-1 rounded-full border transition-colors text-[10px]",
+                    stockHoldingFilter === v
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : "border-input hover:bg-muted"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {stockGroups.length === 0 ? (
             <EmptyState text={`${ACCT_LABELS[stockAcctFilter]} 거래 내역이 없습니다.`} />
           ) : (
             /* 2열 그리드 — items-start 로 각 카드가 독립 높이 유지 */
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 items-start">
-              {stockGroups.map((g) => {
+              {stockGroups.filter((g) => {
+                if (stockHoldingFilter === "holding")  return g.balance > 0;
+                if (stockHoldingFilter === "executed") return g.balance === 0 && g.totalSellQty > 0;
+                return true;
+              }).map((g) => {
                 const key    = `${g.stockCode}::${g.category ?? ""}`;
                 const isOpen = openAccordions.has(key);
 
@@ -1717,6 +1748,27 @@ export function PensionAccountDashboardClient() {
                           <span className="text-emerald-600">배당 {fmt(g.totalDividend)}원</span>
                         )}
                       </div>
+
+                      {/* 거래 추가 버튼 — accordion 토글과 독립적으로 동작 */}
+                      <button
+                        type="button"
+                        className="shrink-0 ml-1 p-1 rounded hover:bg-emerald-100 hover:text-emerald-700 text-muted-foreground transition-colors"
+                        title="거래 추가"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditTx(null);
+                          setPrefillPension({
+                            stockCode:   g.stockCode,
+                            stockName:   g.stockName,
+                            accountType: stockAcctFilter,
+                            category:    g.category as PensionCategory | undefined,
+                            assetType:   g.assetType as "STOCK" | "BOND" | "FUND" | "ETF",
+                          });
+                          setTxFormOpen(true);
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
                     </button>
 
                     {/* ── 펼쳐진 내용: 거래 테이블 + 소계 ── */}
@@ -1851,9 +1903,10 @@ export function PensionAccountDashboardClient() {
       {/* ── 다이얼로그 ── */}
       <PensionTransactionForm
         open={txFormOpen}
-        onOpenChange={(open) => { setTxFormOpen(open); if (!open) setEditTx(null); }}
+        onOpenChange={(open) => { setTxFormOpen(open); if (!open) { setEditTx(null); setPrefillPension(undefined); } }}
         onSaved={() => { void loadData(); }}
         editTransaction={editTx ?? undefined}
+        prefillStock={prefillPension}
         defaultAccountType={txFormDefault}
         positions={enrichedPositions}
         existingTransactions={transactions}

@@ -20,7 +20,7 @@ import { PositionRiskTable } from "@/components/portfolio/PositionRiskTable";
 import { LongtermPositionsTable } from "@/components/portfolio/longterm/LongtermPositionsTable";
 import { TransactionTable } from "@/components/portfolio/longterm/TransactionTable";
 import { TransactionForm } from "@/components/portfolio/longterm/TransactionForm";
-import { StockHistoryTable } from "@/components/portfolio/longterm/StockHistoryTable";
+import { StockHistoryTable, type StockPrefill } from "@/components/portfolio/longterm/StockHistoryTable";
 import type {
   EducationTrade,
   PerformanceSummary,
@@ -95,8 +95,9 @@ export function EducationAccountDashboardClient() {
   const [sectorFilter, setSectorFilter] = useState<string>("all");
 
   // ── 종목별 탭 필터 ──────────────────────────
-  const [stocksAcct, setStocksAcct] = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
-  const [stocksType, setStocksType] = useState<"all" | "STOCK" | "ETF">("all");
+  const [stocksAcct,    setStocksAcct]    = useState<"all" | "4802" | "1635" | "1402" | "2805" | "1470">("all");
+  const [stocksType,    setStocksType]    = useState<"all" | "STOCK" | "ETF">("all");
+  const [stocksHolding, setStocksHolding] = useState<"all" | "holding" | "executed">("all");
 
   const [backupLoading, setBackupLoading] = useState(false);
 
@@ -123,8 +124,9 @@ export function EducationAccountDashboardClient() {
   const [ltPricesFetchedAt, setLtPricesFetchedAt] = useState<string | null>(null);
 
   // TransactionForm 다이얼로그
-  const [showLtForm, setShowLtForm]   = useState(false);
-  const [editingLtTx, setEditingLtTx] = useState<LongtermTransaction | undefined>(undefined);
+  const [showLtForm, setShowLtForm]     = useState(false);
+  const [editingLtTx, setEditingLtTx]   = useState<LongtermTransaction | undefined>(undefined);
+  const [prefillStock, setPrefillStock] = useState<StockPrefill | undefined>(undefined);
 
   // LT 백업 파일 input ref
   const ltBackupFileRef = useRef<HTMLInputElement>(null);
@@ -261,6 +263,14 @@ export function EducationAccountDashboardClient() {
 
   function handleLtTxEdit(tx: LongtermTransaction) {
     setEditingLtTx(tx);
+    setPrefillStock(undefined);
+    setShowLtForm(true);
+  }
+
+  // 종목별 탭 "+" 버튼 클릭 → 해당 종목으로 사전 채워진 추가 폼 열기
+  function handleAddFromStock(prefill: StockPrefill) {
+    setEditingLtTx(undefined);
+    setPrefillStock(prefill);
     setShowLtForm(true);
   }
 
@@ -991,6 +1001,9 @@ export function EducationAccountDashboardClient() {
             onAccountFilterChange={(v) => setStocksAcct(v as "all" | "4802" | "1635" | "1402" | "2805" | "1470")}
             assetTypeFilter={stocksType}
             onAssetTypeFilterChange={(v) => setStocksType(v as "all" | "STOCK" | "ETF")}
+            holdingFilter={stocksHolding}
+            onHoldingFilterChange={setStocksHolding}
+            onAddTransaction={handleAddFromStock}
           />
         </TabsContent>
 
@@ -1013,8 +1026,9 @@ export function EducationAccountDashboardClient() {
       {/* ── LT TransactionForm — Open Positions / Transactions / Executed Trade 탭 공용 ── */}
       <TransactionForm
         open={showLtForm}
-        onOpenChange={(open) => { setShowLtForm(open); if (!open) setEditingLtTx(undefined); }}
+        onOpenChange={(open) => { setShowLtForm(open); if (!open) { setEditingLtTx(undefined); setPrefillStock(undefined); } }}
         initialTx={editingLtTx}
+        prefillStock={prefillStock}
         onSubmit={(tx) => void handleLtTxSubmit(tx)}
         showSectorField
         existingTransactions={ltTransactions}

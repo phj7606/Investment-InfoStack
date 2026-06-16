@@ -23,6 +23,15 @@ import type {
   PensionCategory,
 } from "@/types/portfolio";
 
+// 종목별 탭 "+" 버튼 클릭 시 미리 채울 연금 종목 정보
+export interface PensionStockPrefill {
+  stockCode: string;
+  stockName: string;
+  accountType: PensionAccountType;
+  category?: PensionCategory;
+  assetType: "STOCK" | "BOND" | "FUND" | "ETF";
+}
+
 interface PensionTransactionFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -35,6 +44,8 @@ interface PensionTransactionFormProps {
   positions?: PensionPosition[];
   /** 기존 거래 목록 — 같은 종목코드의 이름 후보 제안용 */
   existingTransactions?: PensionTransaction[];
+  /** 종목별 탭 "+" 클릭 시 해당 종목 정보를 미리 채움 (추가 모드에서만 적용) */
+  prefillStock?: PensionStockPrefill;
 }
 
 interface FormState {
@@ -103,6 +114,7 @@ export function PensionTransactionForm({
   defaultAccountType = "RETIREMENT",
   positions = [],
   existingTransactions = [],
+  prefillStock,
 }: PensionTransactionFormProps) {
   const isEdit = !!editTransaction;
 
@@ -118,14 +130,31 @@ export function PensionTransactionForm({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 다이얼로그 열릴 때마다 폼 초기화
+  // - 편집 모드(editTransaction): 기존 거래 값으로 채움
+  // - 종목별 탭 "+" 클릭(prefillStock): 해당 종목 정보만 미리 채우고 나머지는 기본값
+  // - 일반 추가 모드: 기본값
   useEffect(() => {
     if (open) {
-      setForm(isEdit ? txToForm(editTransaction!) : makeDefault(defaultAccountType));
+      if (isEdit && editTransaction) {
+        setForm(txToForm(editTransaction));
+      } else if (prefillStock) {
+        const base = makeDefault(prefillStock.accountType);
+        setForm({
+          ...base,
+          stockCode:   prefillStock.stockCode,
+          stockName:   prefillStock.stockName,
+          accountType: prefillStock.accountType,
+          category:    prefillStock.category ?? base.category,
+          assetType:   prefillStock.assetType,
+        });
+      } else {
+        setForm(makeDefault(defaultAccountType));
+      }
       setError(null);
       setSuggestions([]);
       setNameLookupStatus("idle");
     }
-  }, [open, isEdit, editTransaction, defaultAccountType]);
+  }, [open, isEdit, editTransaction, defaultAccountType, prefillStock]);
 
   // ── 종목명 자동완성 로직 ─────────────────────
   const lookupStockName = useCallback(
