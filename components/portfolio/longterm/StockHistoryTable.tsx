@@ -253,14 +253,14 @@ function StockAccordion({
           <div className="overflow-x-auto">
             <table className="text-[11px] border-collapse" style={{ width: "680px" }}>
               <colgroup>
-                <col style={{ width: "90px" }} />  {/* 날짜 */}
-                <col style={{ width: "46px" }} />  {/* 구분 */}
-                <col style={{ width: "64px" }} />  {/* 수량 */}
-                <col style={{ width: "88px" }} />  {/* 단가 */}
-                <col style={{ width: "68px" }} />  {/* 수수료 */}
-                <col style={{ width: "100px" }} /> {/* 금액 */}
-                <col style={{ width: "140px" }} /> {/* 실현손익 */}
-                <col style={{ width: "84px" }} />  {/* 메모 */}
+                <col style={{ width: "90px" }} />
+                <col style={{ width: "46px" }} />
+                <col style={{ width: "64px" }} />
+                <col style={{ width: "88px" }} />
+                <col style={{ width: "68px" }} />
+                <col style={{ width: "100px" }} />
+                <col style={{ width: "140px" }} />
+                <col style={{ width: "84px" }} />
               </colgroup>
               <thead>
                 <tr className="bg-muted/50 text-muted-foreground">
