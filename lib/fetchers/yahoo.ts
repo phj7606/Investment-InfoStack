@@ -27,6 +27,26 @@ const YahooFinanceClass = require("yahoo-finance2").default as new () => {
     close: number;
     volume?: number;
   }>>;
+  // chart() — historical()의 내부 구현체. null close row에서 에러를 던지지 않으므로 직접 사용
+  chart: (
+    symbol: string,
+    opts: { period1: Date; period2?: Date; interval?: string }
+  ) => Promise<{
+    meta: {
+      regularMarketPrice?: number;
+      regularMarketTime?: Date;
+      chartPreviousClose?: number;
+    };
+    quotes: Array<{
+      date: Date;
+      open?: number | null;
+      high?: number | null;
+      low?: number | null;
+      close?: number | null;
+      adjclose?: number | null;
+      volume?: number | null;
+    }>;
+  }>;
   // 기업명 또는 키워드로 종목 검색 — 티커 자동 완성에 사용
   search: (query: string, opts?: { newsCount?: number; quotesCount?: number }) => Promise<{
     quotes: Array<{
@@ -196,10 +216,14 @@ async function fetchYahooHistoryViaCurl(
   const quote = result.indicators?.quote?.[0] ?? {};
   // adjclose 배열이 있으면 수정 종가 사용 (배당/분할 조정), 없으면 일반 종가
   const adjCloses: (number | null)[] = result.indicators?.adjclose?.[0]?.adjclose ?? quote.close ?? [];
+  // Yahoo Finance CDN settlement window 동안 최근 종가가 null일 수 있음 → meta fallback
+  const metaPrice: number | undefined = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
 
   const bars: YahooHistoricalBar[] = [];
   for (let i = 0; i < timestamps.length; i++) {
-    const close = adjCloses[i] ?? quote.close?.[i];
+    const rawClose = adjCloses[i] ?? quote.close?.[i];
+    // 마지막 row이고 close null이면 meta 종가 사용
+    const close = rawClose ?? (i === timestamps.length - 1 ? metaPrice : undefined);
     if (close == null || close <= 0) continue;
     const date = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
     bars.push({
@@ -245,32 +269,39 @@ export async function fetchYahooHistory(
     return d;
   })();
 
-  // 1. yahoo-finance2 라이브러리 우선 시도
-  // period2 미지정 시 오늘 날짜를 기본값으로 설정
-  // yahoo-finance2 내부 스키마 검증이 period2를 필수로 요구하기 때문
+  // 1. yahoo-finance2 라이브러리 chart() 직접 사용
+  // historical()은 deprecated이며 null close row에서 에러 throw → chart()로 교체
+  // Yahoo Finance CDN은 최근 종가를 배포하는 동안 quotes[].close를 null로 반환할 수 있음
+  // meta.regularMarketPrice에는 이미 확정된 종가가 있으므로 마지막 row에 한해 fallback 사용
   try {
-    const rows = await yahooFinance.historical(symbol, {
+    const chartResult = await yahooFinance.chart(symbol, {
       period1: period1Date,
       period2: period2Date,
       interval: "1d",
     });
 
-    const bars = rows
-      .filter((row) => row.close != null)
-      .map((row) => ({
-        date: row.date.toISOString().slice(0, 10),
-        open: row.open ?? row.close,
-        high: row.high ?? row.close,
-        low: row.low ?? row.close,
-        close: row.close,
-        volume: row.volume ?? 0,
-      }))
+    const metaPrice = chartResult.meta?.regularMarketPrice;
+    const quotes = chartResult.quotes ?? [];
+
+    const bars = quotes
+      .map((q, i) => {
+        const close = q.close ?? (i === quotes.length - 1 ? metaPrice : undefined);
+        if (close == null || close <= 0) return null;
+        return {
+          date: (q.date as Date).toISOString().slice(0, 10),
+          open:   q.open   ?? close,
+          high:   q.high   ?? close,
+          low:    q.low    ?? close,
+          close,
+          volume: q.volume ?? 0,
+        };
+      })
+      .filter((b): b is YahooHistoricalBar => b !== null)
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // 빈 응답이면 curl fallback으로 진행
     if (bars.length > 0) return bars;
   } catch {
-    // 라이브러리 실패 시 curl fallback으로 진행
+    // chart() 실패 시 fetch fallback으로 진행
   }
 
   // 2. curl 서브프로세스 fallback
