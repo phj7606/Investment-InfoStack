@@ -46,8 +46,12 @@ const COLORS = {
 } as const;
 
 // ─── 유틸 함수 ────────────────────────────────────────────────────────────────
+// KST(UTC+9) 환경에서 toISOString()은 UTC 기준 → 자정 이전 접속 시 날짜 1일 밀림 방지
 function toIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function getDefaultRange(): DateRange {
@@ -608,12 +612,21 @@ interface PersistedState {
   result: StockPerformanceResult;
 }
 
-/** 컴포넌트 마운트 시 sessionStorage에서 이전 분석 상태 복원 */
-function loadPersistedState(): PersistedState | null {
+/** sessionStorage에서 이전 분석 상태 복원 — 단일 파싱으로 stale 여부까지 반환
+ *  endDate가 오늘보다 이전이면 오늘로 업데이트하고 wasStale=true 반환 */
+function loadPersistedState(): { state: PersistedState; wasStale: boolean } | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
-    if (raw) return JSON.parse(raw) as PersistedState;
+    if (!raw) return null;
+    const state = JSON.parse(raw) as PersistedState;
+    const today = toIsoDate(new Date());
+    const wasStale = state.dateRange.endDate < today;
+    // endDate가 오늘보다 이전이면 오늘로 갱신 (날짜 stale 방지)
+    if (wasStale) {
+      state.dateRange = { ...state.dateRange, endDate: today };
+    }
+    return { state, wasStale };
   } catch {
     // 파싱 실패 시 무시
   }
@@ -622,14 +635,16 @@ function loadPersistedState(): PersistedState | null {
 
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export function StockPerformanceClient() {
-  // useState lazy initializer로 첫 렌더링 시 sessionStorage에서 복원
-  // → 다른 메뉴로 이동 후 돌아와도 분석 결과가 그대로 유지됨
-  const [ticker, setTicker] = useState(() => loadPersistedState()?.ticker ?? "");
+  // 마운트 당 1회만 sessionStorage 파싱 (useState lazy init은 첫 렌더링에서만 실행)
+  // 이후 각 useState에서 persisted를 재사용 → 중복 파싱 없음
+  const [persisted] = useState(() => loadPersistedState());
+
+  const [ticker, setTicker] = useState(() => persisted?.state.ticker ?? "");
   const [exchange, setExchange] = useState<"KRX" | "NYSE" | "NASDAQ">(
-    () => loadPersistedState()?.exchange ?? "NASDAQ"
+    () => persisted?.state.exchange ?? "NASDAQ"
   );
   const [dateRange, setDateRange] = useState<DateRange>(
-    () => loadPersistedState()?.dateRange ?? getDefaultRange()
+    () => persisted?.state.dateRange ?? getDefaultRange()
   );
 
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -640,11 +655,13 @@ export function StockPerformanceClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<StockPerformanceResult | null>(
-    () => loadPersistedState()?.result ?? null
+    () => persisted?.state.result ?? null
   );
 
   // 복원된 상태로 시작하는 경우 dateRange 변경 감지 useEffect가 즉시 재분석하지 않도록 플래그
-  const isRestoredRef = useRef(loadPersistedState() !== null);
+  // wasStale=true(날짜가 오래됨) → false: 마운트 시 자동 재분석 허용
+  // wasStale=false(오늘 날짜) → true: 이미 유효한 결과이므로 재분석 스킵
+  const isRestoredRef = useRef(persisted !== null && !persisted.wasStale);
 
   const inputWrapperRef = useRef<HTMLDivElement>(null);
 

@@ -25,9 +25,12 @@ interface SyncChartDateControlProps {
   onRangeChange: (start: string, end: string, period: PeriodLabel) => void;
 }
 
-/** "YYYY-MM-DD" 형식으로 Date 변환 */
+// KST(UTC+9) 환경에서 toISOString()은 UTC 기준 → 자정 이전 접속 시 날짜 1일 밀림 방지
 function toIsoDate(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function SyncChartDateControl({
