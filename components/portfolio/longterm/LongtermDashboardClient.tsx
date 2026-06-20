@@ -907,8 +907,15 @@ export function LongtermDashboardClient() {
   );
 
   const overviewKrSummary = useMemo((): LongtermSummary => {
-    // 전체계좌: 서버 집계값 그대로 사용 (realizedPL·dividends 포함)
-    if (overviewAcct === "all") return krSummary;
+    if (overviewAcct === "all") {
+      // 전체계좌: totalInvested는 position-based로 통일
+      // → 개별계좌 합산과 일치하도록 avgCost×quantity 방식 사용
+      const allKrPos = positions.filter((p) => p.currency === "KRW");
+      return {
+        ...krSummary,
+        totalInvested: allKrPos.reduce((s, p) => s + p.avgCost * p.quantity, 0),
+      };
+    }
     const krPos = overviewPositions.filter((p) => p.currency === "KRW");
     // 계좌 필터 시: executedTrades에서 실현손익, transactions에서 배당금 집계
     const realizedPL = executedTrades
@@ -926,10 +933,17 @@ export function LongtermDashboardClient() {
       dividendTotal: dividends,
       positionCount: krPos.length,
     };
-  }, [overviewAcct, overviewPositions, krSummary, executedTrades, transactions]);
+  }, [overviewAcct, overviewPositions, positions, krSummary, executedTrades, transactions]);
 
   const overviewUsSummary = useMemo((): LongtermSummary => {
-    if (overviewAcct === "all") return usSummary;
+    if (overviewAcct === "all") {
+      // 전체계좌: totalInvested position-based로 통일 (KR 동일)
+      const allUsPos = positions.filter((p) => p.currency === "USD");
+      return {
+        ...usSummary,
+        totalInvested: allUsPos.reduce((s, p) => s + p.avgCost * p.quantity, 0),
+      };
+    }
     const usPos = overviewPositions.filter((p) => p.currency === "USD");
     const realizedPL = executedTrades
       .filter((t) => t.accountNo === overviewAcct && t.currency === "USD")
@@ -946,7 +960,7 @@ export function LongtermDashboardClient() {
       dividendTotal: dividends,
       positionCount: usPos.length,
     };
-  }, [overviewAcct, overviewPositions, usSummary, executedTrades, transactions]);
+  }, [overviewAcct, overviewPositions, positions, usSummary, executedTrades, transactions]);
 
   // ────────────────────────────────────────────────
   // 렌더
