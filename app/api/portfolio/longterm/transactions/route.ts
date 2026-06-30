@@ -57,7 +57,9 @@ export async function POST(req: NextRequest) {
     // DIVIDEND는 amount로 구분 (price=0 이라 유일성 부족)
     const isDuplicate = existing.some((t) => {
       if (t.tradeType === "DIVIDEND" && tx.tradeType === "DIVIDEND") {
-        return t.stockCode === tx.stockCode && t.accountNo === tx.accountNo && t.amount === tx.amount;
+        // 날짜 포함 — 같은 날 같은 금액인 경우만 중복으로 처리
+        // 날짜 제외 시 반기/연간 배당처럼 금액이 같은 경우 날짜가 달라도 중복 차단됨
+        return t.stockCode === tx.stockCode && t.accountNo === tx.accountNo && t.date === tx.date && t.amount === tx.amount;
       }
       return (
         t.date === tx.date &&
