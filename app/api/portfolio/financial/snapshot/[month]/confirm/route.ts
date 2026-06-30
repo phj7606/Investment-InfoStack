@@ -330,6 +330,34 @@ export async function POST(
   } else {
     snapshots.push(confirmed);
   }
+
+  // 다음 달 DRAFT가 이전 달 미확정 상태에서 생성된 경우 이월값 업데이트
+  // lockedBalances가 없으면 종가확정 전 → 사용자가 아직 수치를 입력하지 않은 상태
+  // → 이번 달 CONFIRMED 값을 기반으로 이월 필드(예금·부채·부동산 등)를 교정
+  const [cy, cm] = month.split("-").map(Number);
+  const nextMonthStr =
+    cm === 12 ? `${cy + 1}-01` : `${cy}-${String(cm + 1).padStart(2, "0")}`;
+  const nextIdx = snapshots.findIndex((s) => s.month === nextMonthStr);
+  if (
+    nextIdx !== -1 &&
+    snapshots[nextIdx].status === "DRAFT" &&
+    !snapshots[nextIdx].lockedBalances
+  ) {
+    snapshots[nextIdx] = {
+      ...snapshots[nextIdx],
+      fixedDepositKrw: confirmed.fixedDepositKrw,
+      fixedDepositUsd: confirmed.fixedDepositUsd,
+      leaseDeposit: confirmed.leaseDeposit,
+      privateLoan: confirmed.privateLoan,
+      mortgageLoan: confirmed.mortgageLoan,
+      realEstate: confirmed.realEstate,
+      otherAssets: [...confirmed.otherAssets],
+      canadianPension: { ...confirmed.canadianPension },
+      exchangeRates: { ...confirmed.exchangeRates },
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   await writeSnapshots(snapshots);
 
   return NextResponse.json({ snapshot: confirmed });

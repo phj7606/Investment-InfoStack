@@ -291,6 +291,8 @@ export function FinancialStatementClient() {
   // ── 백업/복원 ────────────────────────────────────────────
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
+  // 초기 로드 시 이전 달 미확정 감지용 플래그
+  const firstLoadRef = useRef(true);
 
   // ── AI 분석 내보내기 (Claude Desktop용) ───────────────
   const [aiExporting, setAiExporting] = useState(false);
@@ -338,6 +340,7 @@ export function FinancialStatementClient() {
       const fetchedSnaps: FinancialSnapshot[] = snapshotData.snapshots ?? [];
       const curMon = currentMonth();
       const hasCurSnap = fetchedSnaps.some((s) => s.month === curMon);
+      let finalSnaps = fetchedSnaps;
       if (!hasCurSnap) {
         await fetch("/api/portfolio/financial/snapshot", {
           method: "POST",
@@ -347,10 +350,25 @@ export function FinancialStatementClient() {
         // DRAFT 생성 후 스냅샷 재조회
         const freshRes = await fetch("/api/portfolio/financial/snapshot");
         const freshData = freshRes.ok ? await freshRes.json() : snapshotData;
-        setSnapshots(freshData.snapshots ?? fetchedSnaps);
+        finalSnaps = freshData.snapshots ?? fetchedSnaps;
+        setSnapshots(finalSnaps);
       } else {
         setSnapshots(fetchedSnaps);
       }
+
+      // 초기 로드 1회: 이전 달이 미확정 DRAFT이면 자동으로 해당 월로 전환
+      // 날짜가 넘어갔는데 이전 달을 확정 안 한 경우 사용자가 바로 확인할 수 있도록
+      if (firstLoadRef.current) {
+        firstLoadRef.current = false;
+        const [cy, cm] = curMon.split("-").map(Number);
+        const prevMonStr =
+          cm === 1 ? `${cy - 1}-12` : `${cy}-${String(cm - 1).padStart(2, "0")}`;
+        const prevSnap = finalSnaps.find((s: FinancialSnapshot) => s.month === prevMonStr);
+        if (prevSnap?.status === "DRAFT") {
+          setSelectedMonth(prevMonStr);
+        }
+      }
+
       setCfEntries(cfData.entries ?? []);
       setTxSummaries(txSummaryData ?? {});
       setCfBalances(cfBalanceData.balances ?? {});
