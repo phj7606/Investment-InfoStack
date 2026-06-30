@@ -207,6 +207,10 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
   // 종가 확정 다이얼로그
   const curMonthStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}`;
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
+  // 잠금 대상 월: 가장 오래된 DRAFT 우선 (이전 달 미확정 시 잘못된 달 잠금 방지)
+  const lockTargetMonth = snapshots
+    .filter((s) => s.status === "DRAFT")
+    .sort((a, b) => a.month.localeCompare(b.month))[0]?.month ?? curMonthStr;
 
   // 편집 다이얼로그 상태 — 원가·RESP/RRSP는 Deposit & FX 페이지로 이관
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -690,7 +694,7 @@ export function EduPensionView({ snapshots, liveData, liveLoading, onRefresh }: 
       <LockPricesDialog
         open={lockDialogOpen}
         onClose={() => setLockDialogOpen(false)}
-        month={curMonthStr}
+        month={lockTargetMonth}
         mode="II"
         onLocked={onRefresh}
       />

@@ -354,6 +354,12 @@ export function AssetManagementView({
   // 종가 확정 다이얼로그
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
 
+  // 잠금 대상 월: 가장 오래된 DRAFT 스냅샷 우선
+  // currentMonth()로 고정하면 이전 달이 미확정일 때 잘못된 달이 잠기는 버그 발생
+  const lockTargetMonth = snapshots
+    .filter((s) => s.status === "DRAFT")
+    .sort((a, b) => a.month.localeCompare(b.month))[0]?.month ?? curMonthStr;
+
   // txSummaries를 buildAssetManagementYearlyData에 전달
   const yearData = buildAssetManagementYearlyData(snapshots, liveData, selectedYear, txSummaries);
   const baselineCol = yearData[0];      // Dec-{year-1}
@@ -591,7 +597,7 @@ export function AssetManagementView({
       <LockPricesDialog
         open={lockDialogOpen}
         onClose={() => setLockDialogOpen(false)}
-        month={curMonthStr}
+        month={lockTargetMonth}
         mode="I"
         onLocked={handleSaved}
       />

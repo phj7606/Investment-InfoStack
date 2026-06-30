@@ -520,6 +520,9 @@ export function buildAssetManagementYearlyData(
     }
 
     const isDraft = snap.status === "DRAFT";
+    // 날짜가 넘어가서 지난 달이 아직 DRAFT인 경우 — liveData는 현재 달 기준이므로
+    // txSummaries(전체 거래내역 집계)에서 해당 월 bid/askBv를 가져와야 함
+    const isPastDraft = isDraft && month !== curMonth;
     const cp = snap.confirmedPortfolio;
     const usdKrw = snap.exchangeRates.usdKrw;
 
@@ -537,13 +540,14 @@ export function buildAssetManagementYearlyData(
       // DRAFT: fundMonthly 수동입력이 있으면 최우선, 없으면 liveData / 거래내역 fallback
       const fm = snap.fundMonthly;
       const hasFm = fm != null; // 사용자가 한 번이라도 저장한 경우
-      const balance = hasFm ? fm.balance : (liveData?.fund.balance ?? 0);
+      // Past DRAFT: lockedBalances 우선 (종가확정 완료), 없으면 liveData
+      const balance = hasFm ? fm.balance : (isPastDraft ? (snap.lockedBalances?.fund ?? liveData?.fund.balance ?? 0) : (liveData?.fund.balance ?? 0));
       // Principal = 전월잔고 (엑셀 구조) — 이전 컬럼의 balance 사용
       const principal = prevFundBalance > 0 ? prevFundBalance : (fm?.principal ?? (liveData?.fund.principal ?? 0));
-      // fundMonthly 수동입력 최우선 → 거래내역 → 0
-      const bid      = hasFm ? fm.bid      : (liveData?.monthlyTxSummary?.fund.bid      ?? 0);
-      const askBv    = hasFm ? fm.askBv    : (liveData?.monthlyTxSummary?.fund.askBv    ?? 0);
-      const fixedPnl = hasFm ? fm.fixedPnl : (liveData?.monthlyTxSummary?.fund.fixedPnl ?? 0);
+      // fundMonthly 수동입력 최우선 → Past DRAFT: txSummaries → Current DRAFT: liveData
+      const bid      = hasFm ? fm.bid      : (isPastDraft ? (txSummaries?.[month]?.fund.bid      ?? 0) : (liveData?.monthlyTxSummary?.fund.bid      ?? 0));
+      const askBv    = hasFm ? fm.askBv    : (isPastDraft ? (txSummaries?.[month]?.fund.askBv    ?? 0) : (liveData?.monthlyTxSummary?.fund.askBv    ?? 0));
+      const fixedPnl = hasFm ? fm.fixedPnl : (isPastDraft ? (txSummaries?.[month]?.fund.fixedPnl ?? 0) : (liveData?.monthlyTxSummary?.fund.fixedPnl ?? 0));
       const monthlyPnl = prevFundBalance > 0
         ? calcMonthlyPnl(balance, fixedPnl, prevFundBalance, bid, askBv)
         : 0;
@@ -624,11 +628,12 @@ export function buildAssetManagementYearlyData(
     // ── KOR Stocks 데이터 ────────────────────────────────
     let korData: AssetManagementSectionData;
     if (isDraft) {
-      const balance = liveData?.korStocks.balance ?? 0;
-      // 거래 내역: 당월 매수/매도 집계 (principal 계산에 사용)
-      const bid      = liveData?.monthlyTxSummary?.korStocks.bid      ?? 0;
-      const askBv    = liveData?.monthlyTxSummary?.korStocks.askBv    ?? 0;
-      const fixedPnl = liveData?.monthlyTxSummary?.korStocks.fixedPnl ?? 0;
+      // Past DRAFT: lockedBalances 우선 (6월 종가확정 완료), 없으면 liveData
+      const balance = isPastDraft ? (snap.lockedBalances?.korStocks ?? liveData?.korStocks.balance ?? 0) : (liveData?.korStocks.balance ?? 0);
+      // Past DRAFT: txSummaries(전체 거래내역 집계) 사용 / Current DRAFT: liveData 사용
+      const bid      = isPastDraft ? (txSummaries?.[month]?.korStocks.bid      ?? 0) : (liveData?.monthlyTxSummary?.korStocks.bid      ?? 0);
+      const askBv    = isPastDraft ? (txSummaries?.[month]?.korStocks.askBv    ?? 0) : (liveData?.monthlyTxSummary?.korStocks.askBv    ?? 0);
+      const fixedPnl = isPastDraft ? (txSummaries?.[month]?.korStocks.fixedPnl ?? 0) : (liveData?.monthlyTxSummary?.korStocks.fixedPnl ?? 0);
       // Principal = 전월잔고 + 당월Bid - 당월Ask(BV)
       // 엑셀 공식: Principal + AskBV = PrevBalance + Bid (수익률 분모와 일치)
       const principal = prevKorBalance > 0 ? prevKorBalance + bid - askBv : (liveData?.korStocks.principal ?? 0);
@@ -744,11 +749,12 @@ export function buildAssetManagementYearlyData(
     // ── US Stocks (USD) ──────────────────────────────────
     let usData: AssetManagementSectionData;
     if (isDraft) {
-      const balance = liveData?.usStocks.balanceUsd ?? 0;
-      // 거래 내역: 당월 매수/매도 집계 (USD, principal 계산에 사용)
-      const bid      = liveData?.monthlyTxSummary?.usStocks.bid      ?? 0;
-      const askBv    = liveData?.monthlyTxSummary?.usStocks.askBv    ?? 0;
-      const fixedPnl = liveData?.monthlyTxSummary?.usStocks.fixedPnl ?? 0;
+      // Past DRAFT: lockedBalances 우선 (6월 종가확정 완료), 없으면 liveData
+      const balance = isPastDraft ? (snap.lockedBalances?.usStocksUsd ?? liveData?.usStocks.balanceUsd ?? 0) : (liveData?.usStocks.balanceUsd ?? 0);
+      // Past DRAFT: txSummaries(전체 거래내역 집계) 사용 / Current DRAFT: liveData 사용
+      const bid      = isPastDraft ? (txSummaries?.[month]?.usStocks.bid      ?? 0) : (liveData?.monthlyTxSummary?.usStocks.bid      ?? 0);
+      const askBv    = isPastDraft ? (txSummaries?.[month]?.usStocks.askBv    ?? 0) : (liveData?.monthlyTxSummary?.usStocks.askBv    ?? 0);
+      const fixedPnl = isPastDraft ? (txSummaries?.[month]?.usStocks.fixedPnl ?? 0) : (liveData?.monthlyTxSummary?.usStocks.fixedPnl ?? 0);
       // Principal = 전월잔고 + 당월Bid - 당월Ask(BV) (USD)
       // 엑셀 공식: Principal + AskBV = PrevBalance + Bid (수익률 분모와 일치)
       const principal = prevUsBalance > 0 ? prevUsBalance + bid - askBv : (liveData?.usStocks.principalUsd ?? 0);
@@ -1143,15 +1149,18 @@ export function buildAssetManagementIIYearlyData(
     }
 
     const isDraft = snap.status === "DRAFT";
+    // 지난 달인데 미확정 DRAFT인 경우 — 스냅샷 저장 환율(또는 lockedBalances 기준일 환율) 사용
+    const isPastDraftII = isDraft && month !== curMonthII;
     const cp = snap.confirmedPortfolio;
     // DRAFT 월: liveData 현재 환율 우선 적용 (스냅샷 초기화 당시 환율은 구식)
+    // Past DRAFT: 스냅샷 환율 사용 (해당 월 기준)
     // CONFIRMED 월: 확정 시 잠긴 환율 사용 (변경 불가)
-    const usdKrw = isDraft
-      ? (liveData?.currentRates?.usdKrw ?? snap.exchangeRates.usdKrw)
-      : snap.exchangeRates.usdKrw;
-    const cadKrw = isDraft
-      ? (liveData?.currentRates?.cadKrw ?? snap.exchangeRates.cadKrw ?? 1086.59)
-      : (snap.exchangeRates.cadKrw ?? 1086.59);
+    const usdKrw = isPastDraftII
+      ? snap.exchangeRates.usdKrw
+      : (isDraft ? (liveData?.currentRates?.usdKrw ?? snap.exchangeRates.usdKrw) : snap.exchangeRates.usdKrw);
+    const cadKrw = isPastDraftII
+      ? (snap.exchangeRates.cadKrw ?? 1086.59)
+      : (isDraft ? (liveData?.currentRates?.cadKrw ?? snap.exchangeRates.cadKrw ?? 1086.59) : (snap.exchangeRates.cadKrw ?? 1086.59));
 
     // ── Digital Asset 집계 ───────────────────────────
     // crypto 데이터는 DRAFT/CONFIRMED 모두 snap.crypto에 저장됨
@@ -1325,11 +1334,19 @@ export function createDraftSnapshot(
     mortgageLoan: prevConfirmed?.mortgageLoan ?? 0,
     realEstate: prevConfirmed?.realEstate ?? 1668000000,
     otherAssets: prevConfirmed?.otherAssets ? [...prevConfirmed.otherAssets] : [],
-    crypto: {
-      upbit: { balance: 0, principal: 0 },
-      korbit: { balance: 0, principal: 0 },
-      binance: { balance: 0, principal: 0 },
-    },
+    // prevConfirmed가 있으면 이전 달 crypto 값을 이월 (잔액 변동 없다고 가정)
+    // 사용자가 당월 값으로 수정 가능
+    crypto: prevConfirmed?.crypto
+      ? {
+          upbit: { ...prevConfirmed.crypto.upbit },
+          korbit: { ...prevConfirmed.crypto.korbit },
+          binance: { ...prevConfirmed.crypto.binance },
+        }
+      : {
+          upbit: { balance: 0, principal: 0 },
+          korbit: { balance: 0, principal: 0 },
+          binance: { balance: 0, principal: 0 },
+        },
     canadianPension: prevConfirmed?.canadianPension
       ? { ...prevConfirmed.canadianPension }
       : { balanceCad: 0, monthlyFeeCad: 0 },
