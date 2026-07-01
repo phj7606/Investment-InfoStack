@@ -611,7 +611,7 @@ export function FinancialStatementClient() {
     return (
       <div className="px-6 py-6 max-w-7xl mx-auto">
         <p className="text-destructive">오류: {error}</p>
-        <button onClick={loadData} className="mt-2 underline text-sm">다시 시도</button>
+        <button onClick={() => loadData()} className="mt-2 underline text-sm">다시 시도</button>
       </div>
     );
   }
