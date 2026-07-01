@@ -317,8 +317,11 @@ export function FinancialStatementClient() {
   }, []);
 
   // ── 메인 데이터 로딩 ──────────────────────────────────
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  // silent=true: 종가확정 후 새로고침처럼 이미 열려있는 다이얼로그를 닫지 않기 위해
+  // setLoading(true)를 건너뜀 — loading=true가 되면 FinancialStatementClient가 Skeleton을
+  // 반환하여 AssetManagementView가 언마운트되고 lockDialogOpen state가 초기화됨
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError("");
     try {
       const [snapshotRes, cfRes, txSummaryRes, cfBalanceRes] = await Promise.all([
@@ -441,8 +444,9 @@ export function FinancialStatementClient() {
   ).sort((a, b) => b.localeCompare(a));
 
   // ── 전체 새로고침 (자산관리/연금교육 탭 수정 후) ──────
+  // silent=true로 호출 — 다이얼로그 열려있을 때 loading 스켈레톤이 컴포넌트를 언마운트하지 않도록
   const handleRefresh = useCallback(async () => {
-    await loadData();
+    await loadData(true);
     if (currentSnapshot.status === "DRAFT") {
       loadLiveData(currentSnapshot.exchangeRates.usdKrw);
     }
