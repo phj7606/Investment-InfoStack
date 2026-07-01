@@ -92,6 +92,16 @@ export async function POST(
     );
   }
 
+  // ── 2-1. 자산관리II 종가확정 여부 검증 ───────────────────
+  // II 종가확정 없이 confirm하면 education/shortterm 잔액이 0으로 저장되는 버그 방지
+  // lockedBalances.education1470Stock == null 이면 II lock 미완료 (0이면 포지션 없는 것으로 정상)
+  if (draftSnap.lockedBalances.education1470Stock == null) {
+    return NextResponse.json(
+      { error: "자산관리II 종가확정을 먼저 진행해주세요. (자산관리II 탭 → II 종가확정 버튼)" },
+      { status: 400 }
+    );
+  }
+
   // ── 3. 자산관리 탭 잔액 확정 ─────────────────────────────
   // lockedBalances의 종가 확정값 그대로 사용 (재계산 없음)
   const locked = draftSnap.lockedBalances;

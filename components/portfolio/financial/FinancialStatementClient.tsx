@@ -359,15 +359,16 @@ export function FinancialStatementClient() {
         setSnapshots(fetchedSnaps);
       }
 
-      // 초기 로드 1회: 이전 달이 미확정 DRAFT이면 자동으로 해당 월로 전환
-      // 날짜가 넘어갔는데 이전 달을 확정 안 한 경우 사용자가 바로 확인할 수 있도록
+      // 초기 로드 1회: 이전 달이 존재하면 자동으로 이전 달로 전환
+      // 월초에 페이지 진입 시 이전 달(CONFIRMED 또는 DRAFT)을 기본으로 보여줌
+      // — 확정 후 다시 들어와도 현재 달 DRAFT가 아닌 이전 달이 보이도록
       if (firstLoadRef.current) {
         firstLoadRef.current = false;
         const [cy, cm] = curMon.split("-").map(Number);
         const prevMonStr =
           cm === 1 ? `${cy - 1}-12` : `${cy}-${String(cm - 1).padStart(2, "0")}`;
         const prevSnap = finalSnaps.find((s: FinancialSnapshot) => s.month === prevMonStr);
-        if (prevSnap?.status === "DRAFT") {
+        if (prevSnap) {
           setSelectedMonth(prevMonStr);
         }
       }
