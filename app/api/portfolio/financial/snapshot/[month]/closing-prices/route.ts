@@ -21,13 +21,13 @@ import { readTransactions as readShorttermTxs } from "@/lib/portfolio/shorttermD
 import { calcPositions as calcShorttermPositions } from "@/lib/portfolio/longterm-calc";
 import { fetchNaverCurrentPrices, fetchNaverHistoricalClosePrices } from "@/lib/fetchers/naver";
 import { fetchYahooCurrentPrices, fetchYahooHistoricalClosePrices } from "@/lib/fetchers/yahoo";
-import { fetchExchangeRates, fetchHistoricalExchangeRates } from "@/lib/fetchers/exchange-rate";
+import { readSnapshots } from "../../route";
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ month: string }> }
 ) {
-  await params; // month는 현재 사용하지 않지만 시그니처 유지
+  const { month } = await params;
   const { searchParams } = new URL(req.url);
   const market = (searchParams.get("market") ?? "KR") as "KR" | "US" | "II";
   const dateParam = searchParams.get("date"); // "YYYY-MM-DD" or null
@@ -40,10 +40,14 @@ export async function GET(
   const status = getMarketStatus();
 
   try {
-    // 환율은 모든 market에서 공통으로 조회 (주가와 병렬)
-    const exchangeRatesPromise = isHistorical
-      ? fetchHistoricalExchangeRates(targetDate)
-      : fetchExchangeRates();
+    // Deposit & FX 페이지에서 달이 바뀌면 lock되는 snapshot.exchangeRates를 사용
+    const snapshots = await readSnapshots();
+    const snap = snapshots.find((s) => s.month === month);
+    const exchangeRatesPromise: Promise<{ usdKrw: number; cadKrw: number }> =
+      Promise.resolve({
+        usdKrw: snap!.exchangeRates.usdKrw,
+        cadKrw: snap!.exchangeRates.cadKrw,
+      });
 
     if (market === "KR" || market === "II") {
       // KR 종목 현재가 + 환율 병렬 조회
