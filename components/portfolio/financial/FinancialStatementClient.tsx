@@ -292,7 +292,6 @@ export function FinancialStatementClient() {
   const backupFileRef = useRef<HTMLInputElement>(null);
   const [backupLoading, setBackupLoading] = useState(false);
   // 초기 로드 시 이전 달 미확정 감지용 플래그
-  const firstLoadRef = useRef(true);
 
   // ── AI 분석 내보내기 (Claude Desktop용) ───────────────
   const [aiExporting, setAiExporting] = useState(false);
@@ -357,20 +356,6 @@ export function FinancialStatementClient() {
         setSnapshots(finalSnaps);
       } else {
         setSnapshots(fetchedSnaps);
-      }
-
-      // 초기 로드 1회: 이전 달이 존재하면 자동으로 이전 달로 전환
-      // 월초에 페이지 진입 시 이전 달(CONFIRMED 또는 DRAFT)을 기본으로 보여줌
-      // — 확정 후 다시 들어와도 현재 달 DRAFT가 아닌 이전 달이 보이도록
-      if (firstLoadRef.current) {
-        firstLoadRef.current = false;
-        const [cy, cm] = curMon.split("-").map(Number);
-        const prevMonStr =
-          cm === 1 ? `${cy - 1}-12` : `${cy}-${String(cm - 1).padStart(2, "0")}`;
-        const prevSnap = finalSnaps.find((s: FinancialSnapshot) => s.month === prevMonStr);
-        if (prevSnap) {
-          setSelectedMonth(prevMonStr);
-        }
       }
 
       setCfEntries(cfData.entries ?? []);
